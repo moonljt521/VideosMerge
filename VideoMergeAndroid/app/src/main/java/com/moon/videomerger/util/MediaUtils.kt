@@ -3,6 +3,7 @@ package com.moon.videomerger.util
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
@@ -125,6 +126,17 @@ object MediaUtils {
             null
         } finally {
             try { retriever.release() } catch (_: Exception) {}
+        }
+    }
+
+    /**
+     * 从 JPEG/PNG 图片文件加载 Bitmap。
+     */
+    fun loadImageFromFile(path: String): Bitmap? {
+        return try {
+            BitmapFactory.decodeFile(path)
+        } catch (e: Exception) {
+            null
         }
     }
 
