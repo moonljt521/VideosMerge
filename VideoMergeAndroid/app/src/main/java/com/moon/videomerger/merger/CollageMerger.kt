@@ -7,7 +7,7 @@ import kotlin.math.roundToInt
 /**
  * Collage 模式合并器 —— 一个主窗口 + 若干副窗口，严格无空隙铺满画布。
  *
- * 核心逻辑移植自 collage_merge.py，简化掉人脸检测和 logo 截断。
+ * 核心逻辑移植自 collage_merge.py，包含 logo 截断，简化掉人脸检测。
  * cover 模式下使用正中裁剪（人脸检测需要 OpenCV，在 Android 上可选集成）。
  */
 class CollageMerger {
@@ -17,7 +17,8 @@ class CollageMerger {
         durations: List<Double>,
         metas: List<VideoMeta>,
         outputPath: String,
-        options: MergeOptions
+        options: MergeOptions,
+        cutTimes: List<Double?> = emptyList()
     ): String {
         val n = inputPaths.size
         val mainIdx = options.collageMainIndex.coerceIn(0, n - 1)
@@ -38,7 +39,7 @@ class CollageMerger {
 
         val (filterComplex, hasAudio) = buildFilter(
             n, sizes, positions, durations, maxDur, audioMask,
-            options.collageFit, faceXY
+            options.collageFit, faceXY, cutTimes
         )
 
         val cmd = StringBuilder().apply {
@@ -196,7 +197,8 @@ class CollageMerger {
         maxDur: Double,
         audioMask: List<Boolean>,
         fit: String,
-        faceXY: List<Pair<Double, Double>>
+        faceXY: List<Pair<Double, Double>>,
+        cutTimes: List<Double?>
     ): Pair<String, Boolean> {
         val scaled = mutableListOf<String>()
 
@@ -204,13 +206,14 @@ class CollageMerger {
             val (cw, ch) = sizes[i]
             val (fx, fy) = faceXY[i]
             val padDur = (maxDur - durations[i]).coerceAtLeast(0.0)
+            val trimPfx = if (i < cutTimes.size && cutTimes[i] != null) "trim=end=${cutTimes[i]!!.fmt(3)},setpts=PTS-STARTPTS," else ""
             val common = scaleFill(cw, ch, fit, fx, fy) + "[v$i]"
 
             if (padDur <= 0.001) {
-                scaled.add("[$i:v]$common")
+                scaled.add("[$i:v]$trimPfx$common")
             } else {
                 scaled.add(
-                    "[$i:v]split=2[${i}A][${i}B];" +
+                    "[$i:v]$trimPfx" + "split=2[${i}A][${i}B];" +
                     "[${i}A]trim=end_frame=1,loop=loop=-1:size=1,setpts=PTS-STARTPTS[${i}Fof];" +
                     "[${i}B]setpts=PTS-STARTPTS[${i}M];" +
                     "[${i}M][${i}Fof]concat=n=2:v=1:a=0[${i}C];" +
@@ -232,8 +235,9 @@ class CollageMerger {
         for (i in 0 until n) {
             if (!audioMask[i]) continue
             val padA = (maxDur - durations[i]).coerceAtLeast(0.0)
+            val aTrim = if (i < cutTimes.size && cutTimes[i] != null) "atrim=end=${cutTimes[i]!!.fmt(3)},asetpts=PTS-STARTPTS," else ""
             val apad = if (padA > 0) ",apad=whole_dur=${maxDur.fmt()}" else ""
-            audioParts.add("[$i:a]aresample=44100$apad[a$i]")
+            audioParts.add("[$i:a]${aTrim}aresample=44100$apad[a$i]")
         }
 
         if (audioParts.isNotEmpty()) {

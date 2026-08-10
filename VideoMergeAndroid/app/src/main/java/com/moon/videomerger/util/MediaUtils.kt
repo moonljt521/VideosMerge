@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import com.arthenica.ffmpegkit.FFmpegKit
 import com.arthenica.ffmpegkit.FFprobeKit
 import java.io.File
 import java.io.FileOutputStream
@@ -152,6 +153,36 @@ object MediaUtils {
         } catch (e: Exception) {
             false
         }
+    }
+
+    /**
+     * 检测视频末尾静止 logo 片段（抖音结尾），返回截断时间戳（秒）。
+     * 检测不到返回 null。
+     *
+     * 原理：用 freezedetect 滤镜检测静止帧，取最后一段持续到结尾的 freeze_start。
+     */
+    fun detectLogoCut(path: String, noise: Double = 0.01, minDur: Double = 0.5): Double? {
+        val session = FFmpegKit.execute(
+            "-hide_banner -i \"$path\" -filter:v freezedetect=n=$noise:d=$minDur -an -f null -"
+        )
+        val logs = session.allLogsAsString ?: return null
+
+        val startPattern = Regex("freeze_start:\\s*([\\d.]+)")
+        val endPattern = Regex("freeze_end:\\s*([\\d.]+)")
+
+        val starts = startPattern.findAll(logs).map { it.groupValues[1].toDouble() }.toList()
+        val ends = endPattern.findAll(logs).map { it.groupValues[1].toDouble() }.toList()
+
+        if (starts.isEmpty()) return null
+
+        // 取"持续到结尾"的那一段：freeze_start 之后没有对应的 freeze_end
+        val lastEnd = if (ends.isNotEmpty()) ends.last() else -1.0
+        val tail = starts.filter { it > lastEnd }
+        val cutStart = if (tail.isNotEmpty()) tail[0] else starts.last()
+
+        val endMargin = 0.05
+        val cut = cutStart - endMargin
+        return if (cut > 0) cut else null
     }
 
     /**
