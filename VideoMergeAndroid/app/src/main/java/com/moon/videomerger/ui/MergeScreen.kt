@@ -2,6 +2,7 @@ package com.moon.videomerger.ui
 
 import android.graphics.Bitmap
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
@@ -58,6 +59,7 @@ fun MergeScreen(viewModel: MergeViewModel = viewModel()) {
 
     // 全屏播放
     if (uiState.isFullscreen && uiState.fullscreenVideoPath != null) {
+        BackHandler { viewModel.closeFullscreen() }
         FullscreenVideoPlayer(
             videoPath = uiState.fullscreenVideoPath!!,
             onSaveClick = {
@@ -71,10 +73,10 @@ fun MergeScreen(viewModel: MergeViewModel = viewModel()) {
 
     // 历史记录页面
     if (uiState.showHistoryDialog) {
+        BackHandler { viewModel.hideHistory() }
         HistoryPage(
             history = uiState.history,
             onItemClick = { entry ->
-                viewModel.hideHistory()
                 viewModel.openFullscreen(entry.filePath)
             },
             onItemDelete = { entry -> viewModel.deleteHistoryEntry(entry) },
@@ -230,7 +232,7 @@ fun VideoThumbnailFromFile(
 ) {
     val thumbnail by produceState<Bitmap?>(null, path) {
         value = withContext(Dispatchers.IO) {
-            MediaUtils.loadThumbnailFromFile(path)
+            MediaUtils.loadImageFromFile(path) ?: MediaUtils.loadThumbnailFromFile(path)
         }
     }
 
