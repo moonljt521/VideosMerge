@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon foreground — Overlapping video frames (scaled down ~35% for padding) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 后面的视频框 -->
+    <path android:fillColor="#FF80CBC4" android:pathData="M37,35L66,35Q68,35 68,37L68,55Q68,58 66,58L37,58Q35,58 35,55L35,37Q35,35 37,35Z"/>
+    <path android:fillColor="#FF00695C" android:pathData="M47,41L47,51L57,46Z"/>
+    <!-- 前面的视频框（叠加） -->
+    <path android:fillColor="#FFFFFFFF" android:pathData="M42,48L71,48Q74,48 74,50L74,72Q74,75 71,75L42,75Q39,75 39,72L39,50Q39,48 42,48Z"/>
+    <path android:fillColor="#FF00695C" android:pathData="M53,55L53,67L65,61Z"/>
+</vector>

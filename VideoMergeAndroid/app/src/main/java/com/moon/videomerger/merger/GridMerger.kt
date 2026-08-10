@@ -1,0 +1,147 @@
+package com.moon.videomerger.merger
+
+import com.moon.videomerger.util.VideoMeta
+import kotlin.math.ceil
+import kotlin.math.sqrt
+
+/**
+ * Grid 模式合并器 —— 将多个视频排列成均匀网格。
+ *
+ * 核心逻辑移植自 grid_merge.py，简化掉 logo 截断（可选功能）。
+ */
+class GridMerger {
+
+    /**
+     * 构建完整的 ffmpeg 命令。
+     *
+     * @param inputPaths    输入视频文件路径列表（需保证顺序一致）
+     * @param durations     各视频时长（秒）
+     * @param metas         各视频元数据（宽高、是否有音频）
+     * @param outputPath    输出文件路径
+     * @param options       合并选项
+     * @return 完整的 ffmpeg 命令字符串（不含 "ffmpeg" 前缀）
+     */
+    fun buildCommand(
+        inputPaths: List<String>,
+        durations: List<Double>,
+        metas: List<VideoMeta>,
+        outputPath: String,
+        options: MergeOptions
+    ): String {
+        val n = inputPaths.size
+        val (rows, cols) = calcGrid(n)
+
+        // 1. 计算单元格尺寸（保证偶数）
+        val aspect = dominantAspect(metas.map { it.width.toDouble() / it.height.toDouble() })
+        var (cellW, cellH) = cellSizeFromAspect(aspect, options.gridCellSize)
+        cellW = cellW.toAligned16()
+        cellH = cellH.toAligned16()
+        val outW = cellW * cols
+        val outH = cellH * rows
+
+        val maxDur = durations.maxOrNull() ?: 0.0
+        val audioMask = metas.map { it.hasAudio }
+
+        val (filterComplex, hasAudio) = buildFilterComplex(
+            n, cellW, cellH, rows, cols, durations, maxDur, audioMask
+        )
+
+        // 构建 ffmpeg 命令
+        val cmd = StringBuilder().apply {
+            append("-y ")  // 覆盖输出文件
+            inputPaths.forEach { append("-i \"$it\" ") }
+            append("-filter_complex \"$filterComplex\" ")
+            append("-map \"[vout]\" ")
+            append("-t ${maxDur.fmt()} ")
+            append("-c:v h264_mediacodec -b:v 8M ")
+            if (hasAudio) {
+                append("-map \"[aout]\" -c:a aac -b:a 192k ")
+            }
+            append("\"$outputPath\"")
+        }
+
+        return cmd.toString()
+    }
+
+    private fun calcGrid(n: Int): Pair<Int, Int> {
+        val cols = ceil(sqrt(n.toDouble())).toInt()
+        val rows = ceil(n.toDouble() / cols).toInt()
+        return rows to cols
+    }
+
+    private fun dominantAspect(ratios: List<Double>): Double {
+        val counts = ratios.groupingBy { "%.3f".format(it) }.eachCount()
+        return counts.maxByOrNull { it.value }?.key?.toDouble() ?: ratios[0]
+    }
+
+    private fun cellSizeFromAspect(aspect: Double, target: Int): Pair<Int, Int> {
+        return if (aspect >= 1) {
+            target to (target / aspect).toInt()
+        } else {
+            (target * aspect).toInt() to target
+        }
+    }
+
+    private fun buildFilterComplex(
+        n: Int,
+        cellW: Int,
+        cellH: Int,
+        rows: Int,
+        cols: Int,
+        durations: List<Double>,
+        maxDur: Double,
+        audioMask: List<Boolean>
+    ): Pair<String, Boolean> {
+        val scaled = mutableListOf<String>()
+
+        // 缩放 + pad 处理每个视频
+        for (i in 0 until n) {
+            val padDur = (maxDur - durations[i]).coerceAtLeast(0.0)
+            val common = "scale=${cellW}:${cellH}:force_original_aspect_ratio=decrease," +
+                    "pad=${cellW}:${cellH}:(ow-iw)/2:(oh-ih)/2:black,fps=30,setsar=1,format=yuv420p[v$i]"
+
+            if (padDur <= 0.001) {
+                scaled.add("[$i:v]$common")
+            } else {
+                // 用首帧循环补齐时长
+                scaled.add(
+                    "[$i:v]split=2[${i}A][${i}B];" +
+                    "[${i}A]trim=end_frame=1,loop=loop=-1:size=1,setpts=PTS-STARTPTS[${i}Fof];" +
+                    "[${i}B]setpts=PTS-STARTPTS[${i}M];" +
+                    "[${i}M][${i}Fof]concat=n=2:v=1:a=0[${i}C];" +
+                    "[${i}C]trim=end=${maxDur.fmt()},setpts=PTS-STARTPTS,$common"
+                )
+            }
+        }
+
+        // xstack 布局
+        val layouts = (0 until n).map { idx ->
+            val r = idx / cols
+            val c = idx % cols
+            "${c * cellW}_${r * cellH}"
+        }
+        val inputsConcat = (0 until n).joinToString("") { "[v$it]" }
+        val layoutStr = layouts.joinToString("|")
+
+        val parts = mutableListOf<String>()
+        parts.add(scaled.joinToString(";"))
+        parts.add("$inputsConcat xstack=inputs=$n:layout=$layoutStr[vout]")
+
+        // 音频混合（amix）
+        val audioParts = mutableListOf<String>()
+        for (i in 0 until n) {
+            if (!audioMask[i]) continue
+            val padA = (maxDur - durations[i]).coerceAtLeast(0.0)
+            val apad = if (padA > 0) ",apad=whole_dur=${maxDur.fmt()}" else ""
+            audioParts.add("[$i:a]aresample=44100$apad[a$i]")
+        }
+
+        if (audioParts.isNotEmpty()) {
+            val amixIn = audioMask.indices.filter { audioMask[it] }.joinToString("") { "[a$it]" }
+            parts.add(audioParts.joinToString(";"))
+            parts.add("$amixIn amix=inputs=${audioParts.size}:duration=first:normalize=0[aout]")
+        }
+
+        return parts.joinToString(";") to audioParts.isNotEmpty()
+    }
+}
