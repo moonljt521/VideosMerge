@@ -1,3 +1,40 @@
+# ===== macOS =====
 .DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# ===== Python =====
 __pycache__/
 *.pyc
+*.pyo
+
+# ===== iOS / Xcode =====
+VideoMergeIOS/build/
+VideoMergeIOS/DerivedData/
+VideoMergeIOS/Pods/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcuserdatad/
+*.swp
+*.lock
+!Podfile.lock
+
+# Swift Package Manager
+.build/
+Package.resolved
+
+# ===== Android / Gradle =====
+VideoMergeAndroid/.gradle/
+VideoMergeAndroid/build/
+VideoMergeAndroid/app/build/
+VideoMergeAndroid/local.properties
+VideoMergeAndroid/captures/
+*.iml
+.idea/
+
+# ===== Keystore（不提交签名密钥）=====
+*.jks
+*.keystore

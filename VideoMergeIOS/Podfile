@@ -1,0 +1,32 @@
+# VideoMerger iOS - CocoaPods 依赖配置
+#
+# FFmpegKit 在 2025 年初被官方归档。这里使用社区维护的方案：
+#
+# 方案 A（推荐）：xpcapital 预编译 xcframework + podspec
+#   - 直接从 GitHub raw 加载 podspec，不依赖 cocoapods master spec repo
+#   - 包含完整的 ffmpeg + ffmpegkit 二进制（iOS full-gpl，约 100MB）
+#   - 与 Android 端 full-gpl 变体对齐
+#
+# 方案 B：arthenica/ffmpeg-kit-next（需要本地构建 xcframework）
+#   - https://github.com/arthenica/ffmpeg-kit-next
+#   - 需按其 wiki 自己 build apple xcframeworks，然后 SPM 集成
+#   - 适合需要自定义编解码器组合的场景
+#
+# 安装步骤：
+#   1. cd VideoMergeIOS
+#   2. pod install
+#   3. 用 Xcode 打开 VideoMerger.xcworkspace（注意是 .xcworkspace 不是 .xcodeproj）
+#
+# 如果遇到 "Operation not permitted" 错误：
+#   - 给 Terminal 授予「完全磁盘访问权限」（系统设置 → 隐私与安全性 → 完全磁盘访问权限）
+#   - 或执行：sudo chown -R $(whoami) ~/.cocoapods/repos
+
+platform :ios, '16.0'
+use_frameworks!
+
+target 'VideoMerger' do
+  # FFmpegKit iOS - full-gpl 变体（含 x264/aac）
+  # 直接从 GitHub 加载预编译 podspec，不依赖 cocoapods CDN 仓库
+  pod 'ffmpeg-kit-ios-full-gpl',
+      :podspec => 'https://raw.githubusercontent.com/xpcapital/ffmpeg-kit-full-gpl/main/ffmpeg-kit-ios-full-gpl.podspec'
+end
