@@ -69,26 +69,41 @@ class MergeEngine(private val context: Context) {
                 onLog("  [$i] ${tempFiles[i].name}  ${meta.width}x${meta.height}  ${meta.duration}s  audio=${meta.hasAudio}\n")
             }
 
+            // 2.5 检测尾部 logo（抖音静止结尾）
+            onLog("检测尾部 logo（静止片段）...\n")
+            val cutTimes = inputPaths.mapIndexed { i, path ->
+                val cut = MediaUtils.detectLogoCut(path)
+                if (cut != null) {
+                    onLog("  [$i] ${tempFiles[i].name}  ${durations[i]}s → 截断至 ${"%.2f".format(cut)}s（去除尾部 ${"%.2f".format(durations[i] - cut)}s logo）\n")
+                } else {
+                    onLog("  [$i] ${tempFiles[i].name}  ${durations[i]}s → 未检测到尾部 logo\n")
+                }
+                cut
+            }
+            val effDurations = cutTimes.mapIndexed { i, cut ->
+                if (cut != null && cut > 0) cut else durations[i]
+            }
+
             // 3. 构建命令
             val outputFile = File(context.cacheDir, "merge_output.mp4")
             outputFile.delete()
 
             val command = when (mergeType) {
                 MergeType.GRID -> GridMerger().buildCommand(
-                    inputPaths, durations, metas, outputFile.absolutePath, options
+                    inputPaths, effDurations, metas, outputFile.absolutePath, options, cutTimes
                 )
                 MergeType.COLLAGE -> CollageMerger().buildCommand(
-                    inputPaths, durations, metas, outputFile.absolutePath, options
+                    inputPaths, effDurations, metas, outputFile.absolutePath, options, cutTimes
                 )
                 MergeType.PHOTO_WALL -> PhotoWallMerger().buildCommand(
-                    inputPaths, durations, metas, outputFile.absolutePath, options
+                    inputPaths, effDurations, metas, outputFile.absolutePath, options, cutTimes
                 )
             }
 
             onLog("ffmpeg 命令:\n$command\n\n")
 
             // 4. 执行 ffmpeg
-            val maxDur = durations.maxOrNull() ?: 0.0
+            val maxDur = effDurations.maxOrNull() ?: 0.0
             val success = executeFFmpeg(command, maxDur, onProgress, onLog)
 
             if (!success) {

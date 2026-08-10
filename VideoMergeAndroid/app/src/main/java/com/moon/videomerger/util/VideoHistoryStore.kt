@@ -97,8 +97,35 @@ object VideoHistoryStore {
     fun deleteEntry(context: Context, entry: HistoryEntry) {
         File(entry.filePath).delete()
         File(entry.thumbnailPath).delete()
-        val list = loadHistory(context).filter { it.timestamp != entry.timestamp }
-        saveHistory(context, list)
+        // 直接从 JSON 读取原始列表（不过滤文件是否存在），按 timestamp 精确匹配删除
+        val rawList = loadHistoryRaw(context)
+        val filtered = rawList.filter { it.timestamp != entry.timestamp }
+        saveHistory(context, filtered)
+    }
+
+    /**
+     * 读取原始历史列表（不检查文件是否存在），用于删除等内部操作。
+     */
+    private fun loadHistoryRaw(context: Context): List<HistoryEntry> {
+        val file = getHistoryFile(context)
+        if (!file.exists()) return emptyList()
+        return try {
+            val jsonArray = JSONArray(file.readText())
+            (0 until jsonArray.length()).map { i ->
+                val obj = jsonArray.getJSONObject(i)
+                HistoryEntry(
+                    filePath = obj.getString("filePath"),
+                    thumbnailPath = obj.getString("thumbnailPath"),
+                    mergeType = obj.getString("mergeType"),
+                    timestamp = obj.getLong("timestamp"),
+                    duration = obj.getDouble("duration"),
+                    width = obj.getInt("width"),
+                    height = obj.getInt("height")
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
     private fun saveHistory(context: Context, list: List<HistoryEntry>) {

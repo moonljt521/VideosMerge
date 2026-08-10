@@ -11,7 +11,7 @@ import kotlin.random.Random
 /**
  * 照片墙模式合并器 —— 大大小小、错落有致，加白边框和阴影。
  *
- * 核心逻辑移植自 photo_wall_merge.py，简化掉人脸检测（使用偏上裁剪）。
+ * 核心逻辑移植自 photo_wall_merge.py，包含 logo 截断，简化掉人脸检测（使用偏上裁剪）。
  */
 class PhotoWallMerger {
 
@@ -31,7 +31,8 @@ class PhotoWallMerger {
         durations: List<Double>,
         metas: List<VideoMeta>,
         outputPath: String,
-        options: MergeOptions
+        options: MergeOptions,
+        cutTimes: List<Double?> = emptyList()
     ): String {
         val n = inputPaths.size
         val canvasW = options.canvasWidth.toAligned16()
@@ -58,7 +59,7 @@ class PhotoWallMerger {
         val (filterComplex, hasAudio) = buildWallFilter(
             n, jitteredLayout, rotations, cropCenters,
             metas, durations, maxDur, audioMask,
-            canvasW, canvasH
+            canvasW, canvasH, cutTimes
         )
 
         // 4. 构建 ffmpeg 命令
@@ -213,7 +214,8 @@ class PhotoWallMerger {
         maxDur: Double,
         audioMask: List<Boolean>,
         canvasW: Int,
-        canvasH: Int
+        canvasH: Int,
+        cutTimes: List<Double?>
     ): Pair<String, Boolean> {
         val filters = mutableListOf<String>()
 
@@ -228,6 +230,7 @@ class PhotoWallMerger {
             val (ccx, ccy) = cropCenters[i]
 
             val padDur = (maxDur - durations[i]).coerceAtLeast(0.0)
+            val trimPfx = if (i < cutTimes.size && cutTimes[i] != null) "trim=end=${cutTimes[i]!!.fmt(3)},setpts=PTS-STARTPTS," else ""
 
             // 裁剪
             val targetAr = cellW.toDouble() / cellH
@@ -247,10 +250,10 @@ class PhotoWallMerger {
 
             // 时长处理
             if (padDur <= 0.001) {
-                filters.add("[$i:v]$commonSuffix[v${i}raw]")
+                filters.add("[$i:v]$trimPfx$commonSuffix[v${i}raw]")
             } else {
                 filters.add(
-                    "[$i:v]split=2[${i}A][${i}B];" +
+                    "[$i:v]$trimPfx" + "split=2[${i}A][${i}B];" +
                     "[${i}A]trim=end_frame=1,loop=loop=-1:size=1,setpts=PTS-STARTPTS[${i}Fof];" +
                     "[${i}B]setpts=PTS-STARTPTS[${i}M];" +
                     "[${i}M][${i}Fof]concat=n=2:v=1:a=0[${i}C];" +
@@ -298,8 +301,9 @@ class PhotoWallMerger {
         for (i in 0 until n) {
             if (!audioMask[i]) continue
             val padA = (maxDur - durations[i]).coerceAtLeast(0.0)
+            val aTrim = if (i < cutTimes.size && cutTimes[i] != null) "atrim=end=${cutTimes[i]!!.fmt(3)},asetpts=PTS-STARTPTS," else ""
             val apad = if (padA > 0) ",apad=whole_dur=${maxDur.fmt()}" else ""
-            audioParts.add("[$i:a]aresample=44100$apad[a$i]")
+            audioParts.add("[$i:a]${aTrim}aresample=44100$apad[a$i]")
         }
 
         var filterStr = filters.joinToString(";")

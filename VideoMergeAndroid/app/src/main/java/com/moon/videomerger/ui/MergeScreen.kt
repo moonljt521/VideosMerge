@@ -726,6 +726,7 @@ private fun HistorySection(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HistoryItem(
     entry: VideoHistoryStore.HistoryEntry,
@@ -735,18 +736,34 @@ private fun HistoryItem(
 ) {
     val dateFormat = remember { SimpleDateFormat("MM/dd HH:mm", Locale.getDefault()) }
     val dateStr = dateFormat.format(Date(entry.timestamp))
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("删除记录") },
+            text = { Text("确定删除这条历史记录？\n视频文件也会被删除。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    onDelete()
+                }) { Text("删除", color = Color(0xFFE53935)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("取消") }
+            }
+        )
+    }
 
     Box(
         modifier = modifier
             .aspectRatio(0.6f)
             .clip(RoundedCornerShape(10.dp))
             .background(Color.Black)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onTap = { onClick() },
-                    onLongPress = { onDelete() }
-                )
-            }
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = { showDeleteDialog = true }
+            )
     ) {
         VideoThumbnailFromFile(
             path = entry.thumbnailPath,
@@ -762,7 +779,12 @@ private fun HistoryItem(
                 .padding(6.dp)
         ) {
             Text(
-                text = entry.mergeType,
+                text = when (entry.mergeType) {
+                    "GRID" -> "网格拼贴"
+                    "COLLAGE" -> "画中画"
+                    "PHOTO_WALL" -> "照片墙"
+                    else -> entry.mergeType
+                },
                 color = Color.White,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold
