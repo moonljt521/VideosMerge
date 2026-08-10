@@ -16,6 +16,11 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+
+        // 只保留 arm64-v8a，减少 APK 体积约 46MB
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     // ── 签名配置（debug + release 共用） ──
@@ -34,7 +39,8 @@ android {
         }
         release {
             signingConfig = signingConfigs.getByName("config")
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
