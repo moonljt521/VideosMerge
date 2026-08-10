@@ -1,0 +1,465 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		200000000000000000000001 /* VideoMergerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000001 /* VideoMergerApp.swift */; };
+		200000000000000000000002 /* MergeTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000002 /* MergeTypes.swift */; };
+		200000000000000000000003 /* VideoMeta.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000003 /* VideoMeta.swift */; };
+		200000000000000000000004 /* MergeResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000004 /* MergeResult.swift */; };
+		200000000000000000000005 /* HistoryEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000005 /* HistoryEntry.swift */; };
+		200000000000000000000006 /* FFmpegRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000006 /* FFmpegRunner.swift */; };
+		200000000000000000000007 /* GridMerger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000007 /* GridMerger.swift */; };
+		200000000000000000000008 /* CollageMerger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000008 /* CollageMerger.swift */; };
+		200000000000000000000009 /* PhotoWallMerger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000009 /* PhotoWallMerger.swift */; };
+		20000000000000000000000A /* MergeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000A /* MergeEngine.swift */; };
+		20000000000000000000000B /* MediaUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000B /* MediaUtils.swift */; };
+		20000000000000000000000C /* VideoHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000C /* VideoHistoryStore.swift */; };
+		20000000000000000000000D /* MergeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000D /* MergeScreen.swift */; };
+		20000000000000000000000E /* MergeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000E /* MergeViewModel.swift */; };
+		20000000000000000000000F /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000F /* VideoPlayerView.swift */; };
+		200000000000000000000010 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000010 /* HistoryView.swift */; };
+		200000000000000000000017 /* VideoPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000017 /* VideoPicker.swift */; };
+		200000000000000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000012 /* Assets.xcassets */; };
+		200000000000000000000012 /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 100000000000000000000013 /* AVKit.framework */; };
+		200000000000000000000013 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 100000000000000000000014 /* AVFoundation.framework */; };
+		200000000000000000000014 /* Photos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 100000000000000000000015 /* Photos.framework */; };
+		200000000000000000000015 /* PhotosUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 100000000000000000000016 /* PhotosUI.framework */; };
+		57E3F6831FCD83FA1DBFCA61 /* Pods_VideoMerger.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 07A93845A7C16B3783C4CFC4 /* Pods_VideoMerger.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		07A93845A7C16B3783C4CFC4 /* Pods_VideoMerger.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_VideoMerger.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		100000000000000000000001 /* VideoMergerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoMergerApp.swift; sourceTree = "<group>"; };
+		100000000000000000000002 /* MergeTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergeTypes.swift; sourceTree = "<group>"; };
+		100000000000000000000003 /* VideoMeta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoMeta.swift; sourceTree = "<group>"; };
+		100000000000000000000004 /* MergeResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergeResult.swift; sourceTree = "<group>"; };
+		100000000000000000000005 /* HistoryEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryEntry.swift; sourceTree = "<group>"; };
+		100000000000000000000006 /* FFmpegRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFmpegRunner.swift; sourceTree = "<group>"; };
+		100000000000000000000007 /* GridMerger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridMerger.swift; sourceTree = "<group>"; };
+		100000000000000000000008 /* CollageMerger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollageMerger.swift; sourceTree = "<group>"; };
+		100000000000000000000009 /* PhotoWallMerger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoWallMerger.swift; sourceTree = "<group>"; };
+		10000000000000000000000A /* MergeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergeEngine.swift; sourceTree = "<group>"; };
+		10000000000000000000000B /* MediaUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaUtils.swift; sourceTree = "<group>"; };
+		10000000000000000000000C /* VideoHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoHistoryStore.swift; sourceTree = "<group>"; };
+		10000000000000000000000D /* MergeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergeScreen.swift; sourceTree = "<group>"; };
+		10000000000000000000000E /* MergeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergeViewModel.swift; sourceTree = "<group>"; };
+		10000000000000000000000F /* VideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
+		100000000000000000000010 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		100000000000000000000017 /* VideoPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPicker.swift; sourceTree = "<group>"; };
+		100000000000000000000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		100000000000000000000012 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		100000000000000000000013 /* AVKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVKit.framework; path = System/Library/Frameworks/AVKit.framework; sourceTree = SDKROOT; };
+		100000000000000000000014 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		100000000000000000000015 /* Photos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Photos.framework; path = System/Library/Frameworks/Photos.framework; sourceTree = SDKROOT; };
+		100000000000000000000016 /* PhotosUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PhotosUI.framework; path = System/Library/Frameworks/PhotosUI.framework; sourceTree = SDKROOT; };
+		100000000000000000000099 /* VideoMerger.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VideoMerger.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8636FDE1A21012354A90CFCD /* Pods-VideoMerger.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VideoMerger.release.xcconfig"; path = "Target Support Files/Pods-VideoMerger/Pods-VideoMerger.release.xcconfig"; sourceTree = "<group>"; };
+		FC41217A5964A40FAA4527E1 /* Pods-VideoMerger.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VideoMerger.debug.xcconfig"; path = "Target Support Files/Pods-VideoMerger/Pods-VideoMerger.debug.xcconfig"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		700000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				200000000000000000000012 /* AVKit.framework in Frameworks */,
+				200000000000000000000013 /* AVFoundation.framework in Frameworks */,
+				200000000000000000000014 /* Photos.framework in Frameworks */,
+				200000000000000000000015 /* PhotosUI.framework in Frameworks */,
+				57E3F6831FCD83FA1DBFCA61 /* Pods_VideoMerger.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		16407893A56B80E37668EEED /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				07A93845A7C16B3783C4CFC4 /* Pods_VideoMerger.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		296C3AAE1421838A3297BB1A /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				FC41217A5964A40FAA4527E1 /* Pods-VideoMerger.debug.xcconfig */,
+				8636FDE1A21012354A90CFCD /* Pods-VideoMerger.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		300000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				300000000000000000000002 /* VideoMerger */,
+				300000000000000000000008 /* Products */,
+				296C3AAE1421838A3297BB1A /* Pods */,
+				16407893A56B80E37668EEED /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		300000000000000000000002 /* VideoMerger */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000001 /* VideoMergerApp.swift */,
+				300000000000000000000003 /* Models */,
+				300000000000000000000004 /* Merger */,
+				300000000000000000000005 /* Util */,
+				300000000000000000000006 /* UI */,
+				100000000000000000000011 /* Info.plist */,
+				100000000000000000000012 /* Assets.xcassets */,
+				300000000000000000000007 /* Frameworks */,
+			);
+			path = VideoMerger;
+			sourceTree = "<group>";
+		};
+		300000000000000000000003 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000002 /* MergeTypes.swift */,
+				100000000000000000000003 /* VideoMeta.swift */,
+				100000000000000000000004 /* MergeResult.swift */,
+				100000000000000000000005 /* HistoryEntry.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		300000000000000000000004 /* Merger */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000006 /* FFmpegRunner.swift */,
+				100000000000000000000007 /* GridMerger.swift */,
+				100000000000000000000008 /* CollageMerger.swift */,
+				100000000000000000000009 /* PhotoWallMerger.swift */,
+				10000000000000000000000A /* MergeEngine.swift */,
+			);
+			path = Merger;
+			sourceTree = "<group>";
+		};
+		300000000000000000000005 /* Util */ = {
+			isa = PBXGroup;
+			children = (
+				10000000000000000000000B /* MediaUtils.swift */,
+				10000000000000000000000C /* VideoHistoryStore.swift */,
+			);
+			path = Util;
+			sourceTree = "<group>";
+		};
+		300000000000000000000006 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				10000000000000000000000D /* MergeScreen.swift */,
+				10000000000000000000000E /* MergeViewModel.swift */,
+				10000000000000000000000F /* VideoPlayerView.swift */,
+				100000000000000000000010 /* HistoryView.swift */,
+				100000000000000000000017 /* VideoPicker.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		300000000000000000000007 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000013 /* AVKit.framework */,
+				100000000000000000000014 /* AVFoundation.framework */,
+				100000000000000000000015 /* Photos.framework */,
+				100000000000000000000016 /* PhotosUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		300000000000000000000008 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000099 /* VideoMerger.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		400000000000000000000001 /* VideoMerger */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000002 /* Build configuration list for PBXNativeTarget "VideoMerger" */;
+			buildPhases = (
+				621EACC6C077981C3891604C /* [CP] Check Pods Manifest.lock */,
+				600000000000000000000001 /* Sources */,
+				700000000000000000000001 /* Frameworks */,
+				800000000000000000000001 /* Resources */,
+				F4B69185E63B6854ABFB8E31 /* [CP] Embed Pods Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VideoMerger;
+			productName = VideoMerger;
+			productReference = 100000000000000000000099 /* VideoMerger.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		500000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					400000000000000000000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = A00000000000000000000001 /* Build configuration list for PBXProject "VideoMerger" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = "zh-Hans";
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				"zh-Hans",
+				Base,
+			);
+			mainGroup = 300000000000000000000001;
+			productRefGroup = 300000000000000000000008 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				400000000000000000000001 /* VideoMerger */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		800000000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				200000000000000000000011 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		621EACC6C077981C3891604C /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-VideoMerger-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		F4B69185E63B6854ABFB8E31 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-VideoMerger/Pods-VideoMerger-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-VideoMerger/Pods-VideoMerger-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-VideoMerger/Pods-VideoMerger-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		600000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				200000000000000000000001 /* VideoMergerApp.swift in Sources */,
+				200000000000000000000002 /* MergeTypes.swift in Sources */,
+				200000000000000000000003 /* VideoMeta.swift in Sources */,
+				200000000000000000000004 /* MergeResult.swift in Sources */,
+				200000000000000000000005 /* HistoryEntry.swift in Sources */,
+				200000000000000000000006 /* FFmpegRunner.swift in Sources */,
+				200000000000000000000007 /* GridMerger.swift in Sources */,
+				200000000000000000000008 /* CollageMerger.swift in Sources */,
+				200000000000000000000009 /* PhotoWallMerger.swift in Sources */,
+				20000000000000000000000A /* MergeEngine.swift in Sources */,
+				20000000000000000000000B /* MediaUtils.swift in Sources */,
+				20000000000000000000000C /* VideoHistoryStore.swift in Sources */,
+				20000000000000000000000D /* MergeScreen.swift in Sources */,
+				20000000000000000000000E /* MergeViewModel.swift in Sources */,
+				20000000000000000000000F /* VideoPlayerView.swift in Sources */,
+				200000000000000000000010 /* HistoryView.swift in Sources */,
+				200000000000000000000017 /* VideoPicker.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		900000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = FC41217A5964A40FAA4527E1 /* Pods-VideoMerger.debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 75L84BV98K;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = VideoMerger/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.moon.VideoMerger;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		900000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8636FDE1A21012354A90CFCD /* Pods-VideoMerger.release.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 75L84BV98K;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = VideoMerger/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.moon.VideoMerger;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		900000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		900000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A00000000000000000000001 /* Build configuration list for PBXProject "VideoMerger" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				900000000000000000000003 /* Debug */,
+				900000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A00000000000000000000002 /* Build configuration list for PBXNativeTarget "VideoMerger" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				900000000000000000000001 /* Debug */,
+				900000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 500000000000000000000001 /* Project object */;
+}

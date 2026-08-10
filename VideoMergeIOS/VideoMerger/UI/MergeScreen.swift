@@ -1,0 +1,558 @@
+//
+//  MergeScreen.swift
+//  VideoMerger
+//
+//  iOS 移植自 Android VideoMerger 的 MergeScreen.kt
+//  主界面：视频选择 / 合并模式 / 参数 / 合并按钮 / 进度日志 / 预览 / 错误
+//
+
+import SwiftUI
+import PhotosUI
+import AVKit
+
+struct MergeScreen: View {
+    @StateObject private var viewModel = MergeViewModel()
+    @State private var showPicker = false
+    @State private var isLoadingVideos = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    Spacer().frame(height: 4)
+
+                    // 1. 选择视频
+                    VideoSelectionSection(
+                        urls: viewModel.uiState.selectedVideoURLs,
+                        onPickClick: { showPicker = true }
+                    )
+
+                    // 加载视频中的提示（避免用户以为卡住）
+                    if isLoadingVideos {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text("正在加载选中的视频到本地...")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                    }
+
+                    // 2. 合并模式
+                    MergeTypeSection(
+                        selectedType: viewModel.uiState.mergeType,
+                        onTypeSelected: { viewModel.onMergeTypeSelected($0) }
+                    )
+
+                    // 3. 参数
+                    OptionsSection(
+                        mergeType: viewModel.uiState.mergeType,
+                        options: viewModel.uiState.options,
+                        onOptionsChanged: { viewModel.updateOptions($0) }
+                    )
+
+                    // 4. 合并按钮
+                    Button {
+                        viewModel.startMerge()
+                    } label: {
+                        HStack {
+                            Image(systemName: "video.slash")
+                            Text("开始合并").font(.system(size: 18, weight: .bold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .background(viewModel.uiState.isProcessing || viewModel.uiState.selectedVideoURLs.count < 2
+                                    ? Color.gray : Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
+                    .disabled(viewModel.uiState.isProcessing || viewModel.uiState.selectedVideoURLs.count < 2)
+
+                    // 5. 进度 + 日志
+                    if viewModel.uiState.isProcessing {
+                        ProgressAndLogSection(
+                            progress: viewModel.uiState.progress,
+                            message: viewModel.uiState.statusMessage,
+                            logText: viewModel.uiState.logLines
+                        )
+                    }
+
+                    // 6. 预览
+                    if let result = viewModel.uiState.mergeResult {
+                        PreviewSection(
+                            result: result,
+                            isSaved: viewModel.uiState.isSaved,
+                            isSaving: viewModel.uiState.isSaving,
+                            onTap: { viewModel.openFullscreen() },
+                            onLongPress: { viewModel.saveResult() },
+                            onSaveClick: { viewModel.saveResult() },
+                            onClear: { viewModel.clearResult() }
+                        )
+                    }
+
+                    // 7. 错误
+                    if let msg = viewModel.uiState.errorMessage {
+                        ErrorSection(message: msg) { viewModel.dismissError() }
+                    }
+
+                    Spacer().frame(height: 32)
+                }
+                .padding(.horizontal, 16)
+            }
+            .background(Color(.systemBackground))
+            .navigationTitle("VideoMerge")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        viewModel.clearAll()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        viewModel.showHistoryPage()
+                    } label: {
+                        Image(systemName: "clock.arrow.circlepath")
+                    }
+                }
+            }
+            .navigationDestination(isPresented: $viewModel.uiState.showHistory) {
+                HistoryView(
+                    history: viewModel.uiState.history,
+                    onItemClick: { entry in viewModel.openFullscreen(url: entry.fileURL) },
+                    onItemDelete: { entry in viewModel.deleteHistoryEntry(entry) },
+                    onBack: { viewModel.hideHistoryPage() }
+                )
+            }
+            .fullScreenCover(isPresented: $viewModel.uiState.isFullscreen) {
+                if let url = viewModel.uiState.fullscreenVideoURL {
+                    FullscreenVideoPlayer(
+                        videoURL: url,
+                        onSaveClick: {
+                            viewModel.closeFullscreen()
+                            viewModel.saveResult()
+                        },
+                        onDismiss: { viewModel.closeFullscreen() }
+                    )
+                }
+            }
+            .fullScreenCover(isPresented: $showPicker) {
+                VideoPicker(maxSelection: 20) { assetIds in
+                    // picker 内部已经 dismiss，这里再同步关闭 fullScreenCover
+                    showPicker = false
+                    guard !assetIds.isEmpty else { return }
+
+                    // 立刻显示加载中，让用户知道在处理（避免以为卡住）
+                    isLoadingVideos = true
+
+                    Task {
+                        // 用 PHAsset API 流式写盘（不读入内存，避免 12 个视频撑爆内存）
+                        let urls = await MediaUtils.loadVideoURLs(assetIdentifiers: assetIds)
+                        await MainActor.run {
+                            isLoadingVideos = false
+                            if !urls.isEmpty {
+                                viewModel.onVideosSelected(urls)
+                            } else {
+                                viewModel.uiState.errorMessage = "视频加载失败，请重新选择"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 1. 视频选择
+
+private struct VideoSelectionSection: View {
+    let urls: [URL]
+    let onPickClick: () -> Void
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "video.stack")
+                .font(.system(size: 44))
+                .foregroundColor(.accentColor)
+            Text("已选择 \(urls.count) 个视频")
+                .font(.headline)
+
+            if !urls.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(urls.indices, id: \.self) { i in
+                            VideoThumbnailView(url: urls[i])
+                                .frame(width: 100, height: 160)
+                                .clipped()
+                                .cornerRadius(8)
+                        }
+                    }
+                }
+            }
+
+            Button(action: onPickClick) {
+                HStack {
+                    Image(systemName: "plus.circle.fill")
+                    Text("从相册选择视频")
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.accentColor, lineWidth: 1)
+                )
+            }
+            .foregroundColor(.accentColor)
+        }
+        .padding(20)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(16)
+    }
+}
+
+private struct VideoThumbnailView: View {
+    let url: URL
+    @State private var image: UIImage?
+    @State private var loaded = false
+
+    var body: some View {
+        ZStack {
+            if let img = image {
+                Image(uiImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                Color.gray.opacity(0.3)
+                Image(systemName: "video")
+                    .foregroundColor(.gray)
+            }
+        }
+        .onAppear {
+            guard !loaded else { return }
+            loaded = true
+            // 用低优先级后台队列生成缩略图，避免抢占主线程
+            // 错开多个缩略图同时生成的 IO 高峰
+            Task.detached(priority: .utility) {
+                // 微小延迟，让 UI 刷新先完成
+                try? await Task.sleep(nanoseconds: 50_000_000)
+                let img = MediaUtils.loadThumbnailFromURL(url: url)
+                await MainActor.run { self.image = img }
+            }
+        }
+    }
+}
+
+// MARK: - 2. 合并模式
+
+private struct MergeTypeSection: View {
+    let selectedType: MergeType
+    let onTypeSelected: (MergeType) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("合并模式")
+                .font(.headline)
+                .fontWeight(.bold)
+
+            HStack(spacing: 8) {
+                ForEach(MergeType.allCases) { type in
+                    MergeTypeCard(
+                        title: type.displayName,
+                        subtitle: type.subtitle,
+                        isSelected: selectedType == type,
+                        onClick: { onTypeSelected(type) }
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(16)
+    }
+}
+
+private struct MergeTypeCard: View {
+    let title: String
+    let subtitle: String
+    let isSelected: Bool
+    let onClick: () -> Void
+
+    var body: some View {
+        Button(action: onClick) {
+            VStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 14, weight: .bold))
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity)
+            .background(isSelected ? Color.accentColor.opacity(0.15) : Color(.systemBackground))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+            )
+            .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - 3. 参数
+
+private struct OptionsSection: View {
+    let mergeType: MergeType
+    let options: MergeOptions
+    let onOptionsChanged: (MergeOptions) -> Void
+
+    @State private var canvasExpanded = false
+
+    private let presets: [(String, Int, Int)] = [
+        ("1920×1080", 1920, 1080),
+        ("1080×1920", 1080, 1920),
+        ("1080×1080", 1080, 1080),
+        ("3840×2160", 3840, 2160)
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("参数设置")
+                .font(.headline)
+                .fontWeight(.bold)
+
+            // 画布尺寸
+            Button {
+                canvasExpanded.toggle()
+            } label: {
+                HStack {
+                    Image(systemName: canvasExpanded ? "chevron.up" : "chevron.down")
+                    Text("画布尺寸: \(options.canvasWidth)×\(options.canvasHeight)")
+                    Spacer()
+                }
+                .foregroundColor(.primary)
+            }
+
+            if canvasExpanded {
+                ForEach(presets, id: \.0) { preset in
+                    Button {
+                        var newOpt = options
+                        newOpt.canvasWidth = preset.1
+                        newOpt.canvasHeight = preset.2
+                        onOptionsChanged(newOpt)
+                    } label: {
+                        HStack {
+                            Image(systemName:
+                                (options.canvasWidth == preset.1 && options.canvasHeight == preset.2)
+                                ? "largecircle.fill.circle" : "circle")
+                                .foregroundColor(.accentColor)
+                            Text(preset.0)
+                            Spacer()
+                        }
+                        .foregroundColor(.primary)
+                        .padding(.leading, 24)
+                    }
+                }
+            }
+
+            // Collage 特有
+            if mergeType == .collage {
+                Divider().padding(.vertical, 4)
+
+                Text("主窗口位置:").fontWeight(.medium)
+                HStack(spacing: 6) {
+                    ForEach(CollageOrient.allCases) { o in
+                        Button {
+                            var newOpt = options
+                            newOpt.collageOrient = o
+                            onOptionsChanged(newOpt)
+                        } label: {
+                            Text(o.displayName)
+                                .font(.system(size: 13, weight: .medium))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(options.collageOrient == o
+                                            ? Color.accentColor : Color(.systemBackground))
+                                .foregroundColor(options.collageOrient == o ? .white : .primary)
+                                .cornerRadius(20)
+                                .overlay(
+                                    Capsule().stroke(Color.accentColor, lineWidth: 1)
+                                )
+                        }
+                    }
+                }
+
+                Text("主窗口占比: \(Int(options.collageMainRatio * 100))%")
+                Slider(value: Binding(
+                    get: { options.collageMainRatio },
+                    set: { v in
+                        var newOpt = options
+                        newOpt.collageMainRatio = v
+                        onOptionsChanged(newOpt)
+                    }
+                ), in: 0.3...0.8)
+            }
+        }
+        .padding(16)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(16)
+    }
+}
+
+// MARK: - 5. 进度 + 日志
+
+private struct ProgressAndLogSection: View {
+    let progress: Float
+    let message: String
+    let logText: String
+
+    // 节流：避免每次 logText 变化都触发 ScrollView 重排
+    @State private var displayedLog = ""
+    @State private var lastUpdate: Date = .distantPast
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(message).fontWeight(.medium)
+                Spacer()
+                Text("\(Int(progress * 100))%").fontWeight(.bold)
+            }
+            ProgressView(value: progress)
+                .tint(.accentColor)
+
+            if !displayedLog.isEmpty {
+                Divider().padding(.vertical, 2)
+                Text("FFmpeg 日志")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                ScrollView {
+                    Text(displayedLog)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(Color(red: 0.3, green: 0.85, blue: 0.3))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                        .textSelection(.enabled)
+                }
+                .frame(maxHeight: 200)
+                .background(Color(red: 0.12, green: 0.12, blue: 0.12))
+                .cornerRadius(8)
+            }
+        }
+        .padding(16)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(16)
+        .onChange(of: logText) { newValue in
+            // 节流：最多每 200ms 更新一次 UI（避免高频 log 卡死主线程）
+            let now = Date()
+            if now.timeIntervalSince(lastUpdate) > 0.2 || newValue.hasSuffix("\n\n") {
+                displayedLog = newValue
+                lastUpdate = now
+            }
+        }
+        .onAppear {
+            displayedLog = logText
+        }
+    }
+}
+
+// MARK: - 6. 预览
+
+private struct PreviewSection: View {
+    let result: MergeResult
+    let isSaved: Bool
+    let isSaving: Bool
+    let onTap: () -> Void
+    let onLongPress: () -> Void
+    let onSaveClick: () -> Void
+    let onClear: () -> Void
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+                Text("合并完成！预览视频")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Color(red: 0.18, green: 0.49, blue: 0.20))
+                Spacer()
+                Button(action: onClear) {
+                    Image(systemName: "xmark")
+                        .foregroundColor(Color(red: 0.33, green: 0.55, blue: 0.18))
+                }
+            }
+            Text("\(result.mergeType) · \(result.width)×\(result.height) · \(String(format: "%.1f", result.duration))s")
+                .font(.system(size: 12))
+                .foregroundColor(Color(red: 0.33, green: 0.55, blue: 0.18))
+
+            InlineVideoPlayer(
+                videoURL: result.outputFileURL,
+                onTap: onTap,
+                onLongPress: onLongPress
+            )
+            .frame(height: 220)
+
+            // 保存按钮
+            if isSaving {
+                HStack {
+                    ProgressView().scaleEffect(0.7)
+                    Text("保存中...").foregroundColor(Color(red: 0.33, green: 0.55, blue: 0.18))
+                }
+            } else if isSaved {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                    Text("已保存到相册").foregroundColor(Color(red: 0.33, green: 0.55, blue: 0.18))
+                }
+            } else {
+                Button(action: onSaveClick) {
+                    HStack {
+                        Image(systemName: "square.and.arrow.down")
+                        Text("保存到相册")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.green)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+                }
+                Text("提示: 长按视频也可保存 · 点击视频全屏播放")
+                    .font(.system(size: 11))
+                    .foregroundColor(.gray)
+            }
+        }
+        .padding(16)
+        .background(Color(red: 0.91, green: 0.96, blue: 0.91))
+        .cornerRadius(16)
+    }
+}
+
+// MARK: - 7. 错误
+
+private struct ErrorSection: View {
+    let message: String
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "xmark.octagon.fill")
+                .font(.system(size: 44))
+                .foregroundColor(Color(red: 0.96, green: 0.26, blue: 0.21))
+            Text("出错了")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(Color(red: 0.78, green: 0.16, blue: 0.16))
+            Text(message)
+                .font(.system(size: 13))
+                .multilineTextAlignment(.center)
+                .foregroundColor(Color(red: 0.72, green: 0.11, blue: 0.11))
+            Button("确定", action: onDismiss)
+                .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(20)
+        .background(Color(red: 1.0, green: 0.92, blue: 0.93))
+        .cornerRadius(16)
+    }
+}
