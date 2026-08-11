@@ -38,3 +38,14 @@ VideoMergeAndroid/captures/
 # ===== Keystore（不提交签名密钥）=====
 *.jks
 *.keystore
+
+# ===== Video Files（不提交视频文件）=====
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.m4v
+*.webm
+*.flv
+*.ts
+*.gif
