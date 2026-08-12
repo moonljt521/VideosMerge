@@ -99,6 +99,9 @@ dependencies {
     // Media3 ExoPlayer — 视频播放
     implementation("androidx.media3:media3-exoplayer:1.3.1")
     implementation("androidx.media3:media3-ui:1.3.1")
+
+    // Coil — 图片加载（时间轴缩略图）
+    implementation("io.coil-kt:coil-compose:2.6.0")
 }
 
 // ── 打包 Task：生成带签名的 release APK，输出到 outputs/ 目录 ──
