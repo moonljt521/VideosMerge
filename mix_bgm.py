@@ -109,9 +109,9 @@ def main():
     bgm_chain = ",".join(bgm_filters)
 
     if orig_audio:
-        # 混合原音轨 + BGM
+        # 混合原音轨 + BGM（-stream_loop -1 已处理循环）
         filter_complex = (
-            f"[1:a]loop=loop=-1:size=999999,atrim=end={video_dur:.3f},"
+            f"[1:a]atrim=end={video_dur:.3f},asetpts=PTS-STARTPTS,"
             f"aresample=44100,{bgm_chain}[bgm];"
             f"[0:a]volume={args.orig_vol},aresample=44100[orig];"
             f"[orig][bgm]amix=inputs=2:duration=first:normalize=0[aout]"
@@ -130,9 +130,9 @@ def main():
             output_path,
         ]
     else:
-        # 只用 BGM
+        # 只用 BGM（-stream_loop -1 已处理循环）
         filter_complex = (
-            f"[1:a]loop=loop=-1:size=999999,atrim=end={video_dur:.3f},"
+            f"[1:a]atrim=end={video_dur:.3f},asetpts=PTS-STARTPTS,"
             f"aresample=44100,{bgm_chain}[aout]"
         )
         cmd = [

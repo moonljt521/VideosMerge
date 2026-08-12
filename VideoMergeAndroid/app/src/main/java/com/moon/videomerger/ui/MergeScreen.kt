@@ -45,7 +45,10 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MergeScreen(viewModel: MergeViewModel = viewModel()) {
+fun MergeScreen(
+    onBack: () -> Unit = {},
+    viewModel: MergeViewModel = viewModel()
+) {
     val uiState by viewModel.uiState.collectAsState()
 
     // 视频选择器
@@ -85,10 +88,17 @@ fun MergeScreen(viewModel: MergeViewModel = viewModel()) {
         return
     }
 
+    BackHandler { onBack() }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("VideoMerge", fontWeight = FontWeight.Bold) },
+                title = { Text("视频合并", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    }
+                },
                 actions = {
                     IconButton(onClick = { viewModel.showHistory() }) {
                         Icon(Icons.Default.History, contentDescription = "历史记录")

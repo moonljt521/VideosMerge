@@ -85,7 +85,7 @@ def main():
     ap.add_argument("-x", type=int, default=None, help="自定义 X 坐标")
     ap.add_argument("-y", type=int, default=None, help="自定义 Y 坐标")
     ap.add_argument("--scale", type=float, default=None,
-                    help="水印缩放比例（如 0.2 = 20%）")
+                    help="水印缩放比例（如 0.2 = 20%%）")
     ap.add_argument("--width", type=int, default=None,
                     help="水印目标宽度像素（与 --scale 冲突）")
     ap.add_argument("--opacity", type=float, default=1.0,

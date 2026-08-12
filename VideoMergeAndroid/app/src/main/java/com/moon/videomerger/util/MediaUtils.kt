@@ -32,7 +32,9 @@ object MediaUtils {
     fun copyUriToTempFile(context: Context, uri: Uri, index: Int): File {
         val tempDir = File(context.cacheDir, "merge_inputs").apply { mkdirs() }
         val ext = guessExtension(uri, context)
-        val tempFile = File(tempDir, "input_$index.$ext")
+        // ★ 用时间戳 + index 生成唯一文件名，避免覆盖旧文件
+        val timestamp = System.currentTimeMillis()
+        val tempFile = File(tempDir, "input_${timestamp}_${index}.$ext")
         context.contentResolver.openInputStream(uri)?.use { input ->
             FileOutputStream(tempFile).use { output ->
                 input.copyTo(output)
