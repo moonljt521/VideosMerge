@@ -118,15 +118,15 @@ EditorProject
 
 ## FFmpegKit 版本限制与替代方案
 
-当前使用的是 **FFmpegKit `min` 版本**（LGPL 许可），不包含 GPL 组件。以下是限制和替代方案：
+当前使用的是本地 `app/libs/ffmpeg-kit.aar`：**FFmpegKit `min` 版本**（LGPL 许可，FFmpeg n6.0），不包含 GPL 组件。以下是限制和替代方案：
 
 | 组件 | min 版状态 | 替代方案 | 实现文件 |
 |------|:---:|------|------|
 | `libx264` 编码器 | ❌ 缺失 | `h264_mediacodec`（硬件编码） | `FilterBuilder.kt` |
-| `eq` 滤镜（调色） | ❌ 缺失 | `colorbalance`（亮度/对比度/饱和度/色调） | `FilterBuilder.kt` |
-| `hue` 滤镜（色调） | ❌ 缺失 | `colorbalance`（rh/gh/bh 高光偏移） | `FilterBuilder.kt` |
+| `eq` 滤镜（调色） | ✅ 可用 | 直接使用（亮度/对比度/饱和度/伽马） | `FilterBuilder.kt` |
+| `hue` 滤镜（色调） | 使用 `huesaturation` | `huesaturation`（色调旋转） | `FilterBuilder.kt` |
 | `pad` 滤镜（补黑边） | ❌ 缺失 | `scale` cover 模式 + `crop` | `FilterBuilder.kt` |
-| `fps` 滤镜 | ❌ 缺失 | 移除（编码器自行处理帧率） | `FilterBuilder.kt` |
+| `fps` 滤镜 | ✅ 可用 | 统一输入帧率（xfade/concat 要求一致） | `FilterBuilder.kt` |
 | `boxblur` 滤镜 | ❌ 缺失 | `avgblur`（均值模糊） | `FilterBuilder.kt` |
 | `drawtext` 滤镜 | ❌ 缺失 | Android Canvas 生成 PNG + `overlay` | `TextWatermarkRenderer.kt` |
 
@@ -139,12 +139,11 @@ EditorProject
 
 ### 升级到 full-gpl 版本（推荐）
 
-如需完整的滤镜和编码器支持（libx264、eq、hue、pad、drawtext、boxblur 等），可替换 aar 为 `full-gpl` 版本：
+如需 `libx264`、`pad`、`drawtext`、`boxblur` 等更完整的编码器和滤镜支持，可替换 aar 为 `full-gpl` 版本：
 
 1. 下载 `ffmpeg-kit-full-gpl-*.aar`（从 [FFmpegKit releases](https://github.com/arthenica/ffmpeg-kit/releases) 或 Maven 镜像）
 2. 替换 `app/libs/ffmpeg-kit.aar`
 3. 修改 `FilterBuilder.kt`：
    - `h264_mediacodec` → `libx264`
-   - `colorbalance` → `eq` + `hue`
    - `scale cover + crop` → `scale + pad`
    - `TextWatermarkRenderer` → `drawtext`（可选，PNG 方案也可保留）

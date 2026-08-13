@@ -25,9 +25,9 @@
 |---|------|:---:|:---:|:---:|:---:|------|
 | 7 | **视频时间段裁剪** | ✅ `trim_video.py` | ✅ `FilterBuilder.kt` | ❌ | **P0** | trim 滤镜 + 边界检查 |
 | 8 | **画面空间裁剪** | ✅ `crop_video.py` | ✅ `FilterBuilder.kt` | ❌ | **P0** | scale cover + crop（min 版无 pad） |
-| 9 | **视频旋转/翻转** | ✅ `rotate_video.py` | ✅ `FilterBuilder.kt` | ❌ | **P0** | transpose/hflip/vflip |
+| 9 | **视频旋转/翻转** | ✅ `rotate_video.py` | ✅ `FilterBuilder.kt` + 剪辑面板 UI | ❌ | **P0** | transpose/hflip/vflip |
 | 10 | **视频缩放/改分辨率** | ✅ `scale_video.py` | ✅ `FilterBuilder.kt` | ❌ | **P1** | scale + 16 对齐（mediacodec 要求） |
-| 11 | **视频倒放** | ✅ `reverse_video.py` | 🔧 待移植 | ❌ | **P1** | reverse/areverse 滤镜 |
+| 11 | **视频倒放** | ✅ `reverse_video.py` | ✅ `FilterBuilder.kt` + 变速面板开关 | ❌ | **P1** | reverse/areverse 滤镜 |
 | 12 | **慢动作** | ✅ `slow_motion.py` | ✅ `FilterBuilder.kt` | ❌ | **P1** | setpts + atempo 链式 |
 | 13 | **画面定格** | ✅ `freeze_frame.py` | ❌ | ❌ | **P2** | tpad 滤镜 |
 | 14 | **格式转换** | ✅ `convert_format.py` | ❌ | ❌ | **P2** | H.264/HEVC/VP9 |
@@ -38,7 +38,7 @@
 
 | # | 功能 | Python 脚本 | Android | iOS | 优先级 | 备注 |
 |---|------|:---:|:---:|:---:|:---:|------|
-| 15 | **滤镜调色** | ✅ `color_filter.py` | ✅ `FilterBuilder.kt` | ❌ | **P0** | colorbalance 替代 eq/hue（min 版限制）+ 7 种预设 |
+| 15 | **滤镜调色** | ✅ `color_filter.py` | ✅ `FilterBuilder.kt` | ❌ | **P0** | eq + huesaturation + 7 种预设 |
 | 16 | **文字水印** | ✅ `text_watermark.py` | ✅ `TextWatermarkRenderer.kt` | ❌ | **P0** | Android Canvas 生成 PNG + overlay（替代 drawtext） |
 | 17 | **图片水印** | ✅ `image_watermark.py` | 🔧 待移植 | ❌ | **P1** | overlay + 9 宫格 + 透明度 |
 | 18 | **模糊背景填充** | ✅ `blur_bg.py` | ✅ `FilterBuilder.kt` | ❌ | **P1** | split + avgblur + overlay（替代 boxblur） |
@@ -58,7 +58,7 @@
 | 25 | **音频替换** | ✅ `replace_audio.py` | ❌ | ❌ | **P1** | 外部音频替换视频原音轨 |
 | 26 | **背景音乐混合** | ✅ `mix_bgm.py` | ❌ | ❌ | **P1** | BGM 循环+混合+淡入淡出 |
 | 27 | **音量调整/静音** | ✅ `volume_adjust.py` | ✅ `FilterBuilder.kt` | ❌ | **P1** | volume 滤镜 |
-| 28 | **音频淡入淡出** | ✅ `audio_fade.py` | 🔧 待移植 | ❌ | **P2** | afade 滤镜 |
+| 28 | **音频淡入淡出** | ✅ `audio_fade.py` | ✅ `FilterBuilder.kt` + 音频面板 | ❌ | **P2** | afade 滤镜 |
 | 29 | **视频拼接** | ✅ `concat_video.py` | ✅ `FilterBuilder.kt` | ❌ | **P1** | concat 滤镜（同编码重编码） |
 | 30 | **人声分离/降噪** | ❌ | ❌ | ❌ | **P3** | 分离人声/背景音，需要额外模型 |
 

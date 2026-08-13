@@ -97,8 +97,10 @@ dependencies {
     })
 
     // Media3 ExoPlayer — 视频播放
-    implementation("androidx.media3:media3-exoplayer:1.3.1")
-    implementation("androidx.media3:media3-ui:1.3.1")
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-ui:1.4.1")
+    // Media3 Effect — 预览实时滤镜调色（RgbFilter：亮度/对比度/饱和度）
+    implementation("androidx.media3:media3-effect:1.4.1")
 
     // Coil — 图片加载（时间轴缩略图）
     implementation("io.coil-kt:coil-compose:2.6.0")

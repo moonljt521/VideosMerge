@@ -5,7 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,14 +23,23 @@ import com.moon.videomerger.editor.data.FilterPreset
 import com.moon.videomerger.editor.data.TransitionEffect
 
 // ═══════════════════════════════════════
-//  裁剪面板
+//  裁剪面板（含旋转/翻转 + 播放头分割 + 删除）
 // ═══════════════════════════════════════
 
 @Composable
 fun TrimPanel(
     clip: Clip,
+    currentPosition: Double,
     onTrimChange: (Double, Double) -> Unit,
-    onSplit: (Double) -> Unit,
+    onSplitAtPlayhead: () -> Unit,
+    onDelete: () -> Unit,
+    onRotation: (Int) -> Unit,
+    onHFlip: () -> Unit,
+    onVFlip: () -> Unit,
+    onDetectLogo: () -> Unit,
+    onDetectLogoAll: () -> Unit,
+    isDetectingLogo: Boolean,
+    onEditStart: () -> Unit,
     onClose: () -> Unit
 ) {
     var trimStart by remember(clip.id) { mutableStateOf(clip.trimStart.toFloat()) }
@@ -36,12 +47,17 @@ fun TrimPanel(
         (if (clip.trimEnd > 0) clip.trimEnd else clip.mediaDuration).toFloat()
     ) }
 
+    // 播放头是否在当前片段内（决定分割按钮可用性）
+    val playheadInside = currentPosition > clip.timelineStart + 0.05 &&
+        currentPosition < clip.timelineEnd - 0.05
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFF1A1A1A))
+            .verticalScroll(rememberScrollState())
     ) {
-        PanelHeader("裁剪", onClose)
+        PanelHeader("剪辑", onClose)
 
         Text(
             "片段：${clip.mediaName}",
@@ -57,7 +73,8 @@ fun TrimPanel(
             onValueChange = {
                 trimStart = it.coerceAtMost(trimEnd - 0.1f)
                 onTrimChange(trimStart.toDouble(), trimEnd.toDouble())
-            }
+            },
+            onValueChangeStarted = onEditStart
         )
 
         SliderRow(
@@ -67,8 +84,48 @@ fun TrimPanel(
             onValueChange = {
                 trimEnd = it.coerceAtLeast(trimStart + 0.1f)
                 onTrimChange(trimStart.toDouble(), trimEnd.toDouble())
-            }
+            },
+            onValueChangeStarted = onEditStart
         )
+
+        // ── 旋转 / 翻转（对应 rotate_video.py，引擎已支持，这里接入 UI）──
+        Text("旋转 / 翻转", color = Color(0xFF888888), fontSize = 12.sp,
+            modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp))
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val rotateItems = listOf(
+                Triple("逆时针90°", -90, clip.rotation == -90),
+                Triple("顺时针90°", 90, clip.rotation == 90),
+                Triple("180°", 180, clip.rotation == 180),
+            )
+            items(rotateItems) { item ->
+                FilterChip(
+                    selected = item.third,
+                    onClick = {
+                        onEditStart()
+                        // 再次点击同一角度 → 恢复 0°
+                        onRotation(if (item.third) 0 else item.second)
+                    },
+                    label = { Text(item.first, fontSize = 11.sp) }
+                )
+            }
+            item {
+                FilterChip(
+                    selected = clip.hflip,
+                    onClick = { onEditStart(); onHFlip() },
+                    label = { Text("水平镜像", fontSize = 11.sp) }
+                )
+            }
+            item {
+                FilterChip(
+                    selected = clip.vflip,
+                    onClick = { onEditStart(); onVFlip() },
+                    label = { Text("垂直镜像", fontSize = 11.sp) }
+                )
+            }
+        }
 
         Row(
             modifier = Modifier.padding(16.dp),
@@ -77,13 +134,57 @@ fun TrimPanel(
             Text("有效时长：${String.format("%.2f", trimEnd - trimStart)}s",
                 color = Color.White, fontSize = 13.sp)
             Spacer(Modifier.weight(1f))
-            // 分割按钮
+            // 在播放头处分割（剪映式）
             Button(
-                onClick = { onSplit(clip.timelineStart + clip.timelineDuration / 2) },
+                onClick = onSplitAtPlayhead,
+                enabled = playheadInside,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
             ) {
                 Text("分割", fontSize = 12.sp)
             }
+            Spacer(Modifier.width(8.dp))
+            Button(
+                onClick = onDelete,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+            ) {
+                Text("删除", fontSize = 12.sp)
+            }
+        }
+
+        // ── 片尾静止 logo/标语检测截断 ──
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("片尾静止片段", color = Color.White, fontSize = 14.sp)
+                Text("检测并去掉视频末尾静止的 logo/标语画面",
+                    color = Color(0xFF666666), fontSize = 11.sp)
+            }
+            Spacer(Modifier.width(8.dp))
+            Button(
+                onClick = onDetectLogo,
+                enabled = !isDetectingLogo,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
+            ) {
+                Text("当前片段", fontSize = 12.sp)
+            }
+            Spacer(Modifier.width(8.dp))
+            Button(
+                onClick = onDetectLogoAll,
+                enabled = !isDetectingLogo,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+            ) {
+                Text(if (isDetectingLogo) "检测中..." else "全部片段", fontSize = 12.sp)
+            }
+        }
+
+        if (!playheadInside) {
+            Text(
+                "将播放头移到当前片段内可分割",
+                color = Color(0xFF666666), fontSize = 11.sp,
+                modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
+            )
         }
     }
 }
@@ -96,6 +197,8 @@ fun TrimPanel(
 fun SpeedPanel(
     clip: Clip,
     onSpeedChange: (Double) -> Unit,
+    onReverseToggle: () -> Unit,
+    onEditStart: () -> Unit,
     onClose: () -> Unit
 ) {
     var speed by remember(clip.id) { mutableStateOf(clip.speed.toFloat()) }
@@ -106,6 +209,7 @@ fun SpeedPanel(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFF1A1A1A))
+            .verticalScroll(rememberScrollState())
     ) {
         PanelHeader("变速", onClose)
 
@@ -118,6 +222,7 @@ fun SpeedPanel(
                 FilterChip(
                     selected = speed == preset,
                     onClick = {
+                        onEditStart()
                         speed = preset
                         onSpeedChange(preset.toDouble())
                     },
@@ -138,13 +243,34 @@ fun SpeedPanel(
             onValueChange = {
                 speed = it
                 onSpeedChange(it.toDouble())
-            }
+            },
+            onValueChangeStarted = onEditStart
         )
 
-        Row(modifier = Modifier.padding(16.dp)) {
+        Row(modifier = Modifier.padding(horizontal = 16.dp)) {
             Text(
                 "原时长: ${String.format("%.2f", clip.effectiveDuration)}s → 变速后: ${String.format("%.2f", clip.effectiveDuration / speed)}s",
                 color = Color(0xFFAAAAAA), fontSize = 12.sp
+            )
+        }
+
+        // ── 倒放（对应 reverse_video.py）──
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("倒放", color = Color.White, fontSize = 14.sp)
+                Text("片段倒序播放，较长片段导出时占用内存更高",
+                    color = Color(0xFF666666), fontSize = 11.sp)
+            }
+            Switch(
+                checked = clip.reversed,
+                onCheckedChange = {
+                    onEditStart()
+                    onReverseToggle()
+                },
+                colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF2196F3))
             )
         }
     }
@@ -159,6 +285,7 @@ fun FilterPanel(
     clip: Clip,
     onFilterSelect: (FilterPreset) -> Unit,
     onColorChange: (Double, Double, Double) -> Unit,
+    onEditStart: () -> Unit,
     onClose: () -> Unit
 ) {
     var brightness by remember(clip.id) { mutableStateOf(clip.brightness.toFloat()) }
@@ -169,6 +296,7 @@ fun FilterPanel(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFF1A1A1A))
+            .verticalScroll(rememberScrollState())
     ) {
         PanelHeader("滤镜", onClose)
 
@@ -180,7 +308,10 @@ fun FilterPanel(
             items(FilterPreset.entries.toList()) { preset ->
                 FilterChip(
                     selected = clip.filterPreset == preset,
-                    onClick = { onFilterSelect(preset) },
+                    onClick = {
+                        onEditStart()
+                        onFilterSelect(preset)
+                    },
                     label = { Text(preset.displayName) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = Color(0xFF2196F3),
@@ -191,18 +322,18 @@ fun FilterPanel(
         }
 
         // 手动调色
-        SliderRow("亮度", brightness, -1f..1f) {
+        SliderRow("亮度", brightness, -1f..1f, onValueChange = {
             brightness = it
             onColorChange(brightness.toDouble(), contrast.toDouble(), saturation.toDouble())
-        }
-        SliderRow("对比度", contrast, -1f..1f) {
+        }, onValueChangeStarted = onEditStart)
+        SliderRow("对比度", contrast, -1f..1f, onValueChange = {
             contrast = it
             onColorChange(brightness.toDouble(), contrast.toDouble(), saturation.toDouble())
-        }
-        SliderRow("饱和度", saturation, -1f..1f) {
+        }, onValueChangeStarted = onEditStart)
+        SliderRow("饱和度", saturation, -1f..1f, onValueChange = {
             saturation = it
             onColorChange(brightness.toDouble(), contrast.toDouble(), saturation.toDouble())
-        }
+        }, onValueChangeStarted = onEditStart)
     }
 }
 
@@ -215,6 +346,7 @@ fun TextPanel(
     clip: Clip,
     onTextChange: (String?) -> Unit,
     onTextStyleChange: (size: Int, color: String, position: String, opacity: Float, border: Boolean) -> Unit,
+    onEditStart: () -> Unit,
     onClose: () -> Unit
 ) {
     var text by remember(clip.id) { mutableStateOf(clip.textOverlay ?: "") }
@@ -237,6 +369,7 @@ fun TextPanel(
             .fillMaxWidth()
             .background(Color(0xFF1A1A1A))
             .padding(16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         PanelHeader("文字水印", onClose)
         Spacer(Modifier.height(16.dp))
@@ -260,16 +393,16 @@ fun TextPanel(
         Spacer(Modifier.height(12.dp))
 
         // 字号
-        SliderRow("字号", size, 12f..120f) {
+        SliderRow("字号", size, 12f..120f, onValueChange = {
             size = it
             onTextStyleChange(size.toInt(), color, position, opacity, border)
-        }
+        }, onValueChangeStarted = onEditStart)
 
         // 透明度
-        SliderRow("透明度", opacity, 0f..1f) {
+        SliderRow("透明度", opacity, 0f..1f, onValueChange = {
             opacity = it
             onTextStyleChange(size.toInt(), color, position, opacity, border)
-        }
+        }, onValueChangeStarted = onEditStart)
 
         // 颜色选择
         Text("颜色", color = Color(0xFF888888), fontSize = 12.sp,
@@ -297,6 +430,7 @@ fun TextPanel(
                             else Modifier
                         )
                         .clickable {
+                            onEditStart()
                             color = c
                             onTextStyleChange(size.toInt(), color, position, opacity, border)
                         }
@@ -322,6 +456,7 @@ fun TextPanel(
                 FilterChip(
                     selected = isSelected,
                     onClick = {
+                        onEditStart()
                         position = p
                         onTextStyleChange(size.toInt(), color, position, opacity, border)
                     },
@@ -338,6 +473,7 @@ fun TextPanel(
             Switch(
                 checked = border,
                 onCheckedChange = {
+                    onEditStart()
                     border = it
                     onTextStyleChange(size.toInt(), color, position, opacity, border)
                 },
@@ -357,14 +493,19 @@ fun TextPanel(
 fun AudioPanel(
     clip: Clip,
     onVolumeChange: (Double) -> Unit,
+    onFadeChange: (Double, Double) -> Unit,
+    onEditStart: () -> Unit,
     onClose: () -> Unit
 ) {
     var volume by remember(clip.id) { mutableStateOf(clip.volume.toFloat()) }
+    var fadeIn by remember(clip.id) { mutableStateOf(clip.audioFadeIn.toFloat()) }
+    var fadeOut by remember(clip.id) { mutableStateOf(clip.audioFadeOut.toFloat()) }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFF1A1A1A))
+            .verticalScroll(rememberScrollState())
     ) {
         PanelHeader("音频", onClose)
 
@@ -372,22 +513,39 @@ fun AudioPanel(
             Text("该片段没有音频", color = Color(0xFF666666), fontSize = 13.sp,
                 modifier = Modifier.padding(16.dp))
         } else {
-            SliderRow("音量", volume, 0f..3f) {
+            SliderRow("音量", volume, 0f..3f, onValueChange = {
                 volume = it
                 onVolumeChange(it.toDouble())
-            }
+            }, onValueChangeStarted = onEditStart)
 
-            Row(modifier = Modifier.padding(16.dp)) {
+            Row(modifier = Modifier.padding(horizontal = 16.dp)) {
                 Button(
-                    onClick = { volume = 0f; onVolumeChange(0.0) },
+                    onClick = { onEditStart(); volume = 0f; onVolumeChange(0.0) },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
                 ) { Text("静音", fontSize = 12.sp) }
                 Spacer(Modifier.width(8.dp))
                 Button(
-                    onClick = { volume = 1f; onVolumeChange(1.0) },
+                    onClick = { onEditStart(); volume = 1f; onVolumeChange(1.0) },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
                 ) { Text("原音", fontSize = 12.sp) }
             }
+
+            // ── 淡入淡出（对应 audio_fade.py）──
+            Text("淡入淡出", color = Color(0xFF888888), fontSize = 12.sp,
+                modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
+            SliderRow("淡入", fadeIn, 0f..5f, onValueChange = {
+                fadeIn = it
+                onFadeChange(fadeIn.toDouble(), fadeOut.toDouble())
+            }, onValueChangeStarted = onEditStart)
+            SliderRow("淡出", fadeOut, 0f..5f, onValueChange = {
+                fadeOut = it
+                onFadeChange(fadeIn.toDouble(), fadeOut.toDouble())
+            }, onValueChangeStarted = onEditStart)
+            Text(
+                "单位：秒，最长不超过片段时长一半",
+                color = Color(0xFF666666), fontSize = 11.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
         }
     }
 }
@@ -401,6 +559,7 @@ fun BlurBgPanel(
     clip: Clip,
     onToggle: () -> Unit,
     onStrengthChange: (Int) -> Unit,
+    onEditStart: () -> Unit,
     onClose: () -> Unit
 ) {
     var strength by remember(clip.id) { mutableStateOf(clip.blurStrength.toFloat()) }
@@ -410,6 +569,7 @@ fun BlurBgPanel(
             .fillMaxWidth()
             .background(Color(0xFF1A1A1A))
             .padding(16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         PanelHeader("模糊背景", onClose)
         Spacer(Modifier.height(8.dp))
@@ -429,7 +589,10 @@ fun BlurBgPanel(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(
                 checked = clip.blurBgEnabled,
-                onCheckedChange = { onToggle() },
+                onCheckedChange = {
+                    onEditStart()
+                    onToggle()
+                },
                 colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF2196F3))
             )
             Spacer(Modifier.width(8.dp))
@@ -439,10 +602,10 @@ fun BlurBgPanel(
 
         if (clip.blurBgEnabled) {
             Spacer(Modifier.height(16.dp))
-            SliderRow("模糊强度", strength, 2f..40f) {
+            SliderRow("模糊强度", strength, 2f..40f, onValueChange = {
                 strength = it
                 onStrengthChange(it.toInt())
-            }
+            }, onValueChangeStarted = onEditStart)
         }
     }
 }
@@ -456,6 +619,7 @@ fun TransitionPanel(
     clip: Clip,
     onTransitionChange: (TransitionEffect) -> Unit,
     onDurationChange: (Double) -> Unit,
+    onEditStart: () -> Unit,
     onClose: () -> Unit
 ) {
     var duration by remember(clip.id) { mutableStateOf(clip.transitionDuration.toFloat()) }
@@ -465,6 +629,7 @@ fun TransitionPanel(
             .fillMaxWidth()
             .background(Color(0xFF1A1A1A))
             .padding(16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         PanelHeader("转场", onClose)
         Spacer(Modifier.height(8.dp))
@@ -488,7 +653,10 @@ fun TransitionPanel(
                     val isSelected = clip.transition == effect
                     FilterChip(
                         selected = isSelected,
-                        onClick = { onTransitionChange(effect) },
+                        onClick = {
+                            onEditStart()
+                            onTransitionChange(effect)
+                        },
                         label = { Text(effect.displayName, fontSize = 10.sp) },
                         modifier = Modifier.weight(1f)
                     )
@@ -501,10 +669,10 @@ fun TransitionPanel(
 
         if (clip.transition != TransitionEffect.NONE) {
             Spacer(Modifier.height(12.dp))
-            SliderRow("转场时长", duration, 0.2f..3f) {
+            SliderRow("转场时长", duration, 0.2f..3f, onValueChange = {
                 duration = it
                 onDurationChange(it.toDouble())
-            }
+            }, onValueChangeStarted = onEditStart)
             Text("${String.format("%.1f", duration)}s",
                 color = Color(0xFF888888), fontSize = 11.sp,
                 modifier = Modifier.padding(start = 16.dp))
