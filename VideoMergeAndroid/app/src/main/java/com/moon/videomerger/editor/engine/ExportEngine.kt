@@ -8,6 +8,7 @@ import com.moon.videomerger.editor.data.Track
 import com.moon.videomerger.editor.data.TrackType
 import com.moon.videomerger.editor.data.Clip
 import com.moon.videomerger.util.MediaUtils
+import com.moon.videomerger.util.VideoHistoryStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -28,6 +29,15 @@ class ExportEngine(private val context: Context) {
     companion object { private const val TAG = "ExportEngine" }
 
     private val filterBuilder = FilterBuilder()
+
+    /** 当前正在执行的 FFmpeg 任务（用于取消） */
+    @Volatile
+    private var runner: FFmpegRunner? = null
+
+    /** 取消正在进行的导出 */
+    fun cancel() {
+        runner?.cancel()
+    }
 
     /**
      * 从项目导出视频。
@@ -51,8 +61,8 @@ class ExportEngine(private val context: Context) {
             val command = filterBuilder.buildExportCommand(project, outputFile.absolutePath, context)
             onLog("ffmpeg 命令:\n$command\n")
 
-            // 执行
-            val totalDuration = project.totalDuration
+            // 执行（★ 用实际输出时长算进度：xfade 转场会缩短总时长）
+            val totalDuration = filterBuilder.computeOutputDuration(project)
             val success = executeFFmpeg(command, totalDuration, onProgress, onLog)
 
             if (!success || !outputFile.exists() || outputFile.length() == 0L) {
@@ -84,6 +94,31 @@ class ExportEngine(private val context: Context) {
     }
 
     /**
+     * 将导出结果记入历史记录（与合并模块保持一致，首页可回看）。
+     * 失败不影响导出结果，仅记日志。
+     */
+    suspend fun recordToHistory(file: File, project: EditorProject) = withContext(Dispatchers.IO) {
+        try {
+            val thumbFile = File(context.cacheDir, "editor_history_thumb_${System.currentTimeMillis()}.jpg")
+            MediaUtils.loadThumbnailFromFile(file.absolutePath)?.let { thumb ->
+                MediaUtils.saveBitmapAsJpeg(thumb, thumbFile)
+                thumb.recycle()
+            }
+            VideoHistoryStore.addToHistory(
+                context = context,
+                videoFile = file,
+                thumbnailFile = thumbFile,
+                mergeType = "剪辑导出",
+                duration = filterBuilder.computeOutputDuration(project),
+                width = project.canvasWidth,
+                height = project.canvasHeight
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "写入历史记录失败", e)
+        }
+    }
+
+    /**
      * 异步执行 ffmpeg。
      */
     private suspend fun executeFFmpeg(
@@ -92,17 +127,19 @@ class ExportEngine(private val context: Context) {
         onProgress: (Float) -> Unit,
         onLog: (String) -> Unit
     ): Boolean = suspendCancellableCoroutine { cont ->
-        val runner = FFmpegRunner(
+        val newRunner = FFmpegRunner(
             command = command,
             totalDuration = totalDuration,
             onProgress = onProgress,
             onLog = onLog,
             onComplete = { success, message ->
+                runner = null
                 onLog("\n$message\n")
                 if (cont.isActive) cont.resume(success)
             }
         )
-        runner.execute()
-        cont.invokeOnCancellation { runner.cancel() }
+        runner = newRunner
+        newRunner.execute()
+        cont.invokeOnCancellation { newRunner.cancel() }
     }
 }

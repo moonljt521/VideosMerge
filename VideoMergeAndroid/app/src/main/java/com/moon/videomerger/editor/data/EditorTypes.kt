@@ -137,8 +137,13 @@ data class Clip(
     // 变速
     val speed: Double = 1.0,        // 1.0 = 正常速度
 
+    // 倒放（reverse/areverse 滤镜，对应 reverse_video.py）
+    val reversed: Boolean = false,
+
     // 音频
     val volume: Double = 1.0,       // 1.0 = 原始音量
+    val audioFadeIn: Double = 0.0,  // 音频淡入时长（秒），对应 audio_fade.py
+    val audioFadeOut: Double = 0.0, // 音频淡出时长（秒）
 
     // 旋转/翻转
     val rotation: Int = 0,          // 旋转角度 (0/90/180/-90)
@@ -184,6 +189,27 @@ data class Clip(
     /** 在时间轴上的结束位置 */
     val timelineEnd: Double
         get() = timelineStart + timelineDuration
+
+    /**
+     * 时间轴位置 → 源视频时间。
+     * 正向播放：timelineStart 处对应 trimStart，随时间轴递增；
+     * 倒放：timelineStart 处对应 trimEnd，随时间轴递减。
+     */
+    fun sourceTimeAt(timelinePos: Double): Double {
+        val offset = timelinePos - timelineStart
+        val end = if (trimEnd > 0) trimEnd else mediaDuration
+        return if (reversed) end - offset * speed else trimStart + offset * speed
+    }
+
+    /** 源视频时间 → 时间轴位置（sourceTimeAt 的逆运算） */
+    fun timelinePosOf(sourceTime: Double): Double {
+        val end = if (trimEnd > 0) trimEnd else mediaDuration
+        return if (reversed) {
+            timelineStart + (end - sourceTime) / speed
+        } else {
+            timelineStart + (sourceTime - trimStart) / speed
+        }
+    }
 }
 
 /**

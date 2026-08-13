@@ -8,6 +8,7 @@ import com.moon.videomerger.editor.data.*
 import com.moon.videomerger.editor.engine.ExportEngine
 import com.moon.videomerger.util.MediaUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +24,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _uiState = MutableStateFlow(EditorUiState())
     val uiState: StateFlow<EditorUiState> = _uiState.asStateFlow()
+
+    // ── 撤销/重做栈（保存项目快照，最多 30 步）──
+    private val undoStack = ArrayDeque<EditorProject>()
+    private val redoStack = ArrayDeque<EditorProject>()
+
+    /** 当前导出任务（用于取消） */
+    private var exportJob: Job? = null
 
     // ═══════════════════════════════════════
     //  项目管理
@@ -73,6 +81,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             )
 
             // ★ 导入视频后自动选中第一个片段，工具栏按钮立即可用
+            undoStack.clear()
+            redoStack.clear()
             _uiState.value = EditorUiState(
                 project = project,
                 selectedClipId = clips.firstOrNull()?.id
@@ -85,11 +95,80 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     // ═══════════════════════════════════════
 
     fun selectClip(clipId: String?) {
+        // 选中片段时把播放头移入该片段（若当前播放头不在其范围内），
+        // 保证预览区显示的是正在编辑的片段，滤镜/裁剪等效果能立即看到。
+        val state = _uiState.value
+        val clip = if (clipId != null) {
+            state.project.tracks.flatMap { it.clips }.find { it.id == clipId }
+        } else {
+            null
+        }
+        val currentPos = state.currentPosition
+        val newPosition = if (clip != null &&
+            (currentPos < clip.timelineStart - 0.05 || currentPos >= clip.timelineEnd - 0.05)
+        ) {
+            clip.timelineStart
+        } else {
+            currentPos
+        }
         _uiState.value = _uiState.value.copy(
             selectedClipId = clipId,
-            currentPanel = if (clipId != null) _uiState.value.currentPanel else ToolPanel.NONE
+            currentPanel = if (clipId != null) _uiState.value.currentPanel else ToolPanel.NONE,
+            currentPosition = newPosition
         )
     }
+
+    // ═══════════════════════════════════════
+    //  撤销 / 重做
+    // ═══════════════════════════════════════
+
+    /**
+     * 开始一次编辑手势 —— UI 在滑块拖动开始 / 按钮点击时调用，
+     * 先保存快照，后续变更可撤销。整个手势只推一次栈。
+     */
+    fun beginEdit() {
+        pushUndo()
+    }
+
+    private fun pushUndo() {
+        undoStack.addLast(deepCopy(_uiState.value.project))
+        if (undoStack.size > 30) undoStack.removeFirst()
+        redoStack.clear()
+        _uiState.value = _uiState.value.copy(canUndo = true, canRedo = false)
+    }
+
+    fun undo() {
+        if (undoStack.isEmpty()) return
+        redoStack.addLast(deepCopy(_uiState.value.project))
+        val prev = undoStack.removeLast()
+        _uiState.value = _uiState.value.copy(
+            project = prev,
+            selectedClipId = null,
+            currentPanel = ToolPanel.NONE,
+            canUndo = undoStack.isNotEmpty(),
+            canRedo = true
+        )
+    }
+
+    fun redo() {
+        if (redoStack.isEmpty()) return
+        undoStack.addLast(deepCopy(_uiState.value.project))
+        val next = redoStack.removeLast()
+        _uiState.value = _uiState.value.copy(
+            project = next,
+            selectedClipId = null,
+            currentPanel = ToolPanel.NONE,
+            canUndo = true,
+            canRedo = redoStack.isNotEmpty()
+        )
+    }
+
+    /** 项目快照深拷贝（Clip 引用全部新建，避免后续可变操作污染快照） */
+    private fun deepCopy(project: EditorProject): EditorProject = project.copy(
+        tracks = project.tracks.map { track ->
+            track.copy(clips = track.clips.map { it.copy() }.toMutableList())
+        }.toMutableList()
+    )
 
     // ═══════════════════════════════════════
     //  工具面板切换
@@ -117,6 +196,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun addClips(uris: List<Uri>) {
         if (uris.isEmpty()) return
         viewModelScope.launch {
+            pushUndo()
             val newClips = withContext(Dispatchers.IO) {
                 uris.mapIndexed { index, uri ->
                     val tempFile = MediaUtils.copyUriToTempFile(appContext, uri, System.currentTimeMillis().toInt() + index)
@@ -147,7 +227,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 newClips.forEach { it.timelineStart = pos; pos += it.timelineDuration }
                 val track = Track(type = TrackType.MAIN, clips = newClips.toMutableList())
                 _uiState.value = state.copy(
-                    project = state.project.copy(tracks = mutableListOf(track))
+                    project = state.project.copy(tracks = mutableListOf(track)),
+                    // ★ 当前无选中片段时自动选中第一个，保证工具栏可用
+                    selectedClipId = state.selectedClipId ?: newClips.firstOrNull()?.id
                 )
             } else {
                 // 追加到主轨末尾
@@ -161,7 +243,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 val newTrack = mainTrack.copy(clips = allClips)
                 val newTracks = state.project.tracks.map { if (it.id == mainTrack.id) newTrack else it }
                 _uiState.value = state.copy(
-                    project = state.project.copy(tracks = newTracks.toMutableList())
+                    project = state.project.copy(tracks = newTracks.toMutableList()),
+                    // ★ 当前无选中片段时自动选中第一个，保证工具栏可用
+                    selectedClipId = state.selectedClipId ?: allClips.firstOrNull()?.id
                 )
             }
         }
@@ -200,6 +284,237 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         retimelineAfter(clipId)
     }
 
+    /**
+     * 检测当前片段末尾的静止 logo/标语片段，并把出点裁到该位置。
+     * 检测基于 freezedetect（最后一段持续到结尾的静止帧）。
+     */
+    fun detectTailLogo(clipId: String) {
+        if (_uiState.value.isDetectingLogo) return
+        _uiState.value = _uiState.value.copy(isDetectingLogo = true)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val clip = _uiState.value.project.mainTrack?.clips?.find { it.id == clipId }
+            val cut = clip?.let { MediaUtils.detectLogoCut(it.mediaPath) }
+            withContext(Dispatchers.Main) {
+                _uiState.value = _uiState.value.copy(isDetectingLogo = false)
+                if (clip == null) return@withContext
+                if (cut != null && cut < clip.mediaDuration - 0.1) {
+                    updateTrim(clipId, clip.trimStart, cut)
+                    showError("已去除片尾静止片段，出点裁至 ${"%.2f".format(cut)}s")
+                } else {
+                    showError("未检测到片尾静止 logo")
+                }
+            }
+        }
+    }
+
+    /**
+     * 批量检测主轨所有片段的片尾静止 logo/标语，并分别把出点裁到检测位置。
+     */
+    fun detectTailLogoAll() {
+        if (_uiState.value.isDetectingLogo) return
+        _uiState.value = _uiState.value.copy(isDetectingLogo = true)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val clips = _uiState.value.project.mainTrack?.clips?.sortedBy { it.timelineStart } ?: emptyList()
+            val cuts = clips.map { clip ->
+                clip.id to MediaUtils.detectLogoCut(clip.mediaPath)
+            }
+
+            withContext(Dispatchers.Main) {
+                var removed = 0
+                cuts.forEach { (id, cut) ->
+                    val clip = _uiState.value.project.mainTrack?.clips?.find { it.id == id }
+                    if (clip != null && cut != null && cut < clip.mediaDuration - 0.1) {
+                        updateTrim(id, clip.trimStart, cut)
+                        removed++
+                    }
+                }
+                _uiState.value = _uiState.value.copy(isDetectingLogo = false)
+                showError(
+                    if (removed > 0) "已去除 $removed 个片段的片尾静止片段"
+                    else "未检测到片尾静止片段"
+                )
+            }
+        }
+    }
+
+    /**
+     * 在当前播放头位置分割选中的片段（剪映式交互）。
+     * 播放头必须落在片段内部（距边界 > 0.05s）才执行。
+     */
+    fun splitAtPlayhead() {
+        val state = _uiState.value
+        val pos = state.currentPosition
+        val clip = state.project.mainTrack?.clips?.find {
+            pos > it.timelineStart + 0.05 && pos < it.timelineEnd - 0.05
+        } ?: return
+        splitClip(clip.id, pos)
+    }
+
+    /**
+     * 删除片段（可撤销）。删除后自动重排后续片段并选中相邻片段。
+     */
+    fun deleteClip(clipId: String) {
+        val state = _uiState.value
+        val trackIdx = state.project.tracks.indexOfFirst { it.clips.any { c -> c.id == clipId } }
+        if (trackIdx < 0) return
+        val track = state.project.tracks[trackIdx]
+        val clipIdx = track.clips.indexOfFirst { it.id == clipId }
+        if (clipIdx < 0) return
+
+        pushUndo()
+
+        val remaining = track.clips.toMutableList().also { it.removeAt(clipIdx) }
+        // 重排剩余片段（不可变：全部新建 Clip 实例）
+        var pos = 0.0
+        val relaid = remaining.map { c ->
+            val nc = c.copy(timelineStart = pos)
+            pos += nc.timelineDuration
+            nc
+        }.toMutableList()
+
+        val newTrack = track.copy(clips = relaid)
+        val newTracks = state.project.tracks.toMutableList()
+        newTracks[trackIdx] = newTrack
+
+        // 优先选中后一个片段，其次前一个
+        val nextSelected = relaid.getOrNull(clipIdx)?.id ?: relaid.getOrNull(clipIdx - 1)?.id
+
+        _uiState.value = state.copy(
+            project = state.project.copy(
+                tracks = newTracks,
+                updatedAt = System.currentTimeMillis()
+            ),
+            selectedClipId = nextSelected
+        )
+    }
+
+    // ═══════════════════════════════════════
+    //  区间删除（入点/出点）
+    // ═══════════════════════════════════════
+
+    /** 在当前播放头处打入点（若已有出点且不合法则丢弃出点） */
+    fun setInPoint() {
+        val state = _uiState.value
+        _uiState.value = state.copy(
+            inPoint = state.currentPosition,
+            outPoint = state.outPoint?.takeIf { it > state.currentPosition + 0.05 }
+        )
+    }
+
+    /** 在当前播放头处打出出点（若已有入点且不合法则丢弃入点） */
+    fun setOutPoint() {
+        val state = _uiState.value
+        _uiState.value = state.copy(
+            outPoint = state.currentPosition,
+            inPoint = state.inPoint?.takeIf { it < state.currentPosition - 0.05 }
+        )
+    }
+
+    /** 清除入点/出点 */
+    fun clearRange() {
+        _uiState.value = _uiState.value.copy(inPoint = null, outPoint = null)
+    }
+
+    /**
+     * 删除 [inPoint, outPoint] 区间内的内容，保留其余部分（可撤销）。
+     *
+     * 对每个片段分四种情况处理：
+     * - 完全在区间内 → 整段删除
+     * - 区间完全落在片段内部 → 拆成前后两段保留
+     * - 片段尾部在区间内 → 保留头部（trimEnd 收到入点）
+     * - 片段头部在区间内 → 保留尾部（trimStart 推到出点）
+     * 处理完后所有片段首尾重新拼接。
+     */
+    fun deleteRange() {
+        val state = _uiState.value
+        val inP = state.inPoint ?: return
+        val outP = state.outPoint ?: return
+        if (outP - inP < 0.05) return
+        val mainTrack = state.project.mainTrack ?: return
+
+        val eps = 0.001
+        val kept = mutableListOf<Clip>()
+
+        mainTrack.clips.sortedBy { it.timelineStart }.forEach { clip ->
+            val cs = clip.timelineStart
+            val ce = clip.timelineEnd
+            // 区间边界对应的源时间（sourceTimeAt 自动处理倒放/变速）
+            val srcIn = clip.sourceTimeAt(inP)
+            val srcOut = clip.sourceTimeAt(outP)
+            val srcBegin = clip.trimStart
+            val srcEnd = if (clip.trimEnd > 0) clip.trimEnd else clip.mediaDuration
+            when {
+                // 完全在区间内 → 删除
+                cs >= inP - eps && ce <= outP + eps -> {}
+                // 区间完全在片段内部 → 拆成两段
+                cs < inP - eps && ce > outP + eps -> {
+                    if (clip.reversed) {
+                        // 倒放：前段（时间轴靠前）对应源视频后段
+                        kept.add(clip.copy(trimStart = srcIn, trimEnd = srcEnd))
+                        kept.add(clip.copy(trimStart = srcBegin, trimEnd = srcOut))
+                    } else {
+                        kept.add(clip.copy(trimEnd = srcIn.coerceAtMost(srcEnd)))
+                        kept.add(clip.copy(
+                            trimStart = srcOut.coerceAtMost(srcEnd - 0.1),
+                            trimEnd = clip.trimEnd
+                        ))
+                    }
+                }
+                // 片段尾部落在区间内 → 保留时间轴前半段
+                cs < inP - eps && ce > inP + eps -> {
+                    if (clip.reversed) {
+                        if (srcEnd - srcIn > 0.05) kept.add(clip.copy(trimStart = srcIn))
+                    } else {
+                        if (srcIn - srcBegin > 0.05) kept.add(clip.copy(trimEnd = srcIn))
+                    }
+                }
+                // 片段头部落在区间内 → 保留时间轴后半段
+                cs < outP - eps && ce > outP + eps -> {
+                    if (clip.reversed) {
+                        if (srcOut - srcBegin > 0.05) kept.add(clip.copy(trimEnd = srcOut))
+                    } else {
+                        if (srcEnd - srcOut > 0.05) kept.add(clip.copy(trimStart = srcOut))
+                    }
+                }
+                // 无交集 → 原样保留
+                else -> kept.add(clip)
+            }
+        }
+
+        if (kept.isEmpty()) {
+            showError("区间包含了全部内容，无法全部删除")
+            return
+        }
+
+        pushUndo()
+
+        // 首尾重新拼接
+        var pos = 0.0
+        val relaid = kept.map { c ->
+            val nc = c.copy(timelineStart = pos)
+            pos += nc.timelineDuration
+            nc
+        }.toMutableList()
+
+        val newTrack = mainTrack.copy(clips = relaid)
+        val newTracks = state.project.tracks.map { if (it.id == mainTrack.id) newTrack else it }
+
+        _uiState.value = state.copy(
+            project = state.project.copy(
+                tracks = newTracks.toMutableList(),
+                updatedAt = System.currentTimeMillis()
+            ),
+            // 播放头回到删除点，选中删除点后的片段
+            currentPosition = inP.coerceAtMost(pos),
+            selectedClipId = relaid.firstOrNull { it.timelineStart >= inP - 0.05 }?.id
+                ?: relaid.lastOrNull()?.id,
+            inPoint = null,
+            outPoint = null
+        )
+    }
+
     fun splitClip(clipId: String, atPosition: Double) {
         val state = _uiState.value
         android.util.Log.d("EditorVM", "splitClip: clipId=$clipId atPos=$atPosition")
@@ -221,16 +536,30 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
 
-        // 原始入点 + 偏移 * 速度 = 分割点的源时间
-        val splitSourceTime = clip.trimStart + splitOffset * clip.speed
+        pushUndo()
+
+        // 分割点的源时间（sourceTimeAt 自动处理倒放/变速）
+        val splitSourceTime = clip.sourceTimeAt(atPosition)
         android.util.Log.d("EditorVM", "splitClip: splitSourceTime=$splitSourceTime")
 
-        // 创建两个新片段
-        val firstClip = clip.copy(trimEnd = splitSourceTime)
-        val secondClip = clip.copy(
-            trimStart = splitSourceTime,
-            timelineStart = clip.timelineStart + splitOffset,
-        )
+        // 创建两个新片段：
+        // 正放：前半段 = [trimStart, 分割点]，后半段 = [分割点, trimEnd]
+        // 倒放：时间轴前半段对应源视频后段 [分割点, trimEnd]，后半段对应 [trimStart, 分割点]
+        val firstClip: Clip
+        val secondClip: Clip
+        if (clip.reversed) {
+            firstClip = clip.copy(trimStart = splitSourceTime)
+            secondClip = clip.copy(
+                trimEnd = splitSourceTime,
+                timelineStart = clip.timelineStart + splitOffset,
+            )
+        } else {
+            firstClip = clip.copy(trimEnd = splitSourceTime)
+            secondClip = clip.copy(
+                trimStart = splitSourceTime,
+                timelineStart = clip.timelineStart + splitOffset,
+            )
+        }
 
         // 创建全新的 track 和 clips 列表（不可变副本）
         val newClips = track.clips.toMutableList()
@@ -265,6 +594,24 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         updateClip(clipId) { it.copy(speed = s) }
         // 变速后该片段的时间轴时长改变，需要重算后续片段位置
         retimelineAfter(clipId)
+    }
+
+    /** 切换倒放（对应 reverse_video.py） */
+    fun toggleReverse(clipId: String) {
+        updateClip(clipId) { it.copy(reversed = !it.reversed) }
+    }
+
+    /** 音频淡入淡出时长（对应 audio_fade.py），不超过片段时长一半 */
+    fun updateAudioFade(clipId: String, fadeIn: Double, fadeOut: Double) {
+        updateClip(clipId) {
+            // 注意：音频经过 atrim/atempo/areverse 后时长是 timelineDuration，
+            // 不是 effectiveDuration，否则变速片段的淡入淡出会落在错误位置。
+            val maxD = it.timelineDuration / 2
+            it.copy(
+                audioFadeIn = fadeIn.coerceIn(0.0, maxD),
+                audioFadeOut = fadeOut.coerceIn(0.0, maxD)
+            )
+        }
     }
 
     // ═══════════════════════════════════════
@@ -308,6 +655,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     // ═══════════════════════════════════════
 
     fun setTextOverlay(clipId: String, text: String?) {
+        // 只在“无文字 ↔ 有文字”转变时推一次撤销栈，避免每输入一个字符都推栈
+        val oldEmpty = _uiState.value.selectedClip?.textOverlay.isNullOrBlank()
+        val newEmpty = text.isNullOrBlank()
+        if (oldEmpty != newEmpty) pushUndo()
         updateClip(clipId) { it.copy(textOverlay = text) }
     }
 
@@ -353,8 +704,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun export() {
         val state = _uiState.value
-        viewModelScope.launch {
-            _uiState.value = state.copy(
+        if (state.isExporting) return
+        exportJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
                 isExporting = true,
                 exportProgress = 0f,
                 exportMessage = "准备导出...",
@@ -376,6 +728,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
             result.fold(
                 onSuccess = { file ->
+                    // 记入历史记录（首页可回看）
+                    exportEngine.recordToHistory(file, state.project)
+
                     val saveResult = exportEngine.saveToGallery(file, state.project.name)
                     saveResult.fold(
                         onSuccess = { uri ->
@@ -406,8 +761,26 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** 取消正在进行的导出 */
+    fun cancelExport() {
+        exportEngine.cancel()
+        exportJob?.cancel()
+        exportJob = null
+        _uiState.value = _uiState.value.copy(
+            isExporting = false,
+            exportProgress = 0f,
+            exportMessage = "",
+            errorMessage = "已取消导出"
+        )
+    }
+
     fun dismissError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
+    }
+
+    /** 显示一条提示信息（浮层，自动消失） */
+    fun showError(message: String) {
+        _uiState.value = _uiState.value.copy(errorMessage = message)
     }
 
     // ═══════════════════════════════════════
@@ -453,17 +826,17 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private fun retimelineAll() {
         val state = _uiState.value
         val mainTrack = state.project.mainTrack ?: return
-        val sortedClips = mainTrack.clips.sortedBy { it.timelineStart }.toMutableList()
+        val sortedClips = mainTrack.clips.sortedBy { it.timelineStart }
 
+        // 不可变重排：全部新建 Clip 实例，避免旧状态引用被修改
         var pos = 0.0
-        for (clip in sortedClips) {
-            // 由于 Clip.timelineStart 是 var，直接修改
-            clip.timelineStart = pos
-            pos += clip.timelineDuration
-        }
+        val newClips = sortedClips.map { clip ->
+            val newClip = clip.copy(timelineStart = pos)
+            pos += newClip.timelineDuration
+            newClip
+        }.toMutableList()
 
-        // 触发状态更新（创建新的 project 实例让 StateFlow 感知）
-        val newTrack = mainTrack.copy(clips = sortedClips.toMutableList())
+        val newTrack = mainTrack.copy(clips = newClips)
         val newTracks = state.project.tracks.map { if (it.id == mainTrack.id) newTrack else it }
         _uiState.value = state.copy(
             project = state.project.copy(
@@ -480,7 +853,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private fun retimelineAfter(clipId: String) {
         val state = _uiState.value
         val mainTrack = state.project.mainTrack ?: return
-        val sortedClips = mainTrack.clips.sortedBy { it.timelineStart }.toMutableList()
+        val sortedClips = mainTrack.clips.sortedBy { it.timelineStart }
 
         val startIdx = sortedClips.indexOfFirst { it.id == clipId }
         if (startIdx < 0) return
@@ -492,14 +865,19 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             0.0
         }
 
-        // 从 startIdx 开始累加 timelineStart
+        // 从 startIdx 开始累加 timelineStart（不可变：新建 Clip 实例）
         var pos = startPos
-        for (i in startIdx until sortedClips.size) {
-            sortedClips[i].timelineStart = pos
-            pos += sortedClips[i].timelineDuration
-        }
+        val newClips = sortedClips.mapIndexed { index, clip ->
+            if (index >= startIdx) {
+                val newClip = clip.copy(timelineStart = pos)
+                pos += newClip.timelineDuration
+                newClip
+            } else {
+                clip
+            }
+        }.toMutableList()
 
-        val newTrack = mainTrack.copy(clips = sortedClips.toMutableList())
+        val newTrack = mainTrack.copy(clips = newClips)
         val newTracks = state.project.tracks.map { if (it.id == mainTrack.id) newTrack else it }
         _uiState.value = state.copy(
             project = state.project.copy(
@@ -509,4 +887,3 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 }
-

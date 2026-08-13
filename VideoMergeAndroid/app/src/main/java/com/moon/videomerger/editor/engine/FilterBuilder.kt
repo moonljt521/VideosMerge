@@ -9,9 +9,9 @@ import java.util.Locale
  *
  * ⚠️ 重要：当前 FFmpegKit 为 min 版本（LGPL），不包含以下组件，已用替代方案：
  *   - 视频编码器 libx264 → 使用硬件编码 h264_mediacodec
- *   - 滤镜 eq / hue → 改用 colorbalance（亮度/对比度/饱和度/色调）
+ *   - 滤镜 eq / huesaturation → 亮度/对比度/饱和度/伽马用 eq，色调用 huesaturation
  *   - 滤镜 pad → 改用 scale 的 cover 模式 + crop（精确尺寸）
- *   - 滤镜 fps → 移除（编码器自行处理）
+ *   - 滤镜 fps → 用于统一输入帧率（xfade/concat 要求一致），避免混合帧率素材导出失败
  *   - 滤镜 boxblur → 改用 avgblur（模糊背景）
  *   - 滤镜 drawtext → 文字水印改用 PNG overlay（Android Canvas 生成 PNG）
  *
@@ -21,7 +21,7 @@ import java.util.Locale
  * - rotate_video.py → transpose/hflip/vflip
  * - scale_video.py → scale
  * - speed_up/slow_motion → setpts/atempo
- * - color_filter.py → colorbalance（替代 eq/hue）
+ * - color_filter.py → eq + huesaturation
  * - volume_adjust.py → volume
  * - text_watermark.py → overlay (PNG，由 TextWatermarkRenderer 生成)
  * - blur_bg.py → split + avgblur + overlay（替代 boxblur）
@@ -35,8 +35,9 @@ class FilterBuilder {
      *
      * @param canvasW 画布宽（必须 16 对齐，h264_mediacodec 要求）
      * @param canvasH 画布高（必须 16 对齐）
+     * @param fps 输出帧率（统一所有片段帧率，避免 xfade/concat 因输入帧率不同失败）
      */
-    fun buildVideoFilters(clip: Clip, canvasW: Int, canvasH: Int): String {
+    fun buildVideoFilters(clip: Clip, canvasW: Int, canvasH: Int, fps: Int): String {
         val filters = mutableListOf<String>()
 
         // 1. 时间裁剪（trim）—— 必须放在最前，裁剪后再做其他处理
@@ -49,6 +50,12 @@ class FilterBuilder {
         // 2. 变速（setpts）—— speed>1 加速（PTS 减小），speed<1 减速（PTS 增大）
         if (clip.speed != 1.0) {
             filters.add("setpts=PTS/${clip.speed.fmt()}")
+        }
+
+        // 2.5 倒放（对应 reverse_video.py）—— 注意：reverse 会把整段片段载入内存，
+        //     放在 trim 之后执行，只对裁剪后的区间倒放，控制内存占用
+        if (clip.reversed) {
+            filters.add("reverse")
         }
 
         // 3. 旋转/翻转
@@ -70,8 +77,16 @@ class FilterBuilder {
             filters.add("setsar=1")
         }
 
-        // 5. 滤镜调色（min 版没有 eq/hue，用 colorbalance 实现）
+        // 5. 滤镜调色（eq + huesaturation，与 color_filter.py 的 eq/hue 参数保持一致）
         appendColorAdjust(clip, filters)
+
+        // 5.5 统一帧率：不同来源视频帧率可能不同，xfade/concat 要求一致
+        //     ★ min 版 FFmpegKit 不含 fps 滤镜，改用 framerate 滤镜
+        filters.add("framerate=fps=${fps}")
+        //     ★ framerate 只统一帧率，不统一 timebase；xfade/concat 要求 timebase 一致，
+        //       这里显式把 timebase 设为 1/fps，并用 setpts=N 重新编号帧，保证时间戳连续。
+        filters.add("settb=1/${fps}")
+        filters.add("setpts=N")
 
         // 6. 格式统一（h264_mediacodec 要求 yuv420p）—— 模糊背景模式由后续 split 逻辑处理
         if (!clip.blurBgEnabled) {
@@ -82,41 +97,49 @@ class FilterBuilder {
     }
 
     /**
-     * 调色滤镜（colorbalance 替代 eq/hue）
+     * 调色滤镜：
+     *   - 亮度/对比度/饱和度/伽马 → eq
+     *   - 色调旋转 → huesaturation
+     * 参数语义与 Python color_filter.py 的 eq + hue 保持一致。
      */
     private fun appendColorAdjust(clip: Clip, filters: MutableList<String>) {
         val preset = clip.filterPreset
-        val brightness = preset.brightness + clip.brightness
-        val contrast = preset.contrast + clip.contrast
-        val saturation = preset.saturation + clip.saturation
+        val brightness = (preset.brightness + clip.brightness).coerceIn(-1.0, 1.0)
+        val contrast = (preset.contrast + clip.contrast).coerceIn(-1.0, 1.0)
+        val saturation = (preset.saturation + clip.saturation).coerceIn(-1.0, 1.0)
         val hue = preset.hue
+        val gamma = preset.gamma
 
-        val hasColorAdjust = preset != FilterPreset.NONE ||
-            clip.brightness != 0.0 || clip.contrast != 0.0 || clip.saturation != 0.0
+        val hasColorAdjust = brightness != 0.0 || contrast != 0.0 ||
+            saturation != 0.0 || hue != 0.0 || gamma != 1.0
 
         if (!hasColorAdjust) return
 
-        // 亮度：阴影和高光同向偏移
-        val bShift = brightness.coerceIn(-1.0, 1.0) * 0.3
-        // 对比度：阴影反向、高光同向（拉大反差）
-        val cShift = contrast.coerceIn(-1.0, 1.0) * 0.2
-        // 饱和度：中间调同向偏移
-        val sShift = saturation.coerceIn(-1.0, 1.0) * 0.15
+        // ★ min 版 FFmpegKit 不含 eq 滤镜，改用可用的滤镜组合：
+        //   - 色相/饱和度 → huesaturation
+        //   - 亮度/对比度 → colorchannelmixer（对角缩放 + 通过 alpha 增益加偏移）
+        //   - 伽马 → lutrgb（逐通道 pow）
+        if (hue != 0.0 || saturation != 0.0) {
+            val hs = mutableListOf<String>()
+            if (hue != 0.0) hs.add("hue=${hue.fmt()}")
+            if (saturation != 0.0) hs.add("saturation=${saturation.fmt()}")
+            filters.add("huesaturation=" + hs.joinToString(":"))
+        }
 
-        // 色调：暖色（hue>0）R↑B↓，冷色（hue<0）B↑R↓
-        val hueR = if (hue > 0) hue / 180.0 * 0.2 else 0.0
-        val hueB = if (hue < 0) hue / 180.0 * 0.2 else 0.0
+        if (brightness != 0.0 || contrast != 0.0) {
+            val k = (1.0 + contrast).coerceIn(0.0, 2.0)
+            val t = (brightness + 0.5 * (1.0 - k)).coerceIn(-1.5, 1.5)
+            filters.add(
+                "colorchannelmixer=" +
+                "rr=${k.fmt()}:gg=${k.fmt()}:bb=${k.fmt()}:" +
+                "ra=${t.fmt()}:ga=${t.fmt()}:ba=${t.fmt()}"
+            )
+        }
 
-        val rs = bShift - cShift
-        val rh = bShift + cShift + hueR
-        val bh = bShift + cShift + hueB
-
-        filters.add(
-            "colorbalance=" +
-            "rs=${rs.fmt()}:gs=${rs.fmt()}:bs=${rs.fmt()}:" +
-            "rm=${sShift.fmt()}:gm=${sShift.fmt()}:bm=${sShift.fmt()}:" +
-            "rh=${rh.fmt()}:gh=${(bShift + cShift).fmt()}:bh=${bh.fmt()}"
-        )
+        if (gamma != 1.0) {
+            val expr = "clip(255*pow(val/255,${gamma.fmt()}),0,255)"
+            filters.add("lutrgb=r='$expr':g='$expr':b='$expr'")
+        }
     }
 
     /**
@@ -139,13 +162,31 @@ class FilterBuilder {
             filters.add(buildAtempoChain(clip.speed))
         }
 
+        // 倒放音频（对应 reverse_video.py 的 areverse）
+        if (clip.reversed) {
+            filters.add("areverse")
+        }
+
         // 音量
         if (clip.volume != 1.0) {
             filters.add("volume=${clip.volume.fmt()}")
         }
 
-        // 重采样统一（aac 编码器要求固定采样率）
+        // 音频淡入淡出（对应 audio_fade.py 的 afade）
+        // 经过 atrim/atempo/areverse 后，音频实际时长 == clip.timelineDuration
+        val audioDur = clip.timelineDuration
+        if (clip.audioFadeIn > 0 && audioDur > 0.1) {
+            val d = clip.audioFadeIn.coerceAtMost(audioDur / 2)
+            filters.add("afade=t=in:st=0:d=${d.fmt()}")
+        }
+        if (clip.audioFadeOut > 0 && audioDur > 0.1) {
+            val d = clip.audioFadeOut.coerceAtMost(audioDur / 2)
+            filters.add("afade=t=out:st=${(audioDur - d).fmt()}:d=${d.fmt()}")
+        }
+
+        // 重采样 + 声道统一（aac 编码器要求固定采样率；acrossfade 要求各输入格式一致）
         filters.add("aresample=44100")
+        filters.add("aformat=channel_layouts=stereo")
 
         return if (filters.isEmpty()) null else filters.joinToString(",")
     }
@@ -200,9 +241,7 @@ class FilterBuilder {
         val canvasH = project.canvasHeight.toAligned16()
 
         // 是否有转场
-        val hasTransition = clips.zipWithNext().any { (a, b) ->
-            a.transition != TransitionEffect.NONE && a.transitionDuration > 0
-        }
+        val hasTransition = hasAnyTransition(clips)
 
         // 生成文字水印 PNG（如果有）
         val textPngs = mutableMapOf<Int, TextPngResult>()  // clipIndex -> PNG
@@ -245,17 +284,18 @@ class FilterBuilder {
                 //     前景路：scale contain（保留比例）
                 //   overlay 前景居中到背景
                 val blurR = clip.blurStrength
-                val baseFilters = buildVideoFilters(clip, canvasW, canvasH)
-                parts.add("[${i}:v]${baseFilters},split=2[bg${i}][fg${i}]")
+                val baseFilters = buildVideoFilters(clip, canvasW, canvasH, project.fps)
+                val filterPrefix = if (baseFilters.isEmpty()) "" else "$baseFilters,"
+                parts.add("[${i}:v]${filterPrefix}split=2[bg${i}][fg${i}]")
                 // 背景路：cover 缩放 + 模糊
-                parts.add("[bg${i}]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH},avgblur=sizeX=${blurR}:sizeY=${blurR},format=yuv420p[bgblur${i}]")
+                parts.add("[bg${i}]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH},setsar=1,avgblur=sizeX=${blurR}:sizeY=${blurR},format=yuv420p[bgblur${i}]")
                 // 前景路：contain 缩放
                 parts.add("[fg${i}]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1,format=yuv420p[fgscaled${i}]")
                 // overlay 居中：(W-w)/2, (H-h)/2
                 parts.add("[bgblur${i}][fgscaled${i}]overlay=(W-w)/2:(H-h)/2[v$i]")
             } else {
                 // 普通模式
-                val vFilters = buildVideoFilters(clip, canvasW, canvasH)
+                val vFilters = buildVideoFilters(clip, canvasW, canvasH, project.fps)
                 parts.add("[${i}:v]${vFilters}[v$i]")
             }
             videoLabels.add("[v$i]")
@@ -299,10 +339,11 @@ class FilterBuilder {
                         parts.add("[${i}:a]aresample=44100[a$i]")
                     }
                 } else {
-                    // 无音频：生成静音填充
+                    // 无音频：生成静音填充（声道/采样率与有音频片段保持一致）
                     parts.add(
                         "anullsrc=channel_layout=stereo:sample_rate=44100," +
-                        "atrim=duration=${clipDur.fmt()},asetpts=PTS-STARTPTS[a$i]"
+                        "atrim=duration=${clipDur.fmt()},asetpts=PTS-STARTPTS," +
+                        "aformat=channel_layouts=stereo[a$i]"
                     )
                 }
                 audioLabels.add("[a$i]")
@@ -319,12 +360,18 @@ class FilterBuilder {
             concatLabel
         }
 
-        // 音频拼接
+        // 音频拼接：
+        //   ★ 有转场时视频用 xfade 会缩短总时长，音频必须用 acrossfade 同步缩短，
+        //     否则转场点之后音画不同步。
         val hasAudio = audioLabels.isNotEmpty()
         val finalAudioLabel = if (hasAudio) {
-            val aLabel = "[aout]"
-            parts.add(audioLabels.joinToString("") + "concat=n=${audioLabels.size}:v=0:a=1$aLabel")
-            aLabel
+            if (hasTransition) {
+                buildAcrossfadeChain(clips, audioLabels, parts)
+            } else {
+                val aLabel = "[aout]"
+                parts.add(audioLabels.joinToString("") + "concat=n=${audioLabels.size}:v=0:a=1$aLabel")
+                aLabel
+            }
         } else null
 
         val filterComplex = parts.joinToString(";")
@@ -359,8 +406,8 @@ class FilterBuilder {
             cmd.append(" -c:a aac -b:a 192k")
         }
 
-        // 时长限制
-        val totalDur = project.totalDuration
+        // 时长限制（★ 有转场时输出时长会缩短，必须用实际输出时长，否则 -t 超出实际时长）
+        val totalDur = computeOutputDuration(project)
         if (totalDur > 0) {
             cmd.append(" -t ${totalDur.fmt(2)}")
         }
@@ -372,6 +419,41 @@ class FilterBuilder {
         val result = cmd.toString()
         android.util.Log.d("FilterBuilder", "Export command: $result")
         return result
+    }
+
+    /**
+     * 相邻片段间的有效转场时长。
+     * 限制：不超过较短片段时长的 80%（否则 xfade offset 非法）；
+     * NONE 转场用 0.01s 的极短淡入淡出近似（保持 xfade 链连续）。
+     */
+    fun effectiveTransitionDur(clips: List<Clip>, i: Int): Double {
+        if (clips[i].transition == TransitionEffect.NONE) return 0.01
+        val maxD = minOf(clips[i].timelineDuration, clips[i + 1].timelineDuration) * 0.8
+        return clips[i].transitionDuration.coerceIn(0.01, maxD.coerceAtLeast(0.01))
+    }
+
+    /**
+     * 主轨是否存在至少一个非 NONE 且时长大于 0 的转场。
+     */
+    private fun hasAnyTransition(clips: List<Clip>): Boolean =
+        clips.zipWithNext().any { (a, _) ->
+            a.transition != TransitionEffect.NONE && a.transitionDuration > 0
+        }
+
+    /**
+     * 计算导出后的实际输出时长（xfade 转场会使总时长缩短）。
+     * 用于 ffmpeg -t 限制和进度条百分比计算。
+     */
+    fun computeOutputDuration(project: EditorProject): Double {
+        val mainTrack = project.mainTrack ?: return 0.0
+        val clips = mainTrack.clips.sortedBy { it.timelineStart }
+        var total = clips.sumOf { it.timelineDuration }
+        if (hasAnyTransition(clips)) {
+            for (i in 0 until clips.size - 1) {
+                total -= effectiveTransitionDur(clips, i)
+            }
+        }
+        return total.coerceAtLeast(0.0)
     }
 
     /**
@@ -404,14 +486,12 @@ class FilterBuilder {
 
         for (i in 0 until n - 1) {
             val effect = clips[i].transition
-            val transDur = clips[i].transitionDuration
             val curLabel = videoLabels[i + 1]
 
             val outLabel = if (i == n - 2) "[vout]" else "[x$i]"
 
-            if (effect == TransitionEffect.NONE || transDur <= 0) {
-                // 无转场：用 concat 连接（但这会打断 xfade 链）
-                // 简化处理：用极短的 fade（0.01s）近似无转场
+            if (effect == TransitionEffect.NONE) {
+                // 无转场：用极短的 fade（0.01s）近似，保持 xfade 链连续
                 parts.add(
                     "$prevLabel$curLabel" +
                     "xfade=transition=fade:duration=0.01:" +
@@ -419,7 +499,8 @@ class FilterBuilder {
                 )
                 cumulativeOut += durations[i + 1] - 0.01
             } else {
-                // 正常转场
+                // 正常转场（时长钳制在有效范围内，避免 offset 非法）
+                val transDur = effectiveTransitionDur(clips, i)
                 val offset = cumulativeOut - transDur
                 parts.add(
                     "$prevLabel$curLabel" +
@@ -432,6 +513,32 @@ class FilterBuilder {
         }
 
         return if (n == 2) "[vout]" else prevLabel
+    }
+
+    /**
+     * 构建 acrossfade 音频转场链 —— 与视频 xfade 链镜像，
+     * 保证转场后音画同步（总时长缩短量一致）。
+     */
+    private fun buildAcrossfadeChain(
+        clips: List<Clip>,
+        audioLabels: List<String>,
+        parts: MutableList<String>
+    ): String {
+        val n = clips.size
+        if (n < 2) return audioLabels[0]
+
+        var prevLabel = audioLabels[0]
+        for (i in 0 until n - 1) {
+            val curLabel = audioLabels[i + 1]
+            val outLabel = if (i == n - 2) "[aout]" else "[ax$i]"
+            val d = effectiveTransitionDur(clips, i)
+            parts.add(
+                "$prevLabel$curLabel" +
+                "acrossfade=d=${d.fmt()}:c1=tri:c2=tri$outLabel"
+            )
+            prevLabel = outLabel
+        }
+        return if (n == 2) "[aout]" else prevLabel
     }
 }
 

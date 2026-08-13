@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -34,16 +35,29 @@ import com.moon.videomerger.editor.data.Clip
  * - 点击/拖动标尺 → 移动播放头
  * - 点击/拖动轨道空白处 → 移动播放头
  * - 点击片段块 → 选中片段
+ * - 顶部快捷操作行：时间码 + 入点/出点 + 分割 + 删除（区间/片段）
+ * - 片段边界上的圆形图标 → 已设置转场，点击可修改
  */
 @Composable
 fun TimelinePanel(
     state: EditorUiState,
     onSelectClip: (String?) -> Unit,
     onSeek: (Double) -> Unit,
-    onSplit: (String, Double) -> Unit
+    onSetInPoint: () -> Unit,
+    onSetOutPoint: () -> Unit,
+    onClearRange: () -> Unit,
+    onSplitAtPlayhead: () -> Unit,
+    onDeleteClip: () -> Unit,
+    onOpenTransition: (String) -> Unit
 ) {
     val totalDuration = state.project.totalDuration.coerceAtLeast(1.0)
     val horizontalPadding = 12.dp
+
+    // 播放头是否落在选中片段内部（决定分割按钮可用性）
+    val selectedClip = state.selectedClip
+    val canSplit = selectedClip != null &&
+        state.currentPosition > selectedClip.timelineStart + 0.05 &&
+        state.currentPosition < selectedClip.timelineEnd - 0.05
 
     // ★ 用 BoxWithConstraints 获取实际可用宽度
     // pixelsPerSecond = (屏幕宽度 - 左右padding) / 总时长
@@ -51,7 +65,6 @@ fun TimelinePanel(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .height(140.dp)
             .background(Color(0xFF1A1A1A))
     ) {
         val density = LocalDensity.current
@@ -60,17 +73,36 @@ fun TimelinePanel(
         val usableWidthPx = (screenWidthPx - paddingPx * 2).coerceAtLeast(1f)
         val pixelsPerSecond = (usableWidthPx / totalDuration.toFloat()).coerceAtLeast(1f)
 
+        // ★ 不能用 fillMaxSize：外层已移除固定高度约束，
+        // fillMaxSize 会吃掉 EditorScreen Column 的全部剩余高度，
+        // 把预览区（weight）和底部工具栏挤压为 0。这里高度由内容撑开。
         Column(
             modifier = Modifier
-                .fillMaxSize()
                 .padding(horizontal = horizontalPadding)
         ) {
-            // ── 时间标尺 ──
+            // ── 快捷操作行：时间码 + 入出点 + 分割/删除 ──
+            TimelineActionBar(
+                currentPosition = state.currentPosition,
+                totalDuration = state.project.totalDuration,
+                hasSelectedClip = selectedClip != null,
+                canSplit = canSplit,
+                inPoint = state.inPoint,
+                outPoint = state.outPoint,
+                onSetInPoint = onSetInPoint,
+                onSetOutPoint = onSetOutPoint,
+                onClearRange = onClearRange,
+                onSplitAtPlayhead = onSplitAtPlayhead,
+                onDeleteClip = onDeleteClip
+            )
+
+            // ── 时间标尺（显示入出点区间高亮）──
             TimelineRuler(
                 totalDuration = totalDuration,
                 pixelsPerSecond = pixelsPerSecond,
                 usableWidthPx = usableWidthPx,
                 currentPosition = state.currentPosition,
+                inPoint = state.inPoint,
+                outPoint = state.outPoint,
                 onSeek = onSeek
             )
 
@@ -78,7 +110,7 @@ fun TimelinePanel(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
+                    .height(56.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -94,7 +126,8 @@ fun TimelinePanel(
                             onSeek = onSeek,
                             onSelectClip = { clipId ->
                                 onSelectClip(clipId)
-                            }
+                            },
+                            onOpenTransition = onOpenTransition
                         )
                     }
                 }
@@ -111,6 +144,115 @@ fun TimelinePanel(
 }
 
 /**
+ * 时间轴快捷操作行 —— 左侧时间码，右侧入出点/分割/删除（剪映式）。
+ * 入点出点都设好后，删除按钮变为“删区间”，点击区间文字可清除入出点。
+ */
+@Composable
+private fun TimelineActionBar(
+    currentPosition: Double,
+    totalDuration: Double,
+    hasSelectedClip: Boolean,
+    canSplit: Boolean,
+    inPoint: Double?,
+    outPoint: Double?,
+    onSetInPoint: () -> Unit,
+    onSetOutPoint: () -> Unit,
+    onClearRange: () -> Unit,
+    onSplitAtPlayhead: () -> Unit,
+    onDeleteClip: () -> Unit
+) {
+    val hasRange = inPoint != null && outPoint != null && outPoint > inPoint
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(34.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "${formatTimecode(currentPosition)} / ${formatTimecode(totalDuration)}",
+            color = Color(0xFF2196F3),
+            fontSize = 11.sp
+        )
+        // 区间已设：显示区间范围，点击清除
+        if (hasRange) {
+            Text(
+                text = " ✂ ${formatTimecode(inPoint!!)}-${formatTimecode(outPoint!!)}",
+                color = Color(0xFFFF7043),
+                fontSize = 11.sp,
+                modifier = Modifier
+                    .clickable(onClick = onClearRange)
+                    .padding(horizontal = 4.dp)
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        ActionBarButton(
+            icon = Icons.Default.Flag,
+            label = "入",
+            enabled = true,
+            active = inPoint != null,
+            onClick = onSetInPoint
+        )
+        Spacer(Modifier.width(8.dp))
+        ActionBarButton(
+            icon = Icons.Default.Flag,
+            label = "出",
+            enabled = true,
+            active = outPoint != null,
+            onClick = onSetOutPoint
+        )
+        Spacer(Modifier.width(8.dp))
+        ActionBarButton(
+            icon = Icons.Default.ContentCut,
+            label = "分割",
+            enabled = canSplit,
+            onClick = onSplitAtPlayhead
+        )
+        Spacer(Modifier.width(8.dp))
+        ActionBarButton(
+            icon = Icons.Default.Delete,
+            label = if (hasRange) "删区间" else "删除",
+            enabled = hasRange || hasSelectedClip,
+            onClick = onDeleteClip
+        )
+    }
+}
+
+@Composable
+private fun ActionBarButton(
+    icon: ImageVector,
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    active: Boolean = false
+) {
+    val tint = when {
+        !enabled -> Color(0xFF555555)
+        active -> Color(0xFFFF7043)
+        else -> Color.White
+    }
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            icon,
+            contentDescription = label,
+            tint = tint,
+            modifier = Modifier.size(15.dp)
+        )
+        Spacer(Modifier.width(2.dp))
+        Text(
+            label,
+            color = tint,
+            fontSize = 11.sp
+        )
+    }
+}
+
+/**
  * 时间标尺 —— 总时长铺满宽度，tap/drag 用百分比计算。
  */
 @Composable
@@ -119,6 +261,8 @@ private fun TimelineRuler(
     pixelsPerSecond: Float,
     usableWidthPx: Float,
     currentPosition: Double,
+    inPoint: Double?,
+    outPoint: Double?,
     onSeek: (Double) -> Unit
 ) {
     val density = LocalDensity.current
@@ -177,6 +321,19 @@ private fun TimelineRuler(
             )
         }
 
+        // 入出点区间高亮（待删除区间）
+        if (inPoint != null && outPoint != null && outPoint > inPoint) {
+            val startX = with(density) { (inPoint * pixelsPerSecond).toFloat().toDp() }
+            val rangeW = with(density) { ((outPoint - inPoint) * pixelsPerSecond).toFloat().toDp() }
+            Box(
+                modifier = Modifier
+                    .offset(x = startX)
+                    .width(rangeW)
+                    .fillMaxHeight()
+                    .background(Color(0x55FF7043))
+            )
+        }
+
         // 当前位置标记（蓝色竖线）
         val playheadX = with(density) { (currentPosition * pixelsPerSecond).toFloat().toDp() }
         Box(
@@ -200,9 +357,11 @@ private fun TrackRow(
     pixelsPerSecond: Float,
     totalDuration: Double,
     onSeek: (Double) -> Unit,
-    onSelectClip: (String?) -> Unit
+    onSelectClip: (String?) -> Unit,
+    onOpenTransition: (String) -> Unit
 ) {
-    val trackWidthDp = with(LocalDensity.current) { (track.duration * pixelsPerSecond).toFloat().toDp() }
+    val density = LocalDensity.current
+    val trackWidthDp = with(density) { (track.duration * pixelsPerSecond).toFloat().toDp() }
 
     Box(
         modifier = Modifier
@@ -257,11 +416,10 @@ private fun TrackRow(
             )
         }
 
-        // 片段区域（从 28dp 开始，避开图标）
+        // 片段区域（从 28dp 开始，避开图标；★ 不再额外加 padding，
+        // ClipBlock 内部的 +28dp offset 已含偏移，重复会导致片段与播放头错位）
         Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .padding(start = 28.dp)
+            modifier = Modifier.fillMaxHeight()
         ) {
             track.clips.sortedBy { it.timelineStart }.forEach { clip ->
                 ClipBlock(
@@ -271,7 +429,51 @@ private fun TrackRow(
                     onClick = { onSelectClip(if (clip.id == selectedClipId) null else clip.id) }
                 )
             }
+
+            // 转场指示器：片段边界上的圆形图标（剪映风格），点击打开转场面板
+            track.clips.sortedBy { it.timelineStart }.forEach { clip ->
+                if (clip.transition != com.moon.videomerger.editor.data.TransitionEffect.NONE) {
+                    TransitionBadge(
+                        clip = clip,
+                        pixelsPerSecond = pixelsPerSecond,
+                        onClick = { onOpenTransition(clip.id) }
+                    )
+                }
+            }
         }
+    }
+}
+
+/**
+ * 转场指示器 —— 位于片段结尾边界上的小圆形，点击可修改转场。
+ */
+@Composable
+private fun TransitionBadge(
+    clip: Clip,
+    pixelsPerSecond: Float,
+    onClick: () -> Unit
+) {
+    val density = LocalDensity.current
+    val size = 16.dp
+    val centerX = with(density) { (clip.timelineEnd * pixelsPerSecond).toFloat().toDp() } + 28.dp
+
+    // ★ 不能用 align（非 BoxScope 内），用 offset 垂直居中：
+    // 轨道行 48dp - 上下 padding 4dp = 44dp，(44 - 16) / 2 = 14dp
+    Box(
+        modifier = Modifier
+            .offset(x = centerX - size / 2, y = 14.dp)
+            .size(size)
+            .clip(androidx.compose.foundation.shape.CircleShape)
+            .background(Color.White)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            Icons.Default.SwapHoriz,
+            contentDescription = "转场",
+            tint = Color(0xFF1A1A1A),
+            modifier = Modifier.size(11.dp)
+        )
     }
 }
 

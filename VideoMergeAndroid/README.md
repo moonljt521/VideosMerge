@@ -20,7 +20,7 @@
 |------|------|
 | **Kotlin** | 100% Kotlin |
 | **Jetpack Compose** | 声明式 UI |
-| **FFmpegKit** | `ffmpeg-kit-full-gpl:6.0-2`，包含 ffmpeg + ffprobe + x264/aac |
+| **FFmpegKit** | 本地 `app/libs/ffmpeg-kit.aar`（`min` / LGPL，FFmpeg n6.0），包含 ffmpeg + ffprobe + mediacodec/aac |
 | **MediaStore API** | 通过 `MediaStore` 将输出保存到系统相册 |
 | **Coroutines** | 异步执行 ffmpeg + 进度回调 |
 
@@ -68,11 +68,11 @@ VideoMerger/
 ### 步骤
 
 1. 用 Android Studio 打开 `VideoMerger/` 目录
-2. 等待 Gradle sync 完成（首次会自动下载 FFmpegKit 依赖，约 200MB）
+2. 等待 Gradle sync 完成（FFmpegKit 使用本地 `app/libs/ffmpeg-kit.aar`，不需要从 Maven 下载）
 3. 连接 Android 手机（开启 USB 调试）或启动模拟器
 4. 点击 Run（▶）编译安装
 
-> **注意**：FFmpegKit `full-gpl` 变体包含完整编解码器（x264、aac 等），APK 体积约 80~100MB。如果只需要基本格式，可改用 `ffmpeg-kit-min-gpl` 减小体积。
+> **注意**：当前使用 FFmpegKit `min` 变体，视频编码依赖设备 `h264_mediacodec`，APK 体积远小于 `full-gpl`。
 
 ## 使用流程
 
@@ -111,7 +111,7 @@ VideoMerger/
 
 ## 注意事项
 
-1. **APK 体积**：FFmpegKit full-gpl 约 80~100MB，是主要体积来源
+1. **APK 体积**：当前使用 FFmpegKit `min` 本地 aar，主要体积来源是原生库；如后续换 `full-gpl` 会显著增大
 2. **处理时间**：取决于视频数量和时长，手机上通常比电脑慢 2~5 倍
 3. **内存**：大视频合并可能需要较多内存，建议 minSdk 24+ 的设备至少 4GB RAM
 4. **Android 10+**：无需 `WRITE_EXTERNAL_STORAGE` 权限，通过 MediaStore 直接写入相册

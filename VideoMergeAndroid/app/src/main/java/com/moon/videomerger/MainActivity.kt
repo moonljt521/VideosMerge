@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import com.moon.videomerger.editor.ui.EditorScreen
 import com.moon.videomerger.editor.ui.EditorViewModel
 import com.moon.videomerger.home.HomeScreen
+import com.moon.videomerger.home.HistoryScreen
 import com.moon.videomerger.ui.MergeScreen
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -50,9 +51,14 @@ fun AppNavigation() {
                     selectedUris = uris
                     screen = Screen.Merge
                 },
-                onOpenHistory = { path ->
-                    // TODO: 从历史记录打开
+                onOpenHistory = {
+                    screen = Screen.History
                 }
+            )
+        }
+        is Screen.History -> {
+            HistoryScreen(
+                onBack = { screen = Screen.Home }
             )
         }
         is Screen.Editor -> {
@@ -92,6 +98,7 @@ sealed class Screen {
     object Home : Screen()
     object Editor : Screen()
     object Merge : Screen()
+    object History : Screen()
 }
 
 @Composable
