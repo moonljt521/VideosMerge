@@ -210,6 +210,11 @@ object MediaUtils {
         // 再看 content resolver 的 MIME type
         val mime = context.contentResolver.getType(uri) ?: ""
         return when {
+            mime.contains("png") -> "png"
+            mime.contains("jpeg") || mime.contains("jpg") -> "jpg"
+            mime.contains("webp") -> "webp"
+            mime.contains("gif") -> "gif"
+            mime.contains("bmp") -> "bmp"
             mime.contains("mp4") -> "mp4"
             mime.contains("quicktime") -> "mov"
             mime.contains("matroska") -> "mkv"

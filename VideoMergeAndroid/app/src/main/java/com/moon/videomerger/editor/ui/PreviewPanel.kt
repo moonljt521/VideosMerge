@@ -1,8 +1,10 @@
 package com.moon.videomerger.editor.ui
 
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -13,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -20,6 +23,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.effect.GaussianBlur
 import androidx.media3.effect.HslAdjustment
 import androidx.media3.effect.RgbMatrix
@@ -93,17 +97,38 @@ fun PreviewPanel(
     // ExoPlayer + PlayerView —— 片段或调色参数变化时整体重建。
     // 用 key(...) 包住播放器及其 PlayerView，参数变化时 Compose 会连同 PlayerView
     // 一起销毁重建，避免旧 player 已释放但 PlayerView 仍持有旧引用，导致滤镜残留或黑屏。
-    Box(
+    BoxWithConstraints(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        key(currentClip.id, previewBrightness, previewContrast, previewSaturation, previewHue, previewBlurSigma) {
+        // 图片水印预览：用 Compose 叠加层绘制在视频之上（与播放按钮同一层，保证在视频 Surface 之上）。
+        // 视频真实画面的宽高比来自 ExoPlayer 的 onVideoSizeChanged（已包含旋转），
+        // 再据此在预览框内做 aspect-fit 计算，水印只会落在画面内，不会跑到黑边。
+        var videoAspect by remember { mutableStateOf<Float?>(null) }
+
+        key(
+            currentClip.id,
+            previewBrightness,
+            previewContrast,
+            previewSaturation,
+            previewHue,
+            previewBlurSigma
+        ) {
             val sourceTime = previewSourceTime(state.currentPosition)
             val seekMs = sourceTime.coerceIn(currentClip.trimStart, currentClip.trimEnd)
                 .let { (it * 1000).toLong() }
 
             val player = remember {
                 ExoPlayer.Builder(context).build().apply {
+                    addListener(object : Player.Listener {
+                        override fun onVideoSizeChanged(videoSize: VideoSize) {
+                            val rot = ((videoSize.unappliedRotationDegrees % 360) + 360) % 360
+                            val w = if (rot == 90 || rot == 270) videoSize.height else videoSize.width
+                            val h = if (rot == 90 || rot == 270) videoSize.width else videoSize.height
+                            val aspect = w * videoSize.pixelWidthHeightRatio / h
+                            if (aspect > 0f) videoAspect = aspect
+                        }
+                    })
                     try {
                         setVideoEffects(
                             buildPreviewEffects(
@@ -127,6 +152,25 @@ fun PreviewPanel(
 
             DisposableEffect(Unit) {
                 onDispose { player.release() }
+            }
+
+            // 部分设备上 onVideoSizeChanged 回调不可靠，这里再轮询一次 player.videoSize，
+            // 拿到含旋转的真实显示宽高比，作为水印定位的兜底来源。
+            LaunchedEffect(player, currentClip.id) {
+                while (true) {
+                    val vs = player.videoSize
+                    if (vs.width > 0 && vs.height > 0) {
+                        val rot = ((vs.unappliedRotationDegrees % 360) + 360) % 360
+                        val w = if (rot == 90 || rot == 270) vs.height else vs.width
+                        val h = if (rot == 90 || rot == 270) vs.width else vs.height
+                        val aspect = w * vs.pixelWidthHeightRatio / h
+                        if (aspect > 0f) {
+                            videoAspect = aspect
+                            break
+                        }
+                    }
+                    delay(100)
+                }
             }
 
             LaunchedEffect(currentClip.id, currentClip.speed) {
@@ -202,6 +246,88 @@ fun PreviewPanel(
                 },
                 modifier = Modifier.fillMaxSize()
             )
+        }
+
+        // 图片水印叠加层（覆盖在视频上，按真实视频宽高比在预览框内 aspect-fit 定位）。
+        currentClip.imageWatermarkPath?.let { path ->
+            val wmBitmap = remember(path) { BitmapFactory.decodeFile(path) }
+            // ExoPlayer 的 onVideoSizeChanged 为最准确来源；未回调时用片段的流宽高兜底。
+            val aspect = videoAspect ?: if (currentClip.height > 0) {
+                currentClip.width.toFloat() / currentClip.height.toFloat()
+            } else {
+                null
+            }
+            wmBitmap?.let { bmp ->
+                if (aspect != null && aspect > 0f && bmp.width > 0 && bmp.height > 0) {
+                    val scale = currentClip.imageWatermarkScale.toFloat()
+                    val opacity = currentClip.imageWatermarkOpacity.toFloat().coerceIn(0f, 1f)
+                    val position = currentClip.imageWatermarkPosition
+
+                    // 预览框尺寸（dp）
+                    val pw = maxWidth.value
+                    val ph = maxHeight.value
+                    val previewAspect = pw / ph
+
+                    // aspect-fit：视频在预览框内的实际宽高与左上角（dp）
+                    val videoW: Float
+                    val videoH: Float
+                    if (aspect > previewAspect) {
+                        videoW = pw
+                        videoH = pw / aspect
+                    } else {
+                        videoH = ph
+                        videoW = ph * aspect
+                    }
+                    val videoLeft = (pw - videoW) / 2f
+                    val videoTop = (ph - videoH) / 2f
+
+                    val wmWidthDp = (videoW * scale).coerceAtLeast(1f)
+                    val wmHeightDp = wmWidthDp * (bmp.height.toFloat() / bmp.width.toFloat())
+                    val padDp = (videoW * 0.01f).coerceAtLeast(2f)
+
+                    val xDp: Float
+                    val yDp: Float
+                    when (position) {
+                        "top-left" -> {
+                            xDp = videoLeft + padDp
+                            yDp = videoTop + padDp
+                        }
+                        "top-right" -> {
+                            xDp = videoLeft + videoW - wmWidthDp - padDp
+                            yDp = videoTop + padDp
+                        }
+                        "bottom-left" -> {
+                            xDp = videoLeft + padDp
+                            yDp = videoTop + videoH - wmHeightDp - padDp
+                        }
+                        "center" -> {
+                            xDp = videoLeft + (videoW - wmWidthDp) / 2f
+                            yDp = videoTop + (videoH - wmHeightDp) / 2f
+                        }
+                        else -> {
+                            xDp = videoLeft + videoW - wmWidthDp - padDp
+                            yDp = videoTop + videoH - wmHeightDp - padDp
+                        }
+                    }
+
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Image(
+                            bitmap = bmp.asImageBitmap(),
+                            contentDescription = null,
+                            alpha = opacity,
+                            modifier = Modifier
+                                .offset(
+                                    x = xDp.dp,
+                                    y = yDp.dp
+                                )
+                                .size(
+                                    width = wmWidthDp.dp,
+                                    height = wmHeightDp.dp
+                                )
+                        )
+                    }
+                }
+            }
         }
 
         // 播放/暂停按钮（覆盖在预览上）

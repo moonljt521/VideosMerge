@@ -164,6 +164,12 @@ data class Clip(
     val textOpacity: Float = 1.0f,       // 透明度 0~1
     val textBorder: Boolean = true,      // 是否描边（黑色描边增强可读性）
 
+    // 图片水印
+    val imageWatermarkPath: String? = null, // 水印图片路径
+    val imageWatermarkScale: Double = 0.2,  // 相对画布宽度的缩放比例
+    val imageWatermarkOpacity: Double = 1.0,// 透明度 0~1
+    val imageWatermarkPosition: String = "bottom-right",
+
     // 模糊背景（竖屏→横屏 或 横屏→竖屏 时，用模糊画面填充背景）
     val blurBgEnabled: Boolean = false,  // 是否启用模糊背景
     val blurStrength: Int = 12,          // 模糊强度（avgblur 半径）

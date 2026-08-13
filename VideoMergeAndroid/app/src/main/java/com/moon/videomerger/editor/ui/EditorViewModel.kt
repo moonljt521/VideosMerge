@@ -674,6 +674,20 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun setImageWatermark(clipId: String, path: String?) {
+        updateClip(clipId) { it.copy(imageWatermarkPath = path) }
+    }
+
+    fun updateImageWatermark(clipId: String, scale: Double, opacity: Double, position: String) {
+        updateClip(clipId) {
+            it.copy(
+                imageWatermarkScale = scale.coerceIn(0.05, 1.0),
+                imageWatermarkOpacity = opacity.coerceIn(0.0, 1.0),
+                imageWatermarkPosition = position
+            )
+        }
+    }
+
     // ═══════════════════════════════════════
     //  模糊背景
     // ═══════════════════════════════════════

@@ -274,6 +274,7 @@ class FilterBuilder {
         //   n..n+m-1: 文字水印 PNG（按 clip 顺序追加）
         var nextInputIdx = clips.size
         val textPngInputIdx = mutableMapOf<Int, Int>()  // clipIndex -> 输入流编号
+        val imageWatermarkInputIdx = mutableMapOf<Int, Int>()  // clipIndex -> 输入流编号
 
         clips.forEachIndexed { i, clip ->
             if (clip.blurBgEnabled) {
@@ -305,6 +306,11 @@ class FilterBuilder {
                 textPngInputIdx[i] = nextInputIdx
                 nextInputIdx++
             }
+
+            clip.imageWatermarkPath?.let {
+                imageWatermarkInputIdx[i] = nextInputIdx
+                nextInputIdx++
+            }
         }
 
         // 为有文字水印的片段叠加 PNG
@@ -321,6 +327,20 @@ class FilterBuilder {
                 parts.add("[${pngIdx}:v]format=rgba,scale=${png.width}:${png.height}[png$i]")
                 val newLabel = "[vt$i]"
                 parts.add("$label[png$i]overlay=${ox}:${oy}$newLabel")
+                label = newLabel
+            }
+
+            clip.imageWatermarkPath?.let { imgPath ->
+                val imgIdx = imageWatermarkInputIdx[i]!!
+                val targetW = (canvasW * clip.imageWatermarkScale).toInt().coerceAtLeast(16)
+                val opacity = clip.imageWatermarkOpacity.coerceIn(0.0, 1.0)
+                val pos = imageOverlayPosition(clip.imageWatermarkPosition)
+                val newLabel = "[vw$i]"
+                parts.add(
+                    "[${imgIdx}:v]scale=${targetW}:-1,format=rgba," +
+                    "colorchannelmixer=aa=${opacity.fmt()}[wm$i]"
+                )
+                parts.add("$label[wm$i]overlay=$pos$newLabel")
                 label = newLabel
             }
             finalVideoLabels.add(label)
@@ -388,6 +408,12 @@ class FilterBuilder {
         clips.forEachIndexed { i, _ ->
             textPngs[i]?.let { png ->
                 cmd.append(" -i \"${png.file.absolutePath}\"")
+            }
+        }
+        // 输入文件：图片水印（按 clip 顺序）
+        clips.forEachIndexed { i, clip ->
+            clip.imageWatermarkPath?.let { path ->
+                cmd.append(" -i \"$path\"")
             }
         }
 
@@ -539,6 +565,20 @@ class FilterBuilder {
             prevLabel = outLabel
         }
         return if (n == 2) "[aout]" else prevLabel
+    }
+
+    /**
+     * 图片水印位置表达式（相对于画布）。
+     */
+    private fun imageOverlayPosition(position: String): String {
+        return when (position) {
+            "top-left" -> "10:10"
+            "top-right" -> "W-w-10:10"
+            "bottom-left" -> "10:H-h-10"
+            "bottom-right" -> "W-w-10:H-h-10"
+            "center" -> "(W-w)/2:(H-h)/2"
+            else -> "W-w-10:H-h-10"
+        }
     }
 }
 

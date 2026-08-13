@@ -9,6 +9,7 @@ enum class ToolPanel {
     SPEED,          // 变速面板
     FILTER,         // 滤镜面板
     TEXT,           // 文字面板
+    IMAGE_WATERMARK,// 图片水印
     AUDIO,          // 音频面板
     BLUR_BG,        // 模糊背景面板
     TRANSITION,     // 转场面板
