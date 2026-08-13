@@ -40,6 +40,7 @@ fun ToolbarPanel(
         ToolItem("变速", Icons.Default.Speed, ToolPanel.SPEED, enabled = hasSelectedClip),
         ToolItem("滤镜", Icons.Default.FilterVintage, ToolPanel.FILTER, enabled = hasSelectedClip),
         ToolItem("文字", Icons.Default.TextFields, ToolPanel.TEXT, enabled = hasSelectedClip),
+        ToolItem("水印", Icons.Default.Image, ToolPanel.IMAGE_WATERMARK, enabled = hasSelectedClip),
         ToolItem("音频", Icons.Default.AudioFile, ToolPanel.AUDIO, enabled = hasSelectedClip),
         ToolItem("背景", Icons.Default.BlurOn, ToolPanel.BLUR_BG, enabled = hasSelectedClip),
         ToolItem("导出", Icons.Default.Download, ToolPanel.EXPORT),
@@ -143,6 +144,8 @@ fun ToolPanelHost(
     onFadeChange: (Double, Double) -> Unit,
     onTextChange: (String?) -> Unit,
     onTextStyleChange: (Int, String, String, Float, Boolean) -> Unit,
+    onImageWatermarkSelect: (String?) -> Unit,
+    onImageWatermarkChange: (Double, Double, String) -> Unit,
     onRotation: (Int) -> Unit,
     onHFlip: () -> Unit,
     onVFlip: () -> Unit,
@@ -202,6 +205,13 @@ fun ToolPanelHost(
             clip = clip!!,
             onTextChange = onTextChange,
             onTextStyleChange = onTextStyleChange,
+            onEditStart = onEditStart,
+            onClose = onClose
+        )
+        ToolPanel.IMAGE_WATERMARK -> ImageWatermarkPanel(
+            clip = clip!!,
+            onSelect = onImageWatermarkSelect,
+            onChange = onImageWatermarkChange,
             onEditStart = onEditStart,
             onClose = onClose
         )

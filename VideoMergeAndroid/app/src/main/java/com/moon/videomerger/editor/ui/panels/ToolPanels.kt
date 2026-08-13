@@ -1,5 +1,8 @@
 package com.moon.videomerger.editor.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -21,6 +25,7 @@ import com.moon.videomerger.editor.data.Clip
 import com.moon.videomerger.editor.data.EditorUiState
 import com.moon.videomerger.editor.data.FilterPreset
 import com.moon.videomerger.editor.data.TransitionEffect
+import com.moon.videomerger.util.MediaUtils
 
 // ═══════════════════════════════════════
 //  裁剪面板（含旋转/翻转 + 播放头分割 + 删除）
@@ -547,6 +552,108 @@ fun AudioPanel(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
+    }
+}
+
+// ═══════════════════════════════════════
+//  图片水印面板
+// ═══════════════════════════════════════
+
+@Composable
+fun ImageWatermarkPanel(
+    clip: Clip,
+    onSelect: (String?) -> Unit,
+    onChange: (Double, Double, String) -> Unit,
+    onEditStart: () -> Unit,
+    onClose: () -> Unit
+) {
+    val context = LocalContext.current
+    var scale by remember(clip.id) { mutableStateOf(clip.imageWatermarkScale.toFloat()) }
+    var opacity by remember(clip.id) { mutableStateOf(clip.imageWatermarkOpacity.toFloat()) }
+    var position by remember(clip.id) { mutableStateOf(clip.imageWatermarkPosition) }
+
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            onEditStart()
+            val file = MediaUtils.copyUriToTempFile(context, uri, 0)
+            onSelect(file.absolutePath)
+        }
+    }
+
+    val positions = listOf(
+        "top-left" to "左上",
+        "top-right" to "右上",
+        "bottom-left" to "左下",
+        "bottom-right" to "右下",
+        "center" to "居中"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF1A1A1A))
+            .verticalScroll(rememberScrollState())
+    ) {
+        PanelHeader("图片水印", onClose)
+
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    if (clip.imageWatermarkPath == null) "未选择图片" else "已选择图片",
+                    color = Color.White,
+                    fontSize = 14.sp
+                )
+                clip.imageWatermarkPath?.let { path ->
+                    Text(path.substringAfterLast('/'), color = Color(0xFF666666), fontSize = 11.sp)
+                }
+            }
+            Button(onClick = { imagePicker.launch("image/*") }) {
+                Text("选择图片", fontSize = 12.sp)
+            }
+            if (clip.imageWatermarkPath != null) {
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = { onEditStart(); onSelect(null) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                ) {
+                    Text("移除", fontSize = 12.sp)
+                }
+            }
+        }
+
+        Text("位置", color = Color(0xFF888888), fontSize = 12.sp,
+            modifier = Modifier.padding(start = 16.dp, top = 4.dp))
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(positions) { (key, label) ->
+                FilterChip(
+                    selected = position == key,
+                    onClick = {
+                        onEditStart()
+                        position = key
+                        onChange(scale.toDouble(), opacity.toDouble(), key)
+                    },
+                    label = { Text(label, fontSize = 11.sp) }
+                )
+            }
+        }
+
+        SliderRow("大小", scale, 0.05f..1.0f, onValueChange = {
+            scale = it
+            onChange(scale.toDouble(), opacity.toDouble(), position)
+        }, onValueChangeStarted = onEditStart)
+
+        SliderRow("透明度", opacity, 0f..1f, onValueChange = {
+            opacity = it
+            onChange(scale.toDouble(), opacity.toDouble(), position)
+        }, onValueChangeStarted = onEditStart)
     }
 }
 
