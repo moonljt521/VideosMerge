@@ -429,13 +429,17 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         _uiState.value = _uiState.value.copy(isTranscribing = true)
+        android.util.Log.d("EditorVM", "transcribeSpeech 开始, clip=${mainClip.mediaName}, modelReady=${VoskSpeechRecognizer.isModelReady(appContext)}")
         viewModelScope.launch {
             try {
                 val subs = withContext(Dispatchers.IO) {
                     val raw = VoskSpeechRecognizer.extractAudio(appContext, mainClip.mediaPath)
+                    android.util.Log.d("EditorVM", "音频提取完成: ${raw.absolutePath} (${raw.length()} bytes)")
                     val words = VoskSpeechRecognizer.recognize(appContext, raw)
+                    android.util.Log.d("EditorVM", "识别词数: ${words.size}, 词列表: ${words.take(10).joinToString { it.text }}")
                     VoskSpeechRecognizer.groupToSubtitles(words)
                 }
+                android.util.Log.d("EditorVM", "生成字幕条数: ${subs.size}")
                 if (subs.isEmpty()) {
                     showError("未识别到语音")
                 } else {
