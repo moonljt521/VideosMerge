@@ -42,6 +42,7 @@ fun ToolbarPanel(
         ToolItem("变速", Icons.Default.Speed, ToolPanel.SPEED, enabled = hasSelectedClip),
         ToolItem("滤镜", Icons.Default.FilterVintage, ToolPanel.FILTER, enabled = hasSelectedClip),
         ToolItem("文字", Icons.Default.TextFields, ToolPanel.TEXT, enabled = hasSelectedClip),
+        ToolItem("字幕", Icons.Default.Subtitles, ToolPanel.SUBTITLE, enabled = true),
         ToolItem("水印", Icons.Default.Image, ToolPanel.IMAGE_WATERMARK, enabled = hasSelectedClip),
         ToolItem("画中画", Icons.Default.PictureInPictureAlt, ToolPanel.PICTURE, enabled = true),
         ToolItem("音频", Icons.Default.AudioFile, ToolPanel.AUDIO, enabled = hasSelectedClip),
@@ -168,18 +169,22 @@ fun ToolPanelHost(
     onAddPipKeyframe: () -> Unit,
     onRemovePipKeyframe: (Int) -> Unit,
     onRemovePip: () -> Unit,
+    onAddSubtitle: (String, Double, Double) -> Unit,
+    onRemoveSubtitle: (String) -> Unit,
     onEditStart: () -> Unit,
     onExport: () -> Unit,
     onClose: () -> Unit
 ) {
     val clip = state.selectedClip
     // ★ 组合阶段不能直接调用 onClose（副作用），改用 LaunchedEffect
+    //   EXPORT 与 SUBTITLE 为项目级面板，无需选中片段
     LaunchedEffect(clip?.id, state.currentPanel) {
-        if (clip == null && state.currentPanel != ToolPanel.EXPORT && state.currentPanel != ToolPanel.NONE) {
+        val projectLevel = state.currentPanel == ToolPanel.EXPORT || state.currentPanel == ToolPanel.SUBTITLE
+        if (clip == null && !projectLevel && state.currentPanel != ToolPanel.NONE) {
             onClose()
         }
     }
-    if (clip == null && state.currentPanel != ToolPanel.EXPORT) {
+    if (clip == null && state.currentPanel != ToolPanel.EXPORT && state.currentPanel != ToolPanel.SUBTITLE) {
         return
     }
 
@@ -263,6 +268,13 @@ fun ToolPanelHost(
             onAddKeyframe = onAddPipKeyframe,
             onRemoveKeyframe = onRemovePipKeyframe,
             onRemove = onRemovePip,
+            onEditStart = onEditStart,
+            onClose = onClose
+        )
+        ToolPanel.SUBTITLE -> SubtitlePanel(
+            state = state,
+            onAdd = onAddSubtitle,
+            onRemove = onRemoveSubtitle,
             onEditStart = onEditStart,
             onClose = onClose
         )

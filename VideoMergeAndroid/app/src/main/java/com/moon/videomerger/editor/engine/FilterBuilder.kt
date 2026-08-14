@@ -318,6 +318,27 @@ class FilterBuilder {
      *   - speed=2.0（加速2倍）→ atempo=2.0（音频也快2倍，时长减半）
      *   - speed=0.5（减速到一半）→ atempo=0.5（音频也慢2倍，时长翻倍）
      */
+    /** 生成 SRT 字幕内容 */
+    private fun buildSrt(subtitles: List<Subtitle>): String {
+        val sb = StringBuilder()
+        subtitles.forEachIndexed { i, s ->
+            sb.append(i + 1).append('\n')
+            sb.append(formatSrtTime(s.startTime)).append(" --> ").append(formatSrtTime(s.endTime)).append('\n')
+            sb.append(s.text).append('\n').append('\n')
+        }
+        return sb.toString()
+    }
+
+    /** 秒 → SRT 时间码 HH:MM:SS,mmm */
+    private fun formatSrtTime(seconds: Double): String {
+        val ms = ((seconds % 1) * 1000).toInt().coerceIn(0, 999)
+        val total = seconds.toInt()
+        val h = total / 3600
+        val m = (total % 3600) / 60
+        val s = total % 60
+        return String.format(Locale.US, "%02d:%02d:%02d,%03d", h, m, s, ms)
+    }
+
     private fun buildAtempoChain(speed: Double): String {
         if (speed >= 0.5 && speed <= 2.0) {
             return "atempo=${speed.fmt()}"
@@ -592,6 +613,23 @@ class FilterBuilder {
                         "overlay=$xExpr:$yExpr:eof_action=pass$afterBorderLabel"
                 )
                 finalVideoLabel = afterBorderLabel
+            }
+        }
+
+        // 字幕：生成 SRT 并用 subtitles 滤镜烧录到最终视频（画中画之上）
+        if (project.subtitles.isNotEmpty() && context != null) {
+            try {
+                val srt = buildSrt(project.subtitles.sortedBy { it.startTime })
+                val srtFile = File(context.cacheDir, "subtitle_${System.currentTimeMillis()}.srt")
+                srtFile.writeText(srt)
+                val subLabel = "[vsub]"
+                parts.add(
+                    "$finalVideoLabel" +
+                        "subtitles=${srtFile.absolutePath}:force_style='FontSize=24,Alignment=2'$subLabel"
+                )
+                finalVideoLabel = subLabel
+            } catch (e: Exception) {
+                android.util.Log.e("FilterBuilder", "烧录字幕失败", e)
             }
         }
 
