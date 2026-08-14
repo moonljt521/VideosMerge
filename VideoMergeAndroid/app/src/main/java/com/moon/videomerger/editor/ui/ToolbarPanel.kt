@@ -171,6 +171,7 @@ fun ToolPanelHost(
     onRemovePip: () -> Unit,
     onAddSubtitle: (String, Double, Double) -> Unit,
     onRemoveSubtitle: (String) -> Unit,
+    onTranscribe: () -> Unit,
     onEditStart: () -> Unit,
     onExport: () -> Unit,
     onClose: () -> Unit
@@ -275,6 +276,7 @@ fun ToolPanelHost(
             state = state,
             onAdd = onAddSubtitle,
             onRemove = onRemoveSubtitle,
+            onTranscribe = onTranscribe,
             onEditStart = onEditStart,
             onClose = onClose
         )
