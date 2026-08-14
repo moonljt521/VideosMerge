@@ -5,11 +5,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,8 +20,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moon.videomerger.editor.data.Clip
@@ -361,6 +367,7 @@ fun TextPanel(
     var position by remember(clip.id) { mutableStateOf(clip.textPosition) }
     var opacity by remember(clip.id) { mutableStateOf(clip.textOpacity) }
     var border by remember(clip.id) { mutableStateOf(clip.textBorder) }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     val colors_list = listOf("white", "yellow", "red", "cyan", "black", "green")
     val positions = listOf("top-left", "top-right", "bottom-left", "bottom-right", "center")
@@ -376,6 +383,9 @@ fun TextPanel(
             .background(Color(0xFF1A1A1A))
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = { keyboardController?.hide() })
+            }
     ) {
         PanelHeader("文字水印", onClose)
         Spacer(Modifier.height(16.dp))
@@ -388,6 +398,8 @@ fun TextPanel(
             },
             label = { Text("输入文字内容", color = Color(0xFF888888)) },
             modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
             colors = TextFieldDefaults.colors(
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White,
@@ -614,6 +626,7 @@ fun SubtitlePanel(
     var start by remember { mutableStateOf(state.currentPosition.toFloat()) }
     var end by remember { mutableStateOf((state.currentPosition + 2.0).toFloat()) }
     val total = state.project.totalDuration.toFloat().coerceAtLeast(0.1f)
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     Column(
         modifier = Modifier
@@ -621,6 +634,10 @@ fun SubtitlePanel(
             .background(Color(0xFF1A1A1A))
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
+            // 点击空白处收起键盘（子组件按钮/输入框会先消费点击，不影响它们）
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = { keyboardController?.hide() })
+            }
     ) {
         PanelHeader("字幕", onClose)
         Spacer(Modifier.height(8.dp))
@@ -630,6 +647,8 @@ fun SubtitlePanel(
             onValueChange = { text = it },
             label = { Text("字幕文本", color = Color(0xFF888888)) },
             modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
             colors = TextFieldDefaults.colors(
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White,
