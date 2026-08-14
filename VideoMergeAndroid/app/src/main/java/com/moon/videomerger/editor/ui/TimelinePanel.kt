@@ -106,11 +106,11 @@ fun TimelinePanel(
                 onSeek = onSeek
             )
 
-            // ── 轨道区域 ──
+            // ── 轨道区域（多轨时按轨道数撑高）──
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height((state.project.tracks.size * 48 + 8).dp)
             ) {
                 Column(
                     modifier = Modifier

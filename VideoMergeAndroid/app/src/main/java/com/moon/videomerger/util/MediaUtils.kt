@@ -202,6 +202,27 @@ object MediaUtils {
         File(context.cacheDir, "merge_thumb.jpg").delete()
     }
 
+    /**
+     * 判断文件是否为图片（按扩展名）。
+     */
+    fun isImageFile(path: String): Boolean {
+        val ext = path.substringAfterLast('.', "").lowercase()
+        return ext in setOf("png", "jpg", "jpeg", "webp", "gif", "bmp")
+    }
+
+    /**
+     * 读取图片宽高（不解码全图，避免 OOM）。
+     */
+    fun getImageDimensions(path: String): Pair<Int, Int>? {
+        return try {
+            val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(path, opts)
+            if (opts.outWidth > 0 && opts.outHeight > 0) opts.outWidth to opts.outHeight else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     private fun guessExtension(uri: Uri, context: Context): String {
         // 先看 URI 最后一段
         val name = uri.lastPathSegment ?: ""
