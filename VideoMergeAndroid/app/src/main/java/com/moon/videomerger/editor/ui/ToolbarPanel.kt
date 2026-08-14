@@ -163,6 +163,8 @@ fun ToolPanelHost(
     onTransitionDurationChange: (Double) -> Unit,
     onPipTransformChange: (Double, Double, Double, Double) -> Unit,
     onPipStyleChange: (PipShape, Double, Boolean, Double) -> Unit,
+    onAddPipKeyframe: () -> Unit,
+    onRemovePipKeyframe: (Int) -> Unit,
     onRemovePip: () -> Unit,
     onEditStart: () -> Unit,
     onExport: () -> Unit,
@@ -246,6 +248,7 @@ fun ToolPanelHost(
         )
         ToolPanel.PICTURE -> PicturePanel(
             clip = clip!!,
+            currentPosition = state.currentPosition,
             onTransformChange = onPipTransformChange,
             onStyleChange = onPipStyleChange,
             onSpeedChange = onSpeedChange,
@@ -253,6 +256,8 @@ fun ToolPanelHost(
             onRotation = onRotation,
             onHFlip = onHFlip,
             onVFlip = onVFlip,
+            onAddKeyframe = onAddPipKeyframe,
+            onRemoveKeyframe = onRemovePipKeyframe,
             onRemove = onRemovePip,
             onEditStart = onEditStart,
             onClose = onClose

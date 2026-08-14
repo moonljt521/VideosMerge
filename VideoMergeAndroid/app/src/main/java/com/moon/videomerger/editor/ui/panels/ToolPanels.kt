@@ -665,6 +665,7 @@ fun ImageWatermarkPanel(
 @Composable
 fun PicturePanel(
     clip: Clip,
+    currentPosition: Double,
     onTransformChange: (Double, Double, Double, Double) -> Unit,
     onStyleChange: (PipShape, Double, Boolean, Double) -> Unit,
     onSpeedChange: (Double) -> Unit,
@@ -672,6 +673,8 @@ fun PicturePanel(
     onRotation: (Int) -> Unit,
     onHFlip: () -> Unit,
     onVFlip: () -> Unit,
+    onAddKeyframe: () -> Unit,
+    onRemoveKeyframe: (Int) -> Unit,
     onRemove: () -> Unit,
     onEditStart: () -> Unit,
     onClose: () -> Unit
@@ -716,6 +719,44 @@ fun PicturePanel(
             opacity = it
             onTransformChange(x.toDouble(), y.toDouble(), width.toDouble(), opacity.toDouble())
         }, onValueChangeStarted = onEditStart)
+
+        // ── 关键帧（位移动画）──
+        Text("关键帧（位移动画）", color = Color(0xFF888888), fontSize = 12.sp,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+        Button(
+            onClick = { onEditStart(); onAddKeyframe() },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("在播放头添加关键帧 @${String.format("%.1f", currentPosition)}s", fontSize = 12.sp)
+        }
+        if (clip.pipKeyframes.isEmpty()) {
+            Text(
+                "提示：先调「水平/垂直位置」，再到播放头处添加关键帧；多个关键帧之间会自动位移插值。",
+                color = Color(0xFF666666), fontSize = 11.sp,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        } else {
+            clip.pipKeyframes.forEachIndexed { index, kf ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "t=${String.format("%.2f", kf.time)}s  (${"%.2f".format(kf.x)}, ${"%.2f".format(kf.y)})",
+                        color = Color(0xFFDDDDDD), fontSize = 12.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        "删除",
+                        color = Color(0xFFFF7043), fontSize = 12.sp,
+                        modifier = Modifier
+                            .clickable { onEditStart(); onRemoveKeyframe(index) }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
 
         // ── 形状 ──
         Text("形状", color = Color(0xFF888888), fontSize = 12.sp,

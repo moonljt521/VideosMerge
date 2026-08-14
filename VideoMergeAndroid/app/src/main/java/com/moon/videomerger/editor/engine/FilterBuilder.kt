@@ -271,6 +271,33 @@ class FilterBuilder {
     }
 
     /**
+     * 构建画中画「位置关键帧」的归一化位置表达式（随 t 分段线性插值）。
+     * @param axis 'x' 或 'y'
+     * @param fallback 无关键帧时的静态位置（0~1）
+     */
+    private fun buildPipNormExpr(keyframes: List<PipKeyframe>, axis: Char, fallback: Double): String {
+        if (keyframes.isEmpty()) return fallback.coerceIn(0.0, 1.0).fmt()
+        val sorted = keyframes.sortedBy { it.time }
+        if (sorted.size == 1) {
+            val v = if (axis == 'x') sorted[0].x else sorted[0].y
+            return v.coerceIn(0.0, 1.0).fmt()
+        }
+        fun valueOf(k: PipKeyframe) = (if (axis == 'x') k.x else k.y).coerceIn(0.0, 1.0)
+
+        var expr = valueOf(sorted.last()).fmt()
+        for (i in sorted.size - 2 downTo 0) {
+            val a = sorted[i]
+            val b = sorted[i + 1]
+            val va = valueOf(a)
+            val vb = valueOf(b)
+            val dt = (b.time - a.time).coerceAtLeast(0.0001)
+            val seg = "clip(${va.fmt()}+(${vb.fmt()}-${va.fmt()})*(t-${a.time.fmt()})/${dt.fmt()},${minOf(va, vb).fmt()},${maxOf(va, vb).fmt()})"
+            expr = "if(lt(t,${b.time.fmt()}),$seg,$expr)"
+        }
+        return expr
+    }
+
+    /**
      * 构建 atempo 链（变速音频，范围 0.5~2.0，超范围链式拆分）。
      *
      * 注意：atempo 的参数是"输出/输入"比率。
@@ -509,9 +536,13 @@ class FilterBuilder {
             val idx = pipInputIdx[clip.id] ?: return@forEachIndexed
             val start = clip.timelineStart.coerceAtLeast(0.0)
             val dur = clip.timelineDuration
-            // 位置：pipX/pipY ∈ [0,1]，映射到「可用范围」(W-w)/(H-h)，保证叠加层不越界
-            val xExpr = "(W-w)*${clip.pipX.coerceIn(0.0, 1.0).fmt()}"
-            val yExpr = "(H-h)*${clip.pipY.coerceIn(0.0, 1.0).fmt()}"
+            // 位置：pipX/pipY ∈ [0,1]，映射到「可用范围」(W-w)/(H-h)；
+            // 有关键帧时用分段线性表达式随时间插值（位移动画）
+            // ★ 表达式含逗号时需单引号包裹，否则滤镜解析器按逗号切分滤镜链
+            val xNorm = buildPipNormExpr(clip.pipKeyframes, 'x', clip.pipX)
+            val yNorm = buildPipNormExpr(clip.pipKeyframes, 'y', clip.pipY)
+            val xExpr = "'(W-w)*$xNorm'"
+            val yExpr = "'(H-h)*$yNorm'"
 
             // 画中画视频流（已缩放 + rgba + 透明度 + 已按 timelineStart 平移 PTS）
             var pipLabel = "[pip$i]"

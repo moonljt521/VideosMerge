@@ -125,6 +125,43 @@ data class Effect(
 )
 
 /**
+ * 画中画位置关键帧。
+ * @param time 项目时间轴上的绝对时间（秒）
+ * @param x 归一化水平位置 0~1（0=左，1=右）
+ * @param y 归一化垂直位置 0~1（0=上，1=下）
+ */
+data class PipKeyframe(
+    val time: Double,
+    val x: Double,
+    val y: Double,
+)
+
+/**
+ * 在时间 t 处对关键帧做线性插值，返回归一化位置 (x, y)。
+ * 无关键帧时返回 fallback（即片段静态位置）。
+ */
+fun interpolatePipPosition(
+    keyframes: List<PipKeyframe>,
+    t: Double,
+    fallbackX: Double,
+    fallbackY: Double
+): Pair<Double, Double> {
+    if (keyframes.isEmpty()) return fallbackX to fallbackY
+    val sorted = keyframes.sortedBy { it.time }
+    if (t <= sorted.first().time) return sorted.first().x to sorted.first().y
+    if (t >= sorted.last().time) return sorted.last().x to sorted.last().y
+    for (i in 0 until sorted.size - 1) {
+        val a = sorted[i]
+        val b = sorted[i + 1]
+        if (t in a.time..b.time) {
+            val f = if (b.time == a.time) 0.0 else (t - a.time) / (b.time - a.time)
+            return (a.x + (b.x - a.x) * f) to (a.y + (b.y - a.y) * f)
+        }
+    }
+    return sorted.last().x to sorted.last().y
+}
+
+/**
  * 视频片段（时间轴上的一个片段）
  */
 data class Clip(
@@ -201,6 +238,9 @@ data class Clip(
     val pipCornerRadius: Double = 0.15,     // 圆角半径（占画中画宽度比例 0~0.5，ROUNDED 用）
     val pipBorder: Boolean = false,         // 是否描边
     val pipBorderWidth: Double = 0.02,      // 描边宽度（占画中画宽度比例 0~0.2）
+
+    // 画中画位置关键帧（time 为项目时间轴绝对秒，x/y 为归一化位置 0~1）
+    val pipKeyframes: List<PipKeyframe> = emptyList(),
 
     // 缩略图路径
     val thumbnailPath: String? = null,
