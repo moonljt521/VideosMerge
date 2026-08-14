@@ -10,6 +10,7 @@ enum class ToolPanel {
     FILTER,         // 滤镜面板
     TEXT,           // 文字面板
     IMAGE_WATERMARK,// 图片水印
+    PICTURE,        // 画中画面板
     AUDIO,          // 音频面板
     BLUR_BG,        // 模糊背景面板
     TRANSITION,     // 转场面板

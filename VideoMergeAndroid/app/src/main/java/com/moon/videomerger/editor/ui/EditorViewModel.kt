@@ -251,6 +251,105 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * 添加画中画叠加层（PICTURE 轨）：把选中的视频/图片叠加在主轨之上。
+     * 默认从当前播放头位置开始，叠加层占据整个源时长。
+     */
+    fun addPipOverlay(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        viewModelScope.launch {
+            pushUndo()
+            val newClips = withContext(Dispatchers.IO) {
+                uris.mapIndexed { index, uri ->
+                    val tempFile = MediaUtils.copyUriToTempFile(appContext, uri, System.currentTimeMillis().toInt() + index)
+                    val thumbFile = File(appContext.cacheDir, "thumb_pip_${System.currentTimeMillis()}_${index}.jpg")
+
+                    if (MediaUtils.isImageFile(tempFile.absolutePath)) {
+                        // 图片叠加：默认时长 3 秒、无音轨
+                        val dims = MediaUtils.getImageDimensions(tempFile.absolutePath)
+                        val thumb = MediaUtils.loadImageFromFile(tempFile.absolutePath)
+                        if (thumb != null) MediaUtils.saveBitmapAsJpeg(thumb, thumbFile)
+                        val dur = 3.0
+                        Clip(
+                            mediaPath = tempFile.absolutePath,
+                            mediaName = tempFile.name,
+                            mediaDuration = dur,
+                            width = dims?.first ?: 0,
+                            height = dims?.second ?: 0,
+                            hasAudio = false,
+                            trimEnd = dur,
+                            timelineStart = 0.0,
+                            thumbnailPath = thumbFile.absolutePath,
+                            pipEnabled = true,
+                            isImage = true,
+                        )
+                    } else {
+                        val meta = MediaUtils.getVideoMeta(tempFile.absolutePath)
+                        val thumb = MediaUtils.loadThumbnailFromFile(tempFile.absolutePath)
+                        if (thumb != null) MediaUtils.saveBitmapAsJpeg(thumb, thumbFile)
+                        Clip(
+                            mediaPath = tempFile.absolutePath,
+                            mediaName = tempFile.name,
+                            mediaDuration = meta.duration,
+                            width = meta.width,
+                            height = meta.height,
+                            hasAudio = meta.hasAudio,
+                            trimEnd = meta.duration,
+                            timelineStart = 0.0,
+                            thumbnailPath = thumbFile.absolutePath,
+                            pipEnabled = true,
+                        )
+                    }
+                }
+            }
+
+            val state = _uiState.value
+            // 默认从播放头处开始叠加
+            var pos = state.currentPosition
+            newClips.forEach { it.timelineStart = pos; pos += it.timelineDuration }
+
+            val existingPip = state.project.tracks.find { it.type == TrackType.PICTURE }
+            val newTracks = state.project.tracks.toMutableList()
+            if (existingPip == null) {
+                newTracks.add(Track(type = TrackType.PICTURE, clips = newClips.toMutableList()))
+            } else {
+                val idx = newTracks.indexOfFirst { it.id == existingPip.id }
+                newTracks[idx] = existingPip.copy(clips = (existingPip.clips + newClips).toMutableList())
+            }
+
+            _uiState.value = state.copy(
+                project = state.project.copy(tracks = newTracks, updatedAt = System.currentTimeMillis()),
+                selectedClipId = newClips.firstOrNull()?.id,
+                selectedTrackId = newTracks.find { it.type == TrackType.PICTURE }?.id,
+                currentPanel = ToolPanel.PICTURE
+            )
+        }
+    }
+
+    /** 更新画中画叠加层的位置/大小/透明度（pipX/pipY ∈ 0~1，pipWidth ∈ 0.05~1） */
+    fun updatePipTransform(clipId: String, x: Double, y: Double, width: Double, opacity: Double) {
+        updateClip(clipId) {
+            it.copy(
+                pipX = x.coerceIn(0.0, 1.0),
+                pipY = y.coerceIn(0.0, 1.0),
+                pipWidth = width.coerceIn(0.05, 1.0),
+                pipOpacity = opacity.coerceIn(0.0, 1.0),
+            )
+        }
+    }
+
+    /** 更新画中画形状/描边（cornerRadius ∈ 0~0.5，borderWidth ∈ 0~0.2，均相对画中画宽度） */
+    fun updatePipStyle(clipId: String, shape: PipShape, cornerRadius: Double, border: Boolean, borderWidth: Double) {
+        updateClip(clipId) {
+            it.copy(
+                pipShape = shape,
+                pipCornerRadius = cornerRadius.coerceIn(0.0, 0.5),
+                pipBorder = border,
+                pipBorderWidth = borderWidth.coerceIn(0.0, 0.2),
+            )
+        }
+    }
+
     // ═══════════════════════════════════════
     //  播放控制
     // ═══════════════════════════════════════

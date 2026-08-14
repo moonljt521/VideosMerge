@@ -48,6 +48,15 @@ fun EditorScreen(
         }
     }
 
+    // 画中画选择器（视频或图片）
+    val pipLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            viewModel.addPipOverlay(uris)
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         Column(modifier = Modifier.fillMaxSize()) {
             // ── 顶部栏 ──
@@ -159,6 +168,14 @@ fun EditorScreen(
                                     } else {
                                         viewModel.showPanel(panel)
                                     }
+                                },
+                                onPipClick = {
+                                    // 已选中画中画片段 → 打开面板调整；否则 → 选择视频/图片新增画中画
+                                    if (state.selectedClip?.pipEnabled == true) {
+                                        viewModel.showPanel(ToolPanel.PICTURE)
+                                    } else {
+                                        pipLauncher.launch(arrayOf("video/*", "image/*"))
+                                    }
                                 }
                             )
                         } else {
@@ -187,6 +204,9 @@ fun EditorScreen(
                                 onBlurStrengthChange = { s -> viewModel.updateBlurStrength(state.selectedClipId!!, s) },
                                 onTransitionChange = { e -> viewModel.setTransition(state.selectedClipId!!, e) },
                                 onTransitionDurationChange = { d -> viewModel.updateTransitionDuration(state.selectedClipId!!, d) },
+                                onPipTransformChange = { x, y, w, o -> viewModel.updatePipTransform(state.selectedClipId!!, x, y, w, o) },
+                                onPipStyleChange = { s, r, b, bw -> viewModel.updatePipStyle(state.selectedClipId!!, s, r, b, bw) },
+                                onRemovePip = { state.selectedClipId?.let { viewModel.deleteClip(it) } },
                                 onEditStart = { viewModel.beginEdit() },
                                 onExport = { viewModel.export() },
                                 onClose = { viewModel.closePanel() }

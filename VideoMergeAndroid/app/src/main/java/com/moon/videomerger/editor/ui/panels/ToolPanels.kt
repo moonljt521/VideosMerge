@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.moon.videomerger.editor.data.Clip
 import com.moon.videomerger.editor.data.EditorUiState
 import com.moon.videomerger.editor.data.FilterPreset
+import com.moon.videomerger.editor.data.PipShape
 import com.moon.videomerger.editor.data.TransitionEffect
 import com.moon.videomerger.util.MediaUtils
 
@@ -654,6 +655,198 @@ fun ImageWatermarkPanel(
             opacity = it
             onChange(scale.toDouble(), opacity.toDouble(), position)
         }, onValueChangeStarted = onEditStart)
+    }
+}
+
+// ═══════════════════════════════════════
+//  画中画面板
+// ═══════════════════════════════════════
+
+@Composable
+fun PicturePanel(
+    clip: Clip,
+    onTransformChange: (Double, Double, Double, Double) -> Unit,
+    onStyleChange: (PipShape, Double, Boolean, Double) -> Unit,
+    onSpeedChange: (Double) -> Unit,
+    onReverseToggle: () -> Unit,
+    onRotation: (Int) -> Unit,
+    onHFlip: () -> Unit,
+    onVFlip: () -> Unit,
+    onRemove: () -> Unit,
+    onEditStart: () -> Unit,
+    onClose: () -> Unit
+) {
+    var x by remember(clip.id) { mutableStateOf(clip.pipX.toFloat()) }
+    var y by remember(clip.id) { mutableStateOf(clip.pipY.toFloat()) }
+    var width by remember(clip.id) { mutableStateOf(clip.pipWidth.toFloat()) }
+    var opacity by remember(clip.id) { mutableStateOf(clip.pipOpacity.toFloat()) }
+    var shape by remember(clip.id) { mutableStateOf(clip.pipShape) }
+    var cornerRadius by remember(clip.id) { mutableStateOf(clip.pipCornerRadius.toFloat()) }
+    var border by remember(clip.id) { mutableStateOf(clip.pipBorder) }
+    var borderWidth by remember(clip.id) { mutableStateOf(clip.pipBorderWidth.toFloat()) }
+    var speed by remember(clip.id) { mutableStateOf(clip.speed.toFloat()) }
+
+    val speedPresets = listOf(0.5f, 1.0f, 1.5f, 2.0f, 3.0f)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF1A1A1A))
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        PanelHeader("画中画", onClose)
+        Spacer(Modifier.height(8.dp))
+
+        Text("片段：${clip.mediaName}", color = Color(0xFF888888), fontSize = 12.sp)
+
+        SliderRow("水平位置", x, 0f..1f, onValueChange = {
+            x = it
+            onTransformChange(x.toDouble(), y.toDouble(), width.toDouble(), opacity.toDouble())
+        }, onValueChangeStarted = onEditStart)
+        SliderRow("垂直位置", y, 0f..1f, onValueChange = {
+            y = it
+            onTransformChange(x.toDouble(), y.toDouble(), width.toDouble(), opacity.toDouble())
+        }, onValueChangeStarted = onEditStart)
+        SliderRow("大小", width, 0.05f..1f, onValueChange = {
+            width = it
+            onTransformChange(x.toDouble(), y.toDouble(), width.toDouble(), opacity.toDouble())
+        }, onValueChangeStarted = onEditStart)
+        SliderRow("透明度", opacity, 0f..1f, onValueChange = {
+            opacity = it
+            onTransformChange(x.toDouble(), y.toDouble(), width.toDouble(), opacity.toDouble())
+        }, onValueChangeStarted = onEditStart)
+
+        // ── 形状 ──
+        Text("形状", color = Color(0xFF888888), fontSize = 12.sp,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(PipShape.entries.toList()) { s ->
+                FilterChip(
+                    selected = shape == s,
+                    onClick = {
+                        onEditStart()
+                        shape = s
+                        onStyleChange(shape, cornerRadius.toDouble(), border, borderWidth.toDouble())
+                    },
+                    label = { Text(s.displayName, fontSize = 11.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFF2196F3),
+                        selectedLabelColor = Color.White
+                    )
+                )
+            }
+        }
+
+        if (shape == PipShape.ROUNDED) {
+            SliderRow("圆角", cornerRadius, 0f..0.5f, onValueChange = {
+                cornerRadius = it
+                onStyleChange(shape, cornerRadius.toDouble(), border, borderWidth.toDouble())
+            }, onValueChangeStarted = onEditStart)
+        }
+
+        // ── 描边 ──
+        Row(
+            modifier = Modifier.padding(top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Switch(
+                checked = border,
+                onCheckedChange = {
+                    onEditStart()
+                    border = it
+                    onStyleChange(shape, cornerRadius.toDouble(), border, borderWidth.toDouble())
+                },
+                colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF2196F3))
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("描边", color = Color(0xFF888888), fontSize = 12.sp)
+        }
+        if (border) {
+            SliderRow("描边宽度", borderWidth, 0f..0.2f, onValueChange = {
+                borderWidth = it
+                onStyleChange(shape, cornerRadius.toDouble(), border, borderWidth.toDouble())
+            }, onValueChangeStarted = onEditStart)
+        }
+
+        // ── 变速 ──
+        Text("变速", color = Color(0xFF888888), fontSize = 12.sp,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(speedPresets) { preset ->
+                FilterChip(
+                    selected = speed == preset,
+                    onClick = {
+                        onEditStart()
+                        speed = preset
+                        onSpeedChange(preset.toDouble())
+                    },
+                    label = { Text("${preset}x", fontSize = 11.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFF2196F3),
+                        selectedLabelColor = Color.White
+                    )
+                )
+            }
+        }
+
+        // ── 倒放 ──
+        Row(
+            modifier = Modifier.padding(top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Switch(
+                checked = clip.reversed,
+                onCheckedChange = { onEditStart(); onReverseToggle() },
+                colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF2196F3))
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("倒放", color = Color(0xFF888888), fontSize = 12.sp)
+        }
+
+        // ── 旋转 / 翻转 ──
+        Text("旋转 / 翻转", color = Color(0xFF888888), fontSize = 12.sp,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val rotateItems = listOf(
+                Triple("逆时针90°", -90, clip.rotation == -90),
+                Triple("顺时针90°", 90, clip.rotation == 90),
+                Triple("180°", 180, clip.rotation == 180),
+            )
+            items(rotateItems) { item ->
+                FilterChip(
+                    selected = item.third,
+                    onClick = {
+                        onEditStart()
+                        onRotation(if (item.third) 0 else item.second)
+                    },
+                    label = { Text(item.first, fontSize = 11.sp) }
+                )
+            }
+            item {
+                FilterChip(
+                    selected = clip.hflip,
+                    onClick = { onEditStart(); onHFlip() },
+                    label = { Text("水平镜像", fontSize = 11.sp) }
+                )
+            }
+            item {
+                FilterChip(
+                    selected = clip.vflip,
+                    onClick = { onEditStart(); onVFlip() },
+                    label = { Text("垂直镜像", fontSize = 11.sp) }
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = { onEditStart(); onRemove() },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("移除画中画", fontSize = 13.sp)
+        }
     }
 }
 

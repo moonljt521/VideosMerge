@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moon.videomerger.editor.data.EditorUiState
 import com.moon.videomerger.editor.data.FilterPreset
+import com.moon.videomerger.editor.data.PipShape
 import com.moon.videomerger.editor.data.ToolPanel
 import com.moon.videomerger.editor.data.TransitionEffect
 
@@ -33,7 +34,8 @@ fun ToolbarPanel(
     hasSelectedClip: Boolean,
     canTransition: Boolean,
     isExporting: Boolean,
-    onToolClick: (ToolPanel) -> Unit
+    onToolClick: (ToolPanel) -> Unit,
+    onPipClick: () -> Unit
 ) {
     val tools = listOf(
         ToolItem("剪辑", Icons.Default.ContentCut, ToolPanel.TRIM, enabled = hasSelectedClip),
@@ -41,6 +43,7 @@ fun ToolbarPanel(
         ToolItem("滤镜", Icons.Default.FilterVintage, ToolPanel.FILTER, enabled = hasSelectedClip),
         ToolItem("文字", Icons.Default.TextFields, ToolPanel.TEXT, enabled = hasSelectedClip),
         ToolItem("水印", Icons.Default.Image, ToolPanel.IMAGE_WATERMARK, enabled = hasSelectedClip),
+        ToolItem("画中画", Icons.Default.PictureInPictureAlt, ToolPanel.PICTURE, enabled = true),
         ToolItem("音频", Icons.Default.AudioFile, ToolPanel.AUDIO, enabled = hasSelectedClip),
         ToolItem("背景", Icons.Default.BlurOn, ToolPanel.BLUR_BG, enabled = hasSelectedClip),
         ToolItem("导出", Icons.Default.Download, ToolPanel.EXPORT),
@@ -80,7 +83,9 @@ fun ToolbarPanel(
                     // 导出中才真正禁用
                     enabled = tool.enabled,
                     clickable = !isExporting,
-                    onClick = { onToolClick(tool.panel) }
+                    onClick = {
+                        if (tool.panel == ToolPanel.PICTURE) onPipClick() else onToolClick(tool.panel)
+                    }
                 )
             }
         }
@@ -156,6 +161,9 @@ fun ToolPanelHost(
     onBlurStrengthChange: (Int) -> Unit,
     onTransitionChange: (TransitionEffect) -> Unit,
     onTransitionDurationChange: (Double) -> Unit,
+    onPipTransformChange: (Double, Double, Double, Double) -> Unit,
+    onPipStyleChange: (PipShape, Double, Boolean, Double) -> Unit,
+    onRemovePip: () -> Unit,
     onEditStart: () -> Unit,
     onExport: () -> Unit,
     onClose: () -> Unit
@@ -233,6 +241,19 @@ fun ToolPanelHost(
             clip = clip!!,
             onTransitionChange = onTransitionChange,
             onDurationChange = onTransitionDurationChange,
+            onEditStart = onEditStart,
+            onClose = onClose
+        )
+        ToolPanel.PICTURE -> PicturePanel(
+            clip = clip!!,
+            onTransformChange = onPipTransformChange,
+            onStyleChange = onPipStyleChange,
+            onSpeedChange = onSpeedChange,
+            onReverseToggle = onReverseToggle,
+            onRotation = onRotation,
+            onHFlip = onHFlip,
+            onVFlip = onVFlip,
+            onRemove = onRemovePip,
             onEditStart = onEditStart,
             onClose = onClose
         )

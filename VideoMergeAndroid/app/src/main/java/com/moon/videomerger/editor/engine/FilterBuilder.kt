@@ -2,6 +2,7 @@ package com.moon.videomerger.editor.engine
 
 import android.content.Context
 import com.moon.videomerger.editor.data.*
+import java.io.File
 import java.util.Locale
 
 /**
@@ -192,6 +193,84 @@ class FilterBuilder {
     }
 
     /**
+     * 为画中画（PICTURE 轨）片段构建视频滤镜链。
+     *
+     * 与 buildVideoFilters 的区别：不缩放到画布，而是缩放到 pipWidth 指定的叠加宽度；
+     * 输出 format=rgba 并按 pipOpacity 调整透明通道，供 overlay 叠加。
+     */
+    fun buildPipVideoFilters(clip: Clip, canvasW: Int, canvasH: Int, fps: Int): String {
+        val filters = mutableListOf<String>()
+
+        if (clip.isImage) {
+            // 静态图片：loop 填充到指定时长
+            val dur = clip.effectiveDuration.coerceAtLeast(0.1)
+            filters.add("loop=loop=-1:size=1:start=0")
+            filters.add("trim=duration=${dur.fmt()}")
+            filters.add("setpts=PTS-STARTPTS")
+        } else {
+            // 1. 时间裁剪
+            if (clip.trimStart > 0 || (clip.trimEnd > 0 && clip.trimEnd < clip.mediaDuration)) {
+                val end = if (clip.trimEnd > 0) clip.trimEnd else clip.mediaDuration
+                filters.add("trim=start=${clip.trimStart.fmt()}:end=${end.fmt()}")
+                filters.add("setpts=PTS-STARTPTS")
+            }
+
+            // 2. 变速
+            if (clip.speed != 1.0) filters.add("setpts=PTS/${clip.speed.fmt()}")
+
+            // 3. 倒放
+            if (clip.reversed) filters.add("reverse")
+
+            // 4. 旋转/翻转
+            when (clip.rotation) {
+                90 -> filters.add("transpose=1")
+                -90 -> filters.add("transpose=0")
+                180 -> { filters.add("transpose=1"); filters.add("transpose=1") }
+            }
+            if (clip.hflip) filters.add("hflip")
+            if (clip.vflip) filters.add("vflip")
+        }
+
+        // 5. 缩放到叠加尺寸（与蒙版/描边 PNG 尺寸一致，偶数对齐）
+        val (pipW, pipH) = pipOutputSize(clip, canvasW)
+        filters.add("scale=${pipW}:${pipH}:flags=lanczos")
+        filters.add("setsar=1")
+
+        // 6. 统一帧率/timebase，并把 PTS 平移到时间轴位置（timelineStart）
+        //    ★ 不能用 overlay 的 enable 做时间窗：enable 在禁用期间仍会消耗叠加帧，
+        //      导致延迟叠加层提前 EOF 不显示。改为 setpts 平移 + eof_action=pass。
+        filters.add("framerate=fps=${fps}")
+        filters.add("settb=1/${fps}")
+        filters.add("setpts=PTS+${clip.timelineStart.coerceAtLeast(0.0).fmt()}/TB")
+
+        // 7. 透明通道 + 透明度
+        filters.add("format=rgba")
+        if (clip.pipOpacity < 1.0) {
+            filters.add("colorchannelmixer=aa=${clip.pipOpacity.coerceIn(0.0, 1.0).fmt()}")
+        }
+
+        return filters.joinToString(",")
+    }
+
+    /**
+     * 计算画中画叠加层缩放后的输出尺寸（宽、高均为偶数，与蒙版/描边 PNG 一致）。
+     * 旋转 90/270 时宽高互换，保证 scale 后不变形。
+     */
+    private fun pipOutputSize(clip: Clip, canvasW: Int): Pair<Int, Int> {
+        val pipW = (canvasW * clip.pipWidth.coerceIn(0.05, 1.0)).toInt()
+            .coerceAtLeast(16).let { it - it % 2 }
+        val w = clip.width
+        val h = clip.height
+        val rot = ((clip.rotation % 360) + 360) % 360
+        val swapped = rot == 90 || rot == 270
+        val effW = if (swapped) h else w
+        val effH = if (swapped) w else h
+        val aspect = if (effW > 0 && effH > 0) effH.toDouble() / effW.toDouble() else 1.0
+        val pipH = (pipW * aspect).toInt().coerceAtLeast(2).let { it - it % 2 }
+        return pipW to pipH
+    }
+
+    /**
      * 构建 atempo 链（变速音频，范围 0.5~2.0，超范围链式拆分）。
      *
      * 注意：atempo 的参数是"输出/输入"比率。
@@ -236,6 +315,13 @@ class FilterBuilder {
         val clips = mainTrack.clips.sortedBy { it.timelineStart }
         if (clips.isEmpty()) return ""
 
+        // 画中画叠加层（PICTURE 轨，按时间轴顺序）
+        val pipClips = project.tracks
+            .filter { it.type == TrackType.PICTURE }
+            .flatMap { it.clips }
+            .filter { it.pipEnabled }
+            .sortedBy { it.timelineStart }
+
         // 画布尺寸 16 对齐
         val canvasW = project.canvasWidth.toAligned16()
         val canvasH = project.canvasHeight.toAligned16()
@@ -264,15 +350,45 @@ class FilterBuilder {
             }
         }
 
+        // 生成画中画形状蒙版/描边 PNG（如果需要）
+        val pipMaskInputIdx = mutableMapOf<String, Int>()   // pip clipId -> mask 输入编号
+        val pipBorderInputIdx = mutableMapOf<String, Int>() // pip clipId -> border 输入编号
+        val pipMaskFiles = mutableMapOf<String, File>()     // pip clipId -> mask 文件
+        val pipBorderFiles = mutableMapOf<String, File>()   // pip clipId -> border 文件
+        if (context != null) {
+            pipClips.forEach { clip ->
+                val (pipW, pipH) = pipOutputSize(clip, canvasW)
+                val radius = (pipW * clip.pipCornerRadius.coerceIn(0.0, 0.5)).toFloat()
+                if (clip.pipShape != PipShape.RECT) {
+                    try {
+                        pipMaskFiles[clip.id] = PipMaskRenderer.renderMask(context, pipW, pipH, clip.pipShape, radius)
+                    } catch (e: Exception) {
+                        android.util.Log.e("FilterBuilder", "生成画中画蒙版失败", e)
+                    }
+                }
+                if (clip.pipBorder) {
+                    try {
+                        val sw = (pipW * clip.pipBorderWidth.coerceIn(0.0, 0.2)).toFloat().coerceAtLeast(1f)
+                        pipBorderFiles[clip.id] = PipMaskRenderer.renderBorder(context, pipW, pipH, clip.pipShape, radius, sw)
+                    } catch (e: Exception) {
+                        android.util.Log.e("FilterBuilder", "生成画中画描边失败", e)
+                    }
+                }
+            }
+        }
+
         // 构建 filter_complex
         val parts = mutableListOf<String>()
         val videoLabels = mutableListOf<String>()
         val audioLabels = mutableListOf<String>()
 
         // 输入流编号：
-        //   0..n-1: 视频文件
-        //   n..n+m-1: 文字水印 PNG（按 clip 顺序追加）
-        var nextInputIdx = clips.size
+        //   0..n-1: 主轨视频文件
+        //   n..n+m-1: 画中画（PICTURE 轨）文件
+        //   之后: 文字水印 PNG、图片水印（按主轨 clip 顺序追加）
+        val pipInputIdx = mutableMapOf<String, Int>()  // pip clipId -> 输入流编号
+        pipClips.forEachIndexed { i, clip -> pipInputIdx[clip.id] = clips.size + i }
+        var nextInputIdx = clips.size + pipClips.size
         val textPngInputIdx = mutableMapOf<Int, Int>()  // clipIndex -> 输入流编号
         val imageWatermarkInputIdx = mutableMapOf<Int, Int>()  // clipIndex -> 输入流编号
 
@@ -311,6 +427,14 @@ class FilterBuilder {
                 imageWatermarkInputIdx[i] = nextInputIdx
                 nextInputIdx++
             }
+        }
+
+        // 画中画蒙版/描边输入编号（在文字/图片水印之后；先所有蒙版，再所有描边）
+        pipClips.forEach { clip ->
+            if (pipMaskFiles.containsKey(clip.id)) { pipMaskInputIdx[clip.id] = nextInputIdx; nextInputIdx++ }
+        }
+        pipClips.forEach { clip ->
+            if (pipBorderFiles.containsKey(clip.id)) { pipBorderInputIdx[clip.id] = nextInputIdx; nextInputIdx++ }
         }
 
         // 为有文字水印的片段叠加 PNG
@@ -371,13 +495,59 @@ class FilterBuilder {
         }
 
         // 视频拼接：转场 or concat
-        val finalVideoLabel = if (hasTransition) {
+        var finalVideoLabel = if (hasTransition) {
             buildXfadeChain(clips, finalVideoLabels, parts)
         } else {
             // 普通 concat
             val concatLabel = "[vout]"
             parts.add(finalVideoLabels.joinToString("") + "concat=n=${clips.size}:v=1:a=0$concatLabel")
             concatLabel
+        }
+
+        // 画中画叠加：把 PICTURE 轨片段逐个 overlay 到主视频之上（时间窗 + 位置/大小/透明度 + 形状/描边）
+        pipClips.forEachIndexed { i, clip ->
+            val idx = pipInputIdx[clip.id] ?: return@forEachIndexed
+            val start = clip.timelineStart.coerceAtLeast(0.0)
+            val dur = clip.timelineDuration
+            // 位置：pipX/pipY ∈ [0,1]，映射到「可用范围」(W-w)/(H-h)，保证叠加层不越界
+            val xExpr = "(W-w)*${clip.pipX.coerceIn(0.0, 1.0).fmt()}"
+            val yExpr = "(H-h)*${clip.pipY.coerceIn(0.0, 1.0).fmt()}"
+
+            // 画中画视频流（已缩放 + rgba + 透明度 + 已按 timelineStart 平移 PTS）
+            var pipLabel = "[pip$i]"
+            parts.add("[${idx}:v]${buildPipVideoFilters(clip, canvasW, canvasH, project.fps)}$pipLabel")
+
+            // 形状蒙版：alphamerge 用蒙版亮度替换 alpha，实现圆角/圆形裁剪
+            //    ★ 用 fps（保留 alpha）而非 framerate（会丢 alpha）；同样平移 + 限时长
+            val maskIdx = pipMaskInputIdx[clip.id]
+            if (maskIdx != null) {
+                parts.add("[${maskIdx}:v]format=rgba,fps=${project.fps},setpts=PTS+${start.fmt()}/TB,trim=duration=${dur.fmt()}[mask$i]")
+                val shaped = "[ps$i]"
+                parts.add("$pipLabel[mask$i]alphamerge$shaped")
+                pipLabel = shaped
+            }
+
+            // 叠加到主视频（PTS 已平移，无需 enable 时间窗，只靠 eof_action=pass 收尾）
+            val isLast = i == pipClips.lastIndex
+            val hasBorder = pipBorderInputIdx[clip.id] != null
+            val afterPipLabel = if (isLast && !hasBorder) "[vout2]" else "[pov$i]"
+            parts.add(
+                "${finalVideoLabel}$pipLabel" +
+                    "overlay=$xExpr:$yExpr:eof_action=pass$afterPipLabel"
+            )
+            finalVideoLabel = afterPipLabel
+
+            // 描边：白色描边框叠加在同位置（fps 保留 alpha，平移 + 限时长）
+            val borderIdx = pipBorderInputIdx[clip.id]
+            if (borderIdx != null) {
+                parts.add("[${borderIdx}:v]format=rgba,fps=${project.fps},setpts=PTS+${start.fmt()}/TB,trim=duration=${dur.fmt()}[border$i]")
+                val afterBorderLabel = if (isLast) "[vout2]" else "[povb$i]"
+                parts.add(
+                    "${finalVideoLabel}[border$i]" +
+                        "overlay=$xExpr:$yExpr:eof_action=pass$afterBorderLabel"
+                )
+                finalVideoLabel = afterBorderLabel
+            }
         }
 
         // 音频拼接：
@@ -404,6 +574,10 @@ class FilterBuilder {
         clips.forEach { clip ->
             cmd.append(" -i \"${clip.mediaPath}\"")
         }
+        // 输入文件：画中画（PICTURE 轨）视频/图片
+        pipClips.forEach { clip ->
+            cmd.append(" -i \"${clip.mediaPath}\"")
+        }
         // 输入文件：文字水印 PNG（按 clip 顺序）
         clips.forEachIndexed { i, _ ->
             textPngs[i]?.let { png ->
@@ -414,6 +588,18 @@ class FilterBuilder {
         clips.forEachIndexed { i, clip ->
             clip.imageWatermarkPath?.let { path ->
                 cmd.append(" -i \"$path\"")
+            }
+        }
+        // 输入文件：画中画蒙版 PNG（-loop 1 使其覆盖多帧）
+        pipClips.forEach { clip ->
+            pipMaskFiles[clip.id]?.let { file ->
+                cmd.append(" -loop 1 -i \"${file.absolutePath}\"")
+            }
+        }
+        // 输入文件：画中画描边 PNG
+        pipClips.forEach { clip ->
+            pipBorderFiles[clip.id]?.let { file ->
+                cmd.append(" -loop 1 -i \"${file.absolutePath}\"")
             }
         }
 

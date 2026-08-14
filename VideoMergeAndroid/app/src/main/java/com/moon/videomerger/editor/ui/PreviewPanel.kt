@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -30,6 +32,8 @@ import androidx.media3.effect.RgbMatrix
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.moon.videomerger.editor.data.EditorUiState
+import com.moon.videomerger.editor.data.PipShape
+import com.moon.videomerger.editor.data.TrackType
 import kotlinx.coroutines.delay
 import java.io.File
 
@@ -325,6 +329,72 @@ fun PreviewPanel(
                                     height = wmHeightDp.dp
                                 )
                         )
+                    }
+                }
+            }
+        }
+
+        // 画中画叠加层预览（静态帧：视频显示缩略图、图片显示原图；导出时才是真实动态叠加）
+        val pipClips = state.project.tracks
+            .filter { it.type == TrackType.PICTURE }
+            .flatMap { it.clips }
+            .filter {
+                it.pipEnabled &&
+                    state.currentPosition >= it.timelineStart - 0.05 &&
+                    state.currentPosition < it.timelineEnd - 0.05
+            }
+        if (pipClips.isNotEmpty()) {
+            val aspect = videoAspect ?: if (currentClip.height > 0) {
+                currentClip.width.toFloat() / currentClip.height.toFloat()
+            } else null
+            if (aspect != null && aspect > 0f) {
+                val pw = maxWidth.value
+                val ph = maxHeight.value
+                val previewAspect = pw / ph
+                val videoW: Float
+                val videoH: Float
+                if (aspect > previewAspect) {
+                    videoW = pw
+                    videoH = pw / aspect
+                } else {
+                    videoH = ph
+                    videoW = ph * aspect
+                }
+                val videoLeft = (pw - videoW) / 2f
+                val videoTop = (ph - videoH) / 2f
+
+                Box(modifier = Modifier.fillMaxSize()) {
+                    pipClips.forEach { pip ->
+                        val srcPath = if (pip.isImage) pip.mediaPath else pip.thumbnailPath
+                        val bmp = srcPath?.let { remember(srcPath) { BitmapFactory.decodeFile(srcPath) } }
+                        if (bmp != null && bmp.width > 0 && bmp.height > 0) {
+                            val pipW = (videoW * pip.pipWidth.toFloat().coerceIn(0.05f, 1f)).coerceAtLeast(1f)
+                            val pipH = pipW * (bmp.height.toFloat() / bmp.width.toFloat())
+                            val xDp = videoLeft + (videoW - pipW) * pip.pipX.toFloat().coerceIn(0f, 1f)
+                            val yDp = videoTop + (videoH - pipH) * pip.pipY.toFloat().coerceIn(0f, 1f)
+                            val shape = when (pip.pipShape) {
+                                PipShape.RECT -> RoundedCornerShape(0.dp)
+                                PipShape.ROUNDED -> RoundedCornerShape((pipW * pip.pipCornerRadius.toFloat()).dp)
+                                PipShape.CIRCLE -> CircleShape
+                            }
+                            val pipModifier = Modifier
+                                .offset(x = xDp.dp, y = yDp.dp)
+                                .size(width = pipW.dp, height = pipH.dp)
+                                .clip(shape)
+                                .then(
+                                    if (pip.pipBorder) {
+                                        Modifier.border((pipW * pip.pipBorderWidth.toFloat()).dp, Color.White, shape)
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                            Image(
+                                bitmap = bmp.asImageBitmap(),
+                                contentDescription = null,
+                                alpha = pip.pipOpacity.toFloat().coerceIn(0f, 1f),
+                                modifier = pipModifier
+                            )
+                        }
                     }
                 }
             }

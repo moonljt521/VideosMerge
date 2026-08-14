@@ -80,6 +80,15 @@ enum class RotationMode(val displayName: String, val value: Int) {
 }
 
 /**
+ * 画中画叠加层形状
+ */
+enum class PipShape(val displayName: String) {
+    RECT("矩形"),
+    ROUNDED("圆角"),
+    CIRCLE("圆形"),
+}
+
+/**
  * 转场效果（xfade 滤镜支持的所有效果）
  */
 enum class TransitionEffect(val key: String, val displayName: String) {
@@ -180,6 +189,18 @@ data class Clip(
 
     // 截断（抖音尾部 logo）
     val logoCutTime: Double? = null,    // logo 截断时间点
+
+    // 画中画 / 叠加层（PICTURE 轨片段使用，主轨忽略）
+    val pipEnabled: Boolean = false,   // 是否作为画中画叠加层
+    val isImage: Boolean = false,      // 叠加源是否为静态图片（图片无音轨、需 loop 填充时长）
+    val pipX: Double = 0.0,            // 叠加层左上角 x（占画布宽比例 0~1）
+    val pipY: Double = 0.0,            // 叠加层左上角 y（占画布高比例 0~1）
+    val pipWidth: Double = 0.3,        // 叠加层宽度（占画布宽比例 0.05~1）
+    val pipOpacity: Double = 1.0,      // 透明度 0~1
+    val pipShape: PipShape = PipShape.RECT, // 叠加层形状
+    val pipCornerRadius: Double = 0.15,     // 圆角半径（占画中画宽度比例 0~0.5，ROUNDED 用）
+    val pipBorder: Boolean = false,         // 是否描边
+    val pipBorderWidth: Double = 0.02,      // 描边宽度（占画中画宽度比例 0~0.2）
 
     // 缩略图路径
     val thumbnailPath: String? = null,
