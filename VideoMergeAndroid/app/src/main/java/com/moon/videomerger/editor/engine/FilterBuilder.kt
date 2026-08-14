@@ -311,6 +311,12 @@ class FilterBuilder {
         return expr
     }
 
+    /** 字幕位置：水平居中，底部留边距 */
+    private fun subtitleOverlayPosition(textW: Int, textH: Int, videoW: Int, videoH: Int): Pair<Int, Int> {
+        val margin = (videoH * 0.08).toInt().coerceAtLeast(20)
+        return ((videoW - textW) / 2) to (videoH - textH - margin)
+    }
+
     /**
      * 构建 atempo 链（变速音频，范围 0.5~2.0，超范围链式拆分）。
      *
@@ -318,27 +324,6 @@ class FilterBuilder {
      *   - speed=2.0（加速2倍）→ atempo=2.0（音频也快2倍，时长减半）
      *   - speed=0.5（减速到一半）→ atempo=0.5（音频也慢2倍，时长翻倍）
      */
-    /** 生成 SRT 字幕内容 */
-    private fun buildSrt(subtitles: List<Subtitle>): String {
-        val sb = StringBuilder()
-        subtitles.forEachIndexed { i, s ->
-            sb.append(i + 1).append('\n')
-            sb.append(formatSrtTime(s.startTime)).append(" --> ").append(formatSrtTime(s.endTime)).append('\n')
-            sb.append(s.text).append('\n').append('\n')
-        }
-        return sb.toString()
-    }
-
-    /** 秒 → SRT 时间码 HH:MM:SS,mmm */
-    private fun formatSrtTime(seconds: Double): String {
-        val ms = ((seconds % 1) * 1000).toInt().coerceIn(0, 999)
-        val total = seconds.toInt()
-        val h = total / 3600
-        val m = (total % 3600) / 60
-        val s = total % 60
-        return String.format(Locale.US, "%02d:%02d:%02d,%03d", h, m, s, ms)
-    }
-
     private fun buildAtempoChain(speed: Double): String {
         if (speed >= 0.5 && speed <= 2.0) {
             return "atempo=${speed.fmt()}"
@@ -439,6 +424,26 @@ class FilterBuilder {
             }
         }
 
+        // 生成字幕 PNG（复用文字水印 Canvas 方案，中文可靠；不用 libass subtitles 滤镜避免设备字体问题）
+        val subtitlePngs = mutableListOf<Pair<Subtitle, TextPngResult>>()
+        if (context != null) {
+            project.subtitles.sortedBy { it.startTime }.forEach { sub ->
+                try {
+                    val png = TextWatermarkRenderer.renderToPng(
+                        context = context,
+                        text = sub.text,
+                        fontSize = 64,
+                        colorStr = "white",
+                        opacity = 1.0f,
+                        border = true,
+                    )
+                    subtitlePngs.add(sub to png)
+                } catch (e: Exception) {
+                    android.util.Log.e("FilterBuilder", "生成字幕 PNG 失败", e)
+                }
+            }
+        }
+
         // 构建 filter_complex
         val parts = mutableListOf<String>()
         val videoLabels = mutableListOf<String>()
@@ -497,6 +502,11 @@ class FilterBuilder {
         }
         pipClips.forEach { clip ->
             if (pipBorderFiles.containsKey(clip.id)) { pipBorderInputIdx[clip.id] = nextInputIdx; nextInputIdx++ }
+        }
+        // 字幕 PNG 输入编号（在所有蒙版/描边之后）
+        val subtitleInputIdx = mutableMapOf<String, Int>()  // subtitle id -> 输入编号
+        subtitlePngs.forEach { (sub, _) ->
+            subtitleInputIdx[sub.id] = nextInputIdx; nextInputIdx++
         }
 
         // 为有文字水印的片段叠加 PNG
@@ -616,21 +626,15 @@ class FilterBuilder {
             }
         }
 
-        // 字幕：生成 SRT 并用 subtitles 滤镜烧录到最终视频（画中画之上）
-        if (project.subtitles.isNotEmpty() && context != null) {
-            try {
-                val srt = buildSrt(project.subtitles.sortedBy { it.startTime })
-                val srtFile = File(context.cacheDir, "subtitle_${System.currentTimeMillis()}.srt")
-                srtFile.writeText(srt)
-                val subLabel = "[vsub]"
-                parts.add(
-                    "$finalVideoLabel" +
-                        "subtitles=${srtFile.absolutePath}:force_style='FontSize=24,Alignment=2'$subLabel"
-                )
-                finalVideoLabel = subLabel
-            } catch (e: Exception) {
-                android.util.Log.e("FilterBuilder", "烧录字幕失败", e)
-            }
+        // 字幕：每条字幕 PNG 按时间窗 overlay 到最终视频（画中画之上；PTS 平移 + eof_action=pass）
+        subtitlePngs.forEachIndexed { i, (sub, png) ->
+            val idx = subtitleInputIdx[sub.id] ?: return@forEachIndexed
+            val dur = (sub.endTime - sub.startTime).coerceAtLeast(0.1)
+            val (ox, oy) = subtitleOverlayPosition(png.width, png.height, canvasW, canvasH)
+            val subLabel = if (i == subtitlePngs.lastIndex) "[vsub]" else "[sub$i]"
+            parts.add("[${idx}:v]format=rgba,fps=${project.fps},setpts=PTS+${sub.startTime.fmt()}/TB,trim=duration=${dur.fmt()}[subpng$i]")
+            parts.add("${finalVideoLabel}[subpng$i]overlay=$ox:$oy:eof_action=pass$subLabel")
+            finalVideoLabel = subLabel
         }
 
         // 音频拼接：
@@ -684,6 +688,10 @@ class FilterBuilder {
             pipBorderFiles[clip.id]?.let { file ->
                 cmd.append(" -loop 1 -i \"${file.absolutePath}\"")
             }
+        }
+        // 输入文件：字幕 PNG（-loop 1 覆盖时间窗）
+        subtitlePngs.forEach { (_, png) ->
+            cmd.append(" -loop 1 -i \"${png.file.absolutePath}\"")
         }
 
         // filter_complex
