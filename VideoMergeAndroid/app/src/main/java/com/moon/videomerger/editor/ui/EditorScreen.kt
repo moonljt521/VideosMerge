@@ -190,6 +190,8 @@ fun EditorScreen(
                                 onColorChange = { b, c, s -> viewModel.updateColorParams(state.selectedClipId!!, b, c, s) },
                                 onVolumeChange = { v -> viewModel.updateVolume(state.selectedClipId!!, v) },
                                 onFadeChange = { fi, fo -> viewModel.updateAudioFade(state.selectedClipId!!, fi, fo) },
+                                onPitchChange = { p -> viewModel.updatePitchShift(state.selectedClipId!!, p) },
+                                onNoiseReductionToggle = { viewModel.toggleNoiseReduction(state.selectedClipId!!) },
                         onTextChange = { t -> viewModel.setTextOverlay(state.selectedClipId!!, t) },
                         onTextStyleChange = { sz, c, p, op, bd -> viewModel.setTextStyle(state.selectedClipId!!, sz, c, p, op, bd) },
                         onImageWatermarkSelect = { path -> viewModel.setImageWatermark(state.selectedClipId!!, path) },

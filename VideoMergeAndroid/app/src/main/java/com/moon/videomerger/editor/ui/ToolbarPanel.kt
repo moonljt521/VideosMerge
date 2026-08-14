@@ -147,6 +147,8 @@ fun ToolPanelHost(
     onColorChange: (Double, Double, Double) -> Unit,
     onVolumeChange: (Double) -> Unit,
     onFadeChange: (Double, Double) -> Unit,
+    onPitchChange: (Double) -> Unit,
+    onNoiseReductionToggle: () -> Unit,
     onTextChange: (String?) -> Unit,
     onTextStyleChange: (Int, String, String, Float, Boolean) -> Unit,
     onImageWatermarkSelect: (String?) -> Unit,
@@ -229,6 +231,8 @@ fun ToolPanelHost(
             clip = clip!!,
             onVolumeChange = onVolumeChange,
             onFadeChange = onFadeChange,
+            onPitchChange = onPitchChange,
+            onNoiseReductionToggle = onNoiseReductionToggle,
             onEditStart = onEditStart,
             onClose = onClose
         )

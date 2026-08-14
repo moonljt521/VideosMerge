@@ -782,6 +782,16 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         updateClip(clipId) { it.copy(volume = volume.coerceIn(0.0, 5.0)) }
     }
 
+    /** 变声音高倍率（>1 高音，<1 低音） */
+    fun updatePitchShift(clipId: String, pitch: Double) {
+        updateClip(clipId) { it.copy(pitchShift = pitch.coerceIn(0.5, 2.0)) }
+    }
+
+    /** 切换降噪 */
+    fun toggleNoiseReduction(clipId: String) {
+        updateClip(clipId) { it.copy(noiseReduction = !it.noiseReduction) }
+    }
+
     // ═══════════════════════════════════════
     //  文字水印
     // ═══════════════════════════════════════
