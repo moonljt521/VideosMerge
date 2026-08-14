@@ -168,6 +168,20 @@ class FilterBuilder {
             filters.add("areverse")
         }
 
+        // 降噪（FFT 降噪 afftdn；anlmdn 为非局部均值降噪备选）
+        if (clip.noiseReduction) {
+            filters.add("afftdn=nf=-25")
+        }
+
+        // 变声（asetrate 改音高 + atempo 恢复时长，保持原速改音色）
+        if (clip.pitchShift != 1.0) {
+            val p = clip.pitchShift.coerceIn(0.5, 2.0)
+            val rate = (44100 * p).toInt()
+            filters.add("asetrate=$rate")
+            filters.add("aresample=44100")
+            filters.add("atempo=${(1.0 / p).fmt()}")
+        }
+
         // 音量
         if (clip.volume != 1.0) {
             filters.add("volume=${clip.volume.fmt()}")

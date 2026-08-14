@@ -500,12 +500,15 @@ fun AudioPanel(
     clip: Clip,
     onVolumeChange: (Double) -> Unit,
     onFadeChange: (Double, Double) -> Unit,
+    onPitchChange: (Double) -> Unit,
+    onNoiseReductionToggle: () -> Unit,
     onEditStart: () -> Unit,
     onClose: () -> Unit
 ) {
     var volume by remember(clip.id) { mutableStateOf(clip.volume.toFloat()) }
     var fadeIn by remember(clip.id) { mutableStateOf(clip.audioFadeIn.toFloat()) }
     var fadeOut by remember(clip.id) { mutableStateOf(clip.audioFadeOut.toFloat()) }
+    var pitch by remember(clip.id) { mutableStateOf(clip.pitchShift.toFloat()) }
 
     Column(
         modifier = Modifier
@@ -534,6 +537,45 @@ fun AudioPanel(
                     onClick = { onEditStart(); volume = 1f; onVolumeChange(1.0) },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
                 ) { Text("原音", fontSize = 12.sp) }
+            }
+
+            // ── 变声 ──
+            Text("变声", color = Color(0xFF888888), fontSize = 12.sp,
+                modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
+            val pitchPresets = listOf(
+                0.5f to "低沉", 0.7f to "大叔", 1.0f to "原声", 1.3f to "女声", 1.6f to "萝莉"
+            )
+            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(pitchPresets) { (p, label) ->
+                    FilterChip(
+                        selected = pitch == p,
+                        onClick = { onEditStart(); pitch = p; onPitchChange(p.toDouble()) },
+                        label = { Text(label, fontSize = 11.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF2196F3),
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
+            SliderRow("音高", pitch, 0.5f..2f, onValueChange = {
+                pitch = it
+                onPitchChange(it.toDouble())
+            }, onValueChangeStarted = onEditStart)
+
+            // ── 降噪 ──
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Switch(
+                    checked = clip.noiseReduction,
+                    onCheckedChange = { onEditStart(); onNoiseReductionToggle() },
+                    colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF2196F3))
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("降噪（去背景噪声）", color = Color(0xFF888888), fontSize = 12.sp)
             }
 
             // ── 淡入淡出（对应 audio_fade.py）──

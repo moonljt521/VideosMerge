@@ -190,6 +190,8 @@ data class Clip(
     val volume: Double = 1.0,       // 1.0 = 原始音量
     val audioFadeIn: Double = 0.0,  // 音频淡入时长（秒），对应 audio_fade.py
     val audioFadeOut: Double = 0.0, // 音频淡出时长（秒）
+    val pitchShift: Double = 1.0,   // 变声音高倍率（>1 高音，<1 低音，1=不变）
+    val noiseReduction: Boolean = false, // 是否降噪
 
     // 旋转/翻转
     val rotation: Int = 0,          // 旋转角度 (0/90/180/-90)
