@@ -47,6 +47,8 @@ object VoskSpeechRecognizer {
         require(isModelReady(context)) { "语音模型未就绪" }
         Model(modelDir.absolutePath).use { model ->
             val recognizer = Recognizer(model, 16000f)
+            // ★ 关键：开启「词级时间戳」，否则 getResult/getFinalResult 只返回 text，没有 result 数组
+            recognizer.setWords(true)
             pcmFile.inputStream().use { input ->
                 val buf = ByteArray(8192)
                 while (true) {
@@ -56,8 +58,21 @@ object VoskSpeechRecognizer {
                 }
             }
             val json = recognizer.finalResult
-            return parseWords(json)
+            android.util.Log.d("VoskSTT", "finalResult: $json")
+            val words = parseWords(json)
+            if (words.isNotEmpty()) return words
+            // 回退：无词级时间戳但有整段文本 → 生成一条覆盖全音频的字幕词
+            val fullText = parseFullText(json)
+            if (fullText.isNotBlank()) {
+                val dur = pcmFile.length() / 2.0 / 16000.0
+                return listOf(Word(fullText.replace(" ", "").replace("[unk]", ""), 0.0, dur))
+            }
+            return emptyList()
         }
+    }
+
+    private fun parseFullText(json: String): String {
+        return try { JSONObject(json).optString("text", "") } catch (e: Exception) { "" }
     }
 
     private fun parseWords(json: String): List<Word> {
@@ -70,7 +85,8 @@ object VoskSpeechRecognizer {
                 val text = w.optString("word")
                 val start = w.optDouble("start", -1.0)
                 val end = w.optDouble("end", -1.0)
-                if (text.isNotBlank() && start >= 0.0 && end >= start) {
+                // 过滤 [unk] 等未知词标记
+                if (text.isNotBlank() && !text.contains("[") && start >= 0.0 && end >= start) {
                     out.add(Word(text.trim(), start, end))
                 }
             }
@@ -84,7 +100,7 @@ object VoskSpeechRecognizer {
      * 把词列表分组为字幕条目：按累计字符数（默认 14）或停顿（> 0.8s）换行。
      * 中文词直接拼接（不加空格），更符合中文习惯。
      */
-    fun groupToSubtitles(words: List<Word>, maxChars: Int = 14): List<Subtitle> {
+    fun groupToSubtitles(words: List<Word>, maxChars: Int = 10): List<Subtitle> {
         if (words.isEmpty()) return emptyList()
         val subs = mutableListOf<Subtitle>()
         val buf = StringBuilder()
