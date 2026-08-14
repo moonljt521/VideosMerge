@@ -350,6 +350,39 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** 在当前播放头处添加画中画位置关键帧（记录片段当前静态位置 pipX/pipY） */
+    fun addPipKeyframe(clipId: String) {
+        val time = _uiState.value.currentPosition
+        updateClip(clipId) { clip ->
+            val kf = PipKeyframe(
+                time = time,
+                x = clip.pipX.coerceIn(0.0, 1.0),
+                y = clip.pipY.coerceIn(0.0, 1.0),
+            )
+            clip.copy(pipKeyframes = (clip.pipKeyframes + kf).sortedBy { it.time })
+        }
+    }
+
+    /** 更新某个画中画关键帧的位置 */
+    fun updatePipKeyframe(clipId: String, index: Int, x: Double, y: Double) {
+        updateClip(clipId) { clip ->
+            val kfs = clip.pipKeyframes.toMutableList()
+            if (index in kfs.indices) {
+                kfs[index] = kfs[index].copy(x = x.coerceIn(0.0, 1.0), y = y.coerceIn(0.0, 1.0))
+            }
+            clip.copy(pipKeyframes = kfs)
+        }
+    }
+
+    /** 删除某个画中画关键帧 */
+    fun removePipKeyframe(clipId: String, index: Int) {
+        updateClip(clipId) { clip ->
+            val kfs = clip.pipKeyframes.toMutableList()
+            if (index in kfs.indices) kfs.removeAt(index)
+            clip.copy(pipKeyframes = kfs)
+        }
+    }
+
     // ═══════════════════════════════════════
     //  播放控制
     // ═══════════════════════════════════════

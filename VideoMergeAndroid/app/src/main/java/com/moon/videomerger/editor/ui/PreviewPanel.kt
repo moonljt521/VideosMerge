@@ -34,6 +34,7 @@ import androidx.media3.ui.PlayerView
 import com.moon.videomerger.editor.data.EditorUiState
 import com.moon.videomerger.editor.data.PipShape
 import com.moon.videomerger.editor.data.TrackType
+import com.moon.videomerger.editor.data.interpolatePipPosition
 import kotlinx.coroutines.delay
 import java.io.File
 
@@ -370,8 +371,10 @@ fun PreviewPanel(
                         if (bmp != null && bmp.width > 0 && bmp.height > 0) {
                             val pipW = (videoW * pip.pipWidth.toFloat().coerceIn(0.05f, 1f)).coerceAtLeast(1f)
                             val pipH = pipW * (bmp.height.toFloat() / bmp.width.toFloat())
-                            val xDp = videoLeft + (videoW - pipW) * pip.pipX.toFloat().coerceIn(0f, 1f)
-                            val yDp = videoTop + (videoH - pipH) * pip.pipY.toFloat().coerceIn(0f, 1f)
+                            // 关键帧位移动画：按播放头时间插值
+                            val (px, py) = interpolatePipPosition(pip.pipKeyframes, state.currentPosition, pip.pipX, pip.pipY)
+                            val xDp = videoLeft + (videoW - pipW) * px.toFloat().coerceIn(0f, 1f)
+                            val yDp = videoTop + (videoH - pipH) * py.toFloat().coerceIn(0f, 1f)
                             val shape = when (pip.pipShape) {
                                 PipShape.RECT -> RoundedCornerShape(0.dp)
                                 PipShape.ROUNDED -> RoundedCornerShape((pipW * pip.pipCornerRadius.toFloat()).dp)

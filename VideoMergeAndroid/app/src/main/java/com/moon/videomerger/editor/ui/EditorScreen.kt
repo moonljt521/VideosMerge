@@ -206,6 +206,8 @@ fun EditorScreen(
                                 onTransitionDurationChange = { d -> viewModel.updateTransitionDuration(state.selectedClipId!!, d) },
                                 onPipTransformChange = { x, y, w, o -> viewModel.updatePipTransform(state.selectedClipId!!, x, y, w, o) },
                                 onPipStyleChange = { s, r, b, bw -> viewModel.updatePipStyle(state.selectedClipId!!, s, r, b, bw) },
+                                onAddPipKeyframe = { viewModel.addPipKeyframe(state.selectedClipId!!) },
+                                onRemovePipKeyframe = { i -> viewModel.removePipKeyframe(state.selectedClipId!!, i) },
                                 onRemovePip = { state.selectedClipId?.let { viewModel.deleteClip(it) } },
                                 onEditStart = { viewModel.beginEdit() },
                                 onExport = { viewModel.export() },
