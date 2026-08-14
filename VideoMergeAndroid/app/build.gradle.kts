@@ -91,10 +91,14 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
-    // FFmpegKit — 已从 Maven Central 下架（项目归档），改用本地 .aar
-    implementation(fileTree("libs") {
-        include("*.aar", "*.jar")
-    })
+    // FFmpegKit — 迁移到维护分支 ffmpegkit-maintained（同包名 com.arthenica.ffmpegkit，同 API，仅 groupId 变化）
+    // full = LGPL（可闭源），含 libass/subtitles + 全套 LGPL 编解码；替代原 min 本地 aar
+    // ★ 8.1.7(n8.1.2) 的 xfade 转场在真机导出时 native 崩溃，回退到 6.0.3(n6.1.6) LTS —— 最接近原 n6.0，转场行为不变
+    implementation("dev.ffmpegkit-maintained:ffmpeg-kit-full:6.0.3")
+    // ★ 维护分支的 POM 漏声明了 smart-exception 传递依赖，而 FFmpegKitConfig 运行时会用到
+    //   com.arthenica.smartexception.java.Exceptions；该库仍在 Maven Central，需显式补上，
+    //   否则启动即 NoClassDefFoundError 闪退。
+    implementation("com.arthenica:smart-exception-java:0.2.1")
 
     // Media3 ExoPlayer — 视频播放
     implementation("androidx.media3:media3-exoplayer:1.4.1")

@@ -116,34 +116,44 @@ EditorProject
 6. **导出** → 构建 ffmpeg 命令 → 进度条 → 保存到相册
 ```
 
-## FFmpegKit 版本限制与替代方案
+## FFmpegKit 版本与依赖
 
-当前使用的是本地 `app/libs/ffmpeg-kit.aar`：**FFmpegKit `min` 版本**（LGPL 许可，FFmpeg n6.0），不包含 GPL 组件。以下是限制和替代方案：
+FFmpegKit 官方已 2025-01 归档、2025-04 从 Maven Central 下架。本项目已切换到社区维护分支
+[ffmpegkit-maintained/ffmpeg](https://github.com/ffmpegkit-maintained/ffmpeg)（同包名
+`com.arthenica.ffmpegkit`、同 API，仅 groupId 变化）。依赖在 `app/build.gradle.kts`：
 
-| 组件 | min 版状态 | 替代方案 | 实现文件 |
-|------|:---:|------|------|
-| `libx264` 编码器 | ❌ 缺失 | `h264_mediacodec`（硬件编码） | `FilterBuilder.kt` |
-| `eq` 滤镜（调色） | ✅ 可用 | 直接使用（亮度/对比度/饱和度/伽马） | `FilterBuilder.kt` |
-| `hue` 滤镜（色调） | 使用 `huesaturation` | `huesaturation`（色调旋转） | `FilterBuilder.kt` |
-| `pad` 滤镜（补黑边） | ❌ 缺失 | `scale` cover 模式 + `crop` | `FilterBuilder.kt` |
-| `fps` 滤镜 | ✅ 可用 | 统一输入帧率（xfade/concat 要求一致） | `FilterBuilder.kt` |
-| `boxblur` 滤镜 | ❌ 缺失 | `avgblur`（均值模糊） | `FilterBuilder.kt` |
-| `drawtext` 滤镜 | ❌ 缺失 | Android Canvas 生成 PNG + `overlay` | `TextWatermarkRenderer.kt` |
+```gradle
+implementation("dev.ffmpegkit-maintained:ffmpeg-kit-full:6.0.3") // full = LGPL，FFmpeg n6.1.6
+implementation("com.arthenica:smart-exception-java:0.2.1")       // ★ 分支 POM 漏声明，需显式补
+```
+
+### 为什么是 full（LGPL）而不是 full-gpl（GPL）
+
+| 变体 | 许可 | 说明 |
+|------|------|------|
+| `ffmpeg-kit-full` | LGPL | ✅ 现用。可闭源；含 libass/subtitles + 全套 LGPL 编解码 |
+| `ffmpeg-kit-min-gpl` / `full-gpl` | GPL | 加 x264/x265/vidstab，但会强制 App 整包 GPL 开源，商用别碰 |
+
+> 实测：`full`（LGPL）里也 **没有 `drawtext`、`boxblur`、`libx264`**。文字水印继续用 Canvas PNG + overlay；模糊背景继续用 `avgblur`；编码继续用硬件 `h264_mediacodec`。只有明确需要 x264 软件编码或 vidstab 防抖时，才考虑 `-gpl`。
+
+### 版本选择（重要）
+
+维护分支有三条 LTS 线，务必固定版本：
+
+| 版本 | FFmpeg | 状态 |
+|------|--------|------|
+| `6.0.3` | n6.1.6 | ✅ 现用，最接近原 n6.0，转场行为稳定 |
+| `7.1.6` | n7.1.5 | 备选 |
+| `8.1.7` | n8.1.2 | ⚠️ xfade 转场真机导出 native 崩溃，已回退 |
 
 ### h264_mediacodec 注意事项
 
 - 画布尺寸必须 **16 对齐**（macroblock 对齐），否则编码失败
 - 不支持 `-crf` / `-preset`，用 `-b:v` 指定比特率
 - 要求 `yuv420p` 像素格式
-- 部分低端设备/模拟器可能不支持，建议后续替换为 `full-gpl` 版本
+- LGPL 兜底可用 `openh264`（full 内含）；仍不建议切到 GPL 的 `libx264`
 
-### 升级到 full-gpl 版本（推荐）
+### 已踩过的坑
 
-如需 `libx264`、`pad`、`drawtext`、`boxblur` 等更完整的编码器和滤镜支持，可替换 aar 为 `full-gpl` 版本：
-
-1. 下载 `ffmpeg-kit-full-gpl-*.aar`（从 [FFmpegKit releases](https://github.com/arthenica/ffmpeg-kit/releases) 或 Maven 镜像）
-2. 替换 `app/libs/ffmpeg-kit.aar`
-3. 修改 `FilterBuilder.kt`：
-   - `h264_mediacodec` → `libx264`
-   - `scale cover + crop` → `scale + pad`
-   - `TextWatermarkRenderer` → `drawtext`（可选，PNG 方案也可保留）
+1. **启动 NoClassDefFoundError**：分支 POM 漏声明 `smart-exception` 传递依赖，`FFmpegKitConfig` 运行时要 `com.arthenica.smartexception.java.Exceptions` → 显式加 `com.arthenica:smart-exception-java:0.2.1`。
+2. **8.1.7 转场崩溃**：n8.1.2 的 xfade 在真机导出时 native SIGSEGV → 回退 6.0.3。
