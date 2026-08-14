@@ -282,6 +282,16 @@ data class Clip(
 }
 
 /**
+ * 字幕条目（时间轴绝对秒）
+ */
+data class Subtitle(
+    val id: String = UUID.randomUUID().toString(),
+    val text: String,
+    val startTime: Double,
+    val endTime: Double,
+)
+
+/**
  * 轨道
  */
 data class Track(
@@ -308,6 +318,7 @@ data class EditorProject(
     val canvasHeight: Int = 1920,   // 1920 = 120*16
     val fps: Int = 30,
     val tracks: MutableList<Track> = mutableListOf(),
+    val subtitles: List<Subtitle> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
 ) {

@@ -384,6 +384,36 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ═══════════════════════════════════════
+    //  字幕
+    // ═══════════════════════════════════════
+
+    /** 添加字幕（默认用当前播放头附近的时间范围） */
+    fun addSubtitle(text: String, start: Double, end: Double) {
+        if (text.isBlank() || end <= start) return
+        pushUndo()
+        val st = _uiState.value
+        val sub = Subtitle(text = text.trim(), startTime = start.coerceAtLeast(0.0), endTime = end)
+        _uiState.value = st.copy(
+            project = st.project.copy(
+                subtitles = (st.project.subtitles + sub).sortedBy { it.startTime },
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    /** 删除字幕 */
+    fun removeSubtitle(id: String) {
+        pushUndo()
+        val st = _uiState.value
+        _uiState.value = st.copy(
+            project = st.project.copy(
+                subtitles = st.project.subtitles.filterNot { it.id == id },
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    // ═══════════════════════════════════════
     //  播放控制
     // ═══════════════════════════════════════
 

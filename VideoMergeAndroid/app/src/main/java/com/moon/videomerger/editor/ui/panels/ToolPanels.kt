@@ -599,6 +599,91 @@ fun AudioPanel(
 }
 
 // ═══════════════════════════════════════
+//  字幕面板
+// ═══════════════════════════════════════
+
+@Composable
+fun SubtitlePanel(
+    state: EditorUiState,
+    onAdd: (String, Double, Double) -> Unit,
+    onRemove: (String) -> Unit,
+    onEditStart: () -> Unit,
+    onClose: () -> Unit
+) {
+    var text by remember { mutableStateOf("") }
+    var start by remember { mutableStateOf(state.currentPosition.toFloat()) }
+    var end by remember { mutableStateOf((state.currentPosition + 2.0).toFloat()) }
+    val total = state.project.totalDuration.toFloat().coerceAtLeast(0.1f)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF1A1A1A))
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        PanelHeader("字幕", onClose)
+        Spacer(Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            label = { Text("字幕文本", color = Color(0xFF888888)) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = TextFieldDefaults.colors(
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White,
+                focusedIndicatorColor = Color(0xFF2196F3),
+                cursorColor = Color(0xFF2196F3)
+            )
+        )
+
+        SliderRow("开始时间", start, 0f..total, onValueChange = {
+            start = it.coerceAtMost(end - 0.1f)
+        })
+        SliderRow("结束时间", end, 0f..total, onValueChange = {
+            end = it.coerceAtLeast(start + 0.1f)
+        })
+
+        Button(
+            onClick = { onEditStart(); onAdd(text, start.toDouble(), end.toDouble()); text = "" },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+            modifier = Modifier.fillMaxWidth(),
+            enabled = text.isNotBlank()
+        ) {
+            Text("添加字幕", fontSize = 13.sp)
+        }
+
+        Spacer(Modifier.height(12.dp))
+        if (state.project.subtitles.isEmpty()) {
+            Text("暂无字幕。设置文本和时间后点「添加字幕」。", color = Color(0xFF666666), fontSize = 11.sp)
+        } else {
+            state.project.subtitles.sortedBy { it.startTime }.forEach { sub ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(sub.text, color = Color.White, fontSize = 13.sp)
+                        Text(
+                            "${String.format("%.1f", sub.startTime)}s ~ ${String.format("%.1f", sub.endTime)}s",
+                            color = Color(0xFF888888), fontSize = 11.sp
+                        )
+                    }
+                    Text(
+                        "删除",
+                        color = Color(0xFFFF7043), fontSize = 12.sp,
+                        modifier = Modifier
+                            .clickable { onEditStart(); onRemove(sub.id) }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════
 //  图片水印面板
 // ═══════════════════════════════════════
 

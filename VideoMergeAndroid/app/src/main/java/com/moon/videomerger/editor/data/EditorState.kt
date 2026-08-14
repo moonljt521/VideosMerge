@@ -12,6 +12,7 @@ enum class ToolPanel {
     IMAGE_WATERMARK,// 图片水印
     PICTURE,        // 画中画面板
     AUDIO,          // 音频面板
+    SUBTITLE,       // 字幕面板
     BLUR_BG,        // 模糊背景面板
     TRANSITION,     // 转场面板
     EXPORT,         // 导出面板
