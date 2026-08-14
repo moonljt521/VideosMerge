@@ -24,7 +24,7 @@
 | # | 功能 | Python 脚本 | Android | iOS | 优先级 | 备注 |
 |---|------|:---:|:---:|:---:|:---:|------|
 | 7 | **视频时间段裁剪** | ✅ `trim_video.py` | ✅ `FilterBuilder.kt` | ❌ | **P0** | trim 滤镜 + 边界检查 |
-| 8 | **画面空间裁剪** | ✅ `crop_video.py` | ✅ `FilterBuilder.kt` | ❌ | **P0** | scale cover + crop（min 版无 pad） |
+| 8 | **画面空间裁剪** | ✅ `crop_video.py` | ✅ `FilterBuilder.kt` | ❌ | **P0** | scale cover + crop |
 | 9 | **视频旋转/翻转** | ✅ `rotate_video.py` | ✅ `FilterBuilder.kt` + 剪辑面板 UI | ❌ | **P0** | transpose/hflip/vflip |
 | 10 | **视频缩放/改分辨率** | ✅ `scale_video.py` | ✅ `FilterBuilder.kt` | ❌ | **P1** | scale + 16 对齐（mediacodec 要求） |
 | 11 | **视频倒放** | ✅ `reverse_video.py` | ✅ `FilterBuilder.kt` + 变速面板开关 | ❌ | **P1** | reverse/areverse 滤镜 |
@@ -43,7 +43,7 @@
 | 17 | **图片水印** | ✅ `image_watermark.py` | 🔧 待移植 | ❌ | **P1** | overlay + 9 宫格 + 透明度 |
 | 18 | **模糊背景填充** | ✅ `blur_bg.py` | ✅ `FilterBuilder.kt` | ❌ | **P1** | split + avgblur + overlay（替代 boxblur） |
 | 19 | **转场效果** | ✅ `transition.py` | ✅ `FilterBuilder.kt` | ❌ | **P1** | xfade 链式，21 种转场效果 |
-| 20 | **电影黑边** | ✅ `letterbox.py` | ❌ | ❌ | **P2** | min 版无 pad，需 scale+color 源实现 |
+| 20 | **电影黑边** | ✅ `letterbox.py` | ❌ | ❌ | **P2** | 需 scale+color 源实现 |
 | 21 | **胶片颗粒/噪点** | ✅ `film_grain.py` | ❌ | ❌ | **P2** | noise 滤镜 + 复古调色 |
 | 22 | **局部马赛克** | ✅ `mosaic.py` | ❌ | ❌ | **P2** | crop + scale + overlay |
 | 23 | **LUT 调色** | ✅ `lut_color.py` | ❌ | ❌ | **P3** | lut3d 滤镜 |
@@ -175,7 +175,7 @@ VideoMerger App
 | `MediaUtils` | 视频元数据探测 / 文件管理 | ✅ 已有 |
 | `VideoPlayer` | 内联 + 全屏播放器 | ✅ 已有 |
 | `VideoHistoryStore` | 本地历史记录 | ✅ 已有 |
-| `FilterBuilder` | ffmpeg 滤镜链构建器（min 版适配） | ✅ 已建 |
+| `FilterBuilder` | ffmpeg 滤镜链构建器 | ✅ 已建 |
 | `TextWatermarkRenderer` | Android Canvas 生成文字 PNG | ✅ 已建 |
 | `ExportEngine` | 导出引擎 + 相册保存 | ✅ 已建 |
 | `PreviewProvider` | 实时预览缩略图 | ❌ 待建（当前 ExoPlayer 原始预览） |
