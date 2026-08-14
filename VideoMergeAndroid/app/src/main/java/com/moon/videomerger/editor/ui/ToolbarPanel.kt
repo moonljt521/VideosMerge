@@ -45,6 +45,7 @@ fun ToolbarPanel(
         ToolItem("字幕", Icons.Default.Subtitles, ToolPanel.SUBTITLE, enabled = true),
         ToolItem("水印", Icons.Default.Image, ToolPanel.IMAGE_WATERMARK, enabled = hasSelectedClip),
         ToolItem("画中画", Icons.Default.PictureInPictureAlt, ToolPanel.PICTURE, enabled = true),
+        ToolItem("贴纸", Icons.Default.EmojiEmotions, ToolPanel.STICKER, enabled = true),
         ToolItem("音频", Icons.Default.AudioFile, ToolPanel.AUDIO, enabled = hasSelectedClip),
         ToolItem("背景", Icons.Default.BlurOn, ToolPanel.BLUR_BG, enabled = hasSelectedClip),
         ToolItem("导出", Icons.Default.Download, ToolPanel.EXPORT),
@@ -166,26 +167,31 @@ fun ToolPanelHost(
     onTransitionDurationChange: (Double) -> Unit,
     onPipTransformChange: (Double, Double, Double, Double) -> Unit,
     onPipStyleChange: (PipShape, Double, Boolean, Double) -> Unit,
+    onPipTimingChange: (Double, Double) -> Unit,
     onAddPipKeyframe: () -> Unit,
     onRemovePipKeyframe: (Int) -> Unit,
     onRemovePip: () -> Unit,
     onAddSubtitle: (String, Double, Double) -> Unit,
     onRemoveSubtitle: (String) -> Unit,
     onTranscribe: () -> Unit,
+    onPickSticker: (String) -> Unit,
     onEditStart: () -> Unit,
     onExport: () -> Unit,
     onClose: () -> Unit
 ) {
     val clip = state.selectedClip
     // ★ 组合阶段不能直接调用 onClose（副作用），改用 LaunchedEffect
-    //   EXPORT 与 SUBTITLE 为项目级面板，无需选中片段
+    //   EXPORT/SUBTITLE/STICKER 为项目级面板，无需选中片段
     LaunchedEffect(clip?.id, state.currentPanel) {
-        val projectLevel = state.currentPanel == ToolPanel.EXPORT || state.currentPanel == ToolPanel.SUBTITLE
+        val projectLevel = state.currentPanel == ToolPanel.EXPORT ||
+            state.currentPanel == ToolPanel.SUBTITLE || state.currentPanel == ToolPanel.STICKER
         if (clip == null && !projectLevel && state.currentPanel != ToolPanel.NONE) {
             onClose()
         }
     }
-    if (clip == null && state.currentPanel != ToolPanel.EXPORT && state.currentPanel != ToolPanel.SUBTITLE) {
+    if (clip == null && state.currentPanel != ToolPanel.EXPORT &&
+        state.currentPanel != ToolPanel.SUBTITLE && state.currentPanel != ToolPanel.STICKER
+    ) {
         return
     }
 
@@ -259,8 +265,10 @@ fun ToolPanelHost(
         ToolPanel.PICTURE -> PicturePanel(
             clip = clip!!,
             currentPosition = state.currentPosition,
+            totalDuration = state.project.totalDuration,
             onTransformChange = onPipTransformChange,
             onStyleChange = onPipStyleChange,
+            onTimingChange = onPipTimingChange,
             onSpeedChange = onSpeedChange,
             onReverseToggle = onReverseToggle,
             onRotation = onRotation,
@@ -278,6 +286,10 @@ fun ToolPanelHost(
             onRemove = onRemoveSubtitle,
             onTranscribe = onTranscribe,
             onEditStart = onEditStart,
+            onClose = onClose
+        )
+        ToolPanel.STICKER -> StickerPanel(
+            onPick = onPickSticker,
             onClose = onClose
         )
         ToolPanel.EXPORT -> ExportPanel(
