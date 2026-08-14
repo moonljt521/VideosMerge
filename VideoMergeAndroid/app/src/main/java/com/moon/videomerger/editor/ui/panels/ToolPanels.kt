@@ -619,6 +619,7 @@ fun SubtitlePanel(
     state: EditorUiState,
     onAdd: (String, Double, Double) -> Unit,
     onRemove: (String) -> Unit,
+    onTranscribe: () -> Unit,
     onEditStart: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -671,6 +672,23 @@ fun SubtitlePanel(
             enabled = text.isNotBlank()
         ) {
             Text("添加字幕", fontSize = 13.sp)
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = { keyboardController?.hide(); onTranscribe() },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !state.isTranscribing
+        ) {
+            Text(if (state.isTranscribing) "识别中…" else "🎤 语音转字幕", fontSize = 13.sp)
+        }
+        if (state.isTranscribing) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth().height(4.dp).padding(top = 8.dp),
+                color = Color(0xFF4CAF50),
+                trackColor = Color(0xFF333333)
+            )
         }
 
         Spacer(Modifier.height(12.dp))

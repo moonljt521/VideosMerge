@@ -37,6 +37,7 @@ data class EditorUiState(
     val outputPath: String? = null,
     val errorMessage: String? = null,
     val isDetectingLogo: Boolean = false,
+    val isTranscribing: Boolean = false,   // 语音转字幕进行中
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
 ) {

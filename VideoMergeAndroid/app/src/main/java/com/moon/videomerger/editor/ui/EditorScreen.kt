@@ -213,6 +213,7 @@ fun EditorScreen(
                                 onRemovePip = { state.selectedClipId?.let { viewModel.deleteClip(it) } },
                                 onAddSubtitle = { t, s, e -> viewModel.addSubtitle(t, s, e) },
                                 onRemoveSubtitle = { id -> viewModel.removeSubtitle(id) },
+                                onTranscribe = { viewModel.transcribeSpeech() },
                                 onEditStart = { viewModel.beginEdit() },
                                 onExport = { viewModel.export() },
                                 onClose = { viewModel.closePanel() }

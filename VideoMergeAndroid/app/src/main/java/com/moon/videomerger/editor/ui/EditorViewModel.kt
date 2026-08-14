@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.moon.videomerger.editor.data.*
 import com.moon.videomerger.editor.engine.ExportEngine
+import com.moon.videomerger.editor.engine.VoskSpeechRecognizer
 import com.moon.videomerger.util.MediaUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -411,6 +412,50 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 updatedAt = System.currentTimeMillis()
             )
         )
+    }
+
+    /** 语音转字幕：提取主轨第一个片段音频 → Vosk 离线识别 → 生成字幕条目 */
+    fun transcribeSpeech() {
+        if (_uiState.value.isTranscribing) return
+        val project = _uiState.value.project
+        val mainClip = project.mainTrack?.clips?.firstOrNull()
+        if (mainClip == null) {
+            showError("没有视频片段")
+            return
+        }
+        if (!VoskSpeechRecognizer.isModelReady(appContext)) {
+            showError("语音模型未就绪，请先放入模型：\n${VoskSpeechRecognizer.modelDir(appContext).absolutePath}")
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(isTranscribing = true)
+        viewModelScope.launch {
+            try {
+                val subs = withContext(Dispatchers.IO) {
+                    val raw = VoskSpeechRecognizer.extractAudio(appContext, mainClip.mediaPath)
+                    val words = VoskSpeechRecognizer.recognize(appContext, raw)
+                    VoskSpeechRecognizer.groupToSubtitles(words)
+                }
+                if (subs.isEmpty()) {
+                    showError("未识别到语音")
+                } else {
+                    pushUndo()
+                    val st = _uiState.value
+                    _uiState.value = st.copy(
+                        project = st.project.copy(
+                            subtitles = (st.project.subtitles + subs).sortedBy { it.startTime },
+                            updatedAt = System.currentTimeMillis()
+                        )
+                    )
+                    showError("已生成 ${subs.size} 条字幕")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("EditorVM", "语音转字幕失败", e)
+                showError("语音识别失败：${e.message}")
+            } finally {
+                _uiState.value = _uiState.value.copy(isTranscribing = false)
+            }
+        }
     }
 
     // ═══════════════════════════════════════

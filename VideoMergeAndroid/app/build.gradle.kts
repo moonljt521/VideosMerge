@@ -108,6 +108,9 @@ dependencies {
 
     // Coil — 图片加载（时间轴缩略图）
     implementation("io.coil-kt:coil-compose:2.6.0")
+
+    // Vosk — 离线语音识别（语音转字幕）
+    implementation("com.alphacephei:vosk-android:0.3.47")
 }
 
 // ── 打包 Task：生成带签名的 release APK，输出到 outputs/ 目录 ──
