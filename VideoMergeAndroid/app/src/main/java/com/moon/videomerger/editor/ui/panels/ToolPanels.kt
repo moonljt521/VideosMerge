@@ -721,6 +721,55 @@ fun SubtitlePanel(
 }
 
 // ═══════════════════════════════════════
+//  贴纸面板
+// ═══════════════════════════════════════
+
+@Composable
+fun StickerPanel(
+    onPick: (String) -> Unit,
+    onClose: () -> Unit
+) {
+    val stickers = listOf(
+        "😀", "😂", "❤️", "👍", "🔥", "⭐", "🎉", "💯", "😍", "🤔",
+        "😎", "🥰", "😭", "🙏", "👏", "✨", "🌹", "🍉", "🐱", "🚀"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF1A1A1A))
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        PanelHeader("贴纸", onClose)
+        Spacer(Modifier.height(8.dp))
+        Text("点选一个贴纸，叠加到当前播放头处（可在「画中画」面板里调位置/大小）",
+            color = Color(0xFF888888), fontSize = 12.sp)
+
+        Spacer(Modifier.height(12.dp))
+        stickers.chunked(5).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                row.forEach { emoji ->
+                    Text(
+                        emoji,
+                        fontSize = 34.sp,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onPick(emoji) }
+                            .padding(10.dp)
+                    )
+                }
+                repeat(5 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+            Spacer(Modifier.height(4.dp))
+        }
+    }
+}
+
+// ═══════════════════════════════════════
 //  图片水印面板
 // ═══════════════════════════════════════
 
@@ -830,8 +879,10 @@ fun ImageWatermarkPanel(
 fun PicturePanel(
     clip: Clip,
     currentPosition: Double,
+    totalDuration: Double,
     onTransformChange: (Double, Double, Double, Double) -> Unit,
     onStyleChange: (PipShape, Double, Boolean, Double) -> Unit,
+    onTimingChange: (Double, Double) -> Unit,
     onSpeedChange: (Double) -> Unit,
     onReverseToggle: () -> Unit,
     onRotation: (Int) -> Unit,
@@ -852,6 +903,8 @@ fun PicturePanel(
     var border by remember(clip.id) { mutableStateOf(clip.pipBorder) }
     var borderWidth by remember(clip.id) { mutableStateOf(clip.pipBorderWidth.toFloat()) }
     var speed by remember(clip.id) { mutableStateOf(clip.speed.toFloat()) }
+    var startTime by remember(clip.id) { mutableStateOf(clip.timelineStart.toFloat()) }
+    var duration by remember(clip.id) { mutableStateOf(clip.timelineDuration.toFloat()) }
 
     val speedPresets = listOf(0.5f, 1.0f, 1.5f, 2.0f, 3.0f)
 
@@ -882,6 +935,18 @@ fun PicturePanel(
         SliderRow("透明度", opacity, 0f..1f, onValueChange = {
             opacity = it
             onTransformChange(x.toDouble(), y.toDouble(), width.toDouble(), opacity.toDouble())
+        }, onValueChangeStarted = onEditStart)
+
+        // ── 时间（开始 + 时长）──
+        Text("时间", color = Color(0xFF888888), fontSize = 12.sp,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+        SliderRow("开始时间", startTime, 0f..totalDuration.toFloat().coerceAtLeast(0.1f), onValueChange = {
+            startTime = it
+            onTimingChange(startTime.toDouble(), duration.toDouble())
+        }, onValueChangeStarted = onEditStart)
+        SliderRow("时长", duration, 0.5f..60f, onValueChange = {
+            duration = it
+            onTimingChange(startTime.toDouble(), duration.toDouble())
         }, onValueChangeStarted = onEditStart)
 
         // ── 关键帧（位移动画）──

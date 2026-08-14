@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.moon.videomerger.editor.data.*
 import com.moon.videomerger.editor.engine.ExportEngine
+import com.moon.videomerger.editor.engine.StickerRenderer
 import com.moon.videomerger.editor.engine.VoskSpeechRecognizer
 import com.moon.videomerger.util.MediaUtils
 import kotlinx.coroutines.Dispatchers
@@ -327,6 +328,48 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** 添加贴纸：把 emoji 渲染成 PNG，作为图片叠加到当前播放头处（时长 3s，宽度 20%） */
+    fun addSticker(emoji: String) {
+        viewModelScope.launch {
+            val png = withContext(Dispatchers.IO) {
+                StickerRenderer.renderToPng(appContext, emoji)
+            }
+            pushUndo()
+            val dur = 3.0
+            val clip = Clip(
+                mediaPath = png.absolutePath,
+                mediaName = emoji,
+                mediaDuration = 300.0,   // 图片可循环，留足时长上限
+                width = 256,
+                height = 256,
+                hasAudio = false,
+                trimEnd = dur,
+                timelineStart = _uiState.value.currentPosition,
+                thumbnailPath = png.absolutePath,
+                pipEnabled = true,
+                isImage = true,
+                pipWidth = 0.2,
+            )
+
+            val state = _uiState.value
+            val existingPip = state.project.tracks.find { it.type == TrackType.PICTURE }
+            val newTracks = state.project.tracks.toMutableList()
+            if (existingPip == null) {
+                newTracks.add(Track(type = TrackType.PICTURE, clips = mutableListOf(clip)))
+            } else {
+                val idx = newTracks.indexOfFirst { it.id == existingPip.id }
+                newTracks[idx] = existingPip.copy(clips = (existingPip.clips + clip).toMutableList())
+            }
+            // 选中新贴纸，并自动切到「画中画」面板直接调位置/大小/时间
+            _uiState.value = state.copy(
+                project = state.project.copy(tracks = newTracks, updatedAt = System.currentTimeMillis()),
+                selectedClipId = clip.id,
+                selectedTrackId = newTracks.find { it.type == TrackType.PICTURE }?.id,
+                currentPanel = ToolPanel.PICTURE,
+            )
+        }
+    }
+
     /** 更新画中画叠加层的位置/大小/透明度（pipX/pipY ∈ 0~1，pipWidth ∈ 0.05~1） */
     fun updatePipTransform(clipId: String, x: Double, y: Double, width: Double, opacity: Double) {
         updateClip(clipId) {
@@ -348,6 +391,25 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 pipBorder = border,
                 pipBorderWidth = borderWidth.coerceIn(0.0, 0.2),
             )
+        }
+    }
+
+    /** 更新画中画时间：开始时间（时间轴绝对秒）+ 时长（秒） */
+    fun updatePipTiming(clipId: String, start: Double, duration: Double) {
+        updateClip(clipId) { clip ->
+            val safeStart = start.coerceAtLeast(0.0)
+            val safeDur = duration.coerceIn(0.5, 300.0)
+            if (clip.isImage) {
+                // 图片可循环：时长直接映射到 trimEnd
+                clip.copy(
+                    timelineStart = safeStart,
+                    trimEnd = safeDur.coerceAtMost(clip.mediaDuration),
+                )
+            } else {
+                // 视频：时长 = (trimEnd - trimStart) / speed → trimEnd = trimStart + duration * speed
+                val newTrimEnd = (clip.trimStart + safeDur * clip.speed).coerceAtMost(clip.mediaDuration)
+                clip.copy(timelineStart = safeStart, trimEnd = newTrimEnd)
+            }
         }
     }
 
