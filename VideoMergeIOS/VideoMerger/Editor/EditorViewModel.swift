@@ -139,6 +139,10 @@ final class EditorViewModel: ObservableObject {
                     uiState.importMessage = "正在添加视频 \(i + 1)/\(urls.count)"
                 }
                 pushUndo()
+                // ★ 导入成功，清除导入中状态（否则浮层永远不消失）
+                uiState.isImporting = false
+                uiState.importProgress = 0
+                uiState.importMessage = ""
                 let state = uiState
                 if var mainTrack = state.project.mainTrack {
                     mainTrack.clips = relayoutMainTrackClips(mainTrack.clips + newClips)

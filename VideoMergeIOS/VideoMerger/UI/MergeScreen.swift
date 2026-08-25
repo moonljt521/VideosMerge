@@ -11,9 +11,12 @@ import PhotosUI
 import AVKit
 
 struct MergeScreen: View {
+    /// 首页带入的已选视频（可选）
+    var initialURLs: [URL] = []
     @StateObject private var viewModel = MergeViewModel()
     @State private var showPicker = false
     @State private var isLoadingVideos = false
+    @State private var initialApplied = false
 
     var body: some View {
         NavigationStack {
@@ -101,8 +104,14 @@ struct MergeScreen: View {
                 .padding(.horizontal, 16)
             }
             .background(Color(.systemBackground))
-            .navigationTitle("VideoMerge")
+            .navigationTitle("影剪 · 视频合并")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                // ★ 首页带入的已选视频（只应用一次）
+                guard !initialApplied, !initialURLs.isEmpty else { return }
+                initialApplied = true
+                viewModel.onVideosSelected(initialURLs)
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
