@@ -260,6 +260,19 @@ struct AudioPanelView: View {
                         ), in: 0...max(clip.timelineDuration / 2, 0.1))
                         Text(String(format: "%.1fs", clip.audioFadeOut)).font(.system(size: 12)).frame(width: 44)
                     }
+                    HStack {
+                        Text("变声").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 52, alignment: .leading)
+                        Slider(value: Binding(
+                            get: { clip.pitchShift },
+                            set: { vm.beginEdit(); vm.updatePitchShift(clip.id, $0) }
+                        ), in: 0.5...2.0)
+                        Text(clip.pitchShift == 1.0 ? "原声" : (clip.pitchShift > 1 ? "高音" : "低音"))
+                            .font(.system(size: 12)).frame(width: 40)
+                    }
+                    Toggle("降噪", isOn: Binding(
+                        get: { clip.noiseReduction },
+                        set: { nv, _ in vm.beginEdit(); if nv != clip.noiseReduction { vm.toggleNoiseReduction(clip.id) } }))
+                        .font(.system(size: 13))
                 }
             } else {
                 panelLabel("请先选中片段")
@@ -441,6 +454,278 @@ struct ExportPanelView: View {
 
             if let path = state.outputPath {
                 Text("✅ 已导出: \(path)").font(.system(size: 11)).foregroundColor(Color(hex: 0xFF4CAF50))
+            }
+        }
+    }
+}
+
+// MARK: - 画中画面板
+
+struct PicturePanelView: View {
+    let clip: Clip?
+    @ObservedObject var vm: EditorViewModel
+    let onClose: () -> Void
+    let onPickVideo: () -> Void
+    let onPickImage: () -> Void
+
+    var body: some View {
+        PanelShell(title: "画中画", onClose: onClose) {
+            if let clip = clip, clip.pipEnabled {
+                Group {
+                    slider("位置X", clip.pipX, 0...0.99) { vm.beginEdit(); vm.updatePipTransform(clip.id, x: $0, y: clip.pipY, width: clip.pipWidth, opacity: clip.pipOpacity) }
+                    slider("位置Y", clip.pipY, 0...0.99) { vm.beginEdit(); vm.updatePipTransform(clip.id, x: clip.pipX, y: $0, width: clip.pipWidth, opacity: clip.pipOpacity) }
+                    slider("大小", clip.pipWidth, 0.05...1) { vm.beginEdit(); vm.updatePipTransform(clip.id, x: clip.pipX, y: clip.pipY, width: $0, opacity: clip.pipOpacity) }
+                    slider("透明度", clip.pipOpacity, 0...1) { vm.beginEdit(); vm.updatePipTransform(clip.id, x: clip.pipX, y: clip.pipY, width: clip.pipWidth, opacity: $0) }
+                    HStack(spacing: 12) {
+                        Text("形状").font(.system(size: 13)).foregroundColor(Color(hex: 0xFF888888))
+                        ForEach([PipShape.rect, .rounded, .circle], id: \.self) { shape in
+                            Text(shape == .rect ? "矩形" : shape == .rounded ? "圆角" : "圆形")
+                                .font(.system(size: 12))
+                                .foregroundColor(clip.pipShape == shape ? Color(hex: 0xFF2196F3) : Color(hex: 0xFF888888))
+                                .padding(.horizontal, 8).padding(.vertical, 4)
+                                .background(Capsule().fill(Color(hex: 0xFF242424)))
+                                .onTapGesture {
+                                    vm.beginEdit()
+                                    vm.updatePipStyle(clip.id, shape: shape, cornerRadius: clip.pipCornerRadius,
+                                                      border: clip.pipBorder, borderWidth: clip.pipBorderWidth)
+                                }
+                        }
+                        Toggle("描边", isOn: Binding(
+                            get: { clip.pipBorder },
+                            set: { nv, _ in vm.beginEdit(); vm.updatePipStyle(clip.id, shape: clip.pipShape,
+                                                       cornerRadius: clip.pipCornerRadius, border: nv, borderWidth: clip.pipBorderWidth) }))
+                            .font(.system(size: 13))
+                    }
+                    slider("开始", clip.timelineStart, 0...max(vm.uiState.project.totalDuration, 0.5), fmt: "%.1f") {
+                        vm.beginEdit(); vm.updatePipTiming(clip.id, start: $0, duration: clip.timelineDuration)
+                    }
+                    slider("时长", clip.timelineDuration, 0.5...max(clip.mediaDuration / max(clip.speed, 0.1), 0.6), fmt: "%.1f") {
+                        vm.beginEdit(); vm.updatePipTiming(clip.id, start: clip.timelineStart, duration: $0)
+                    }
+
+                    // 位置关键帧
+                    HStack {
+                        Text("关键帧").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA))
+                        Button("在播放头添加") {
+                            vm.beginEdit(); vm.addPipKeyframe(clip.id)
+                        }
+                        .font(.system(size: 12))
+                        Spacer()
+                    }
+                    ForEach(Array(clip.pipKeyframes.enumerated()), id: \.offset) { index, kf in
+                        HStack {
+                            Text(String(format: "@%.1fs (%.2f, %.2f)", kf.time, kf.x, kf.y))
+                                .font(.system(size: 12)).foregroundColor(Color(hex: 0xFFAAAAAA))
+                            Spacer()
+                            Image(systemName: "trash")
+                                .font(.system(size: 12)).foregroundColor(Color(hex: 0xFFFF7043))
+                                .onTapGesture { vm.beginEdit(); vm.removePipKeyframe(clip.id, index) }
+                        }
+                    }
+
+                    Button("删除此画中画", role: .destructive) {
+                        if let id = vm.uiState.selectedClipId { vm.deleteClip(id) }
+                        onClose()
+                    }
+                    .font(.system(size: 13))
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("把视频或图片叠加在主画面之上").font(.system(size: 12)).foregroundColor(Color(hex: 0xFF888888))
+                    HStack(spacing: 12) {
+                        Button("选择视频") { onPickVideo() }
+                            .buttonStyle(.borderedProminent)
+                        Button("选择图片") { onPickImage() }
+                            .buttonStyle(.bordered)
+                    }
+                }
+            }
+        }
+    }
+
+    private func slider(_ label: String, _ value: Double, _ range: ClosedRange<Double>,
+                        fmt: String = "%.2f", onChange: @escaping (Double) -> Void) -> some View {
+        HStack {
+            Text(label).font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 48, alignment: .leading)
+            Slider(value: Binding(get: { value }, set: { vm.beginEdit(); onChange($0) }), in: range)
+            Text(String(format: fmt, value)).font(.system(size: 12)).frame(width: 44)
+        }
+    }
+}
+
+// MARK: - 贴纸面板
+
+struct StickerPanelView: View {
+    @ObservedObject var vm: EditorViewModel
+    let onClose: () -> Void
+
+    private let emojis = ["😀", "😂", "🥰", "😎", "🤔", "😭", "😡", "👍", "👎", "👏",
+                          "❤️", "💔", "🔥", "✨", "🎉", "🎁", "⭐", "🌈", "🍀", "🌸",
+                          "🐶", "🐱", "🐼", "🦄", "🍉", "🍔", "🍺", "☕", "⚽", "🎮"]
+
+    var body: some View {
+        PanelShell(title: "贴纸", onClose: onClose) {
+            Text("点击贴纸添加到播放头位置（时长 3s，可在画中画面板调整）")
+                .font(.system(size: 11)).foregroundColor(Color(hex: 0xFF888888))
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 48), spacing: 8)], spacing: 8) {
+                ForEach(emojis, id: \.self) { emoji in
+                    Text(emoji)
+                        .font(.system(size: 30))
+                        .frame(width: 48, height: 48)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0xFF242424)))
+                        .onTapGesture { vm.addSticker(emoji) }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 字幕面板（手动 + 语音转字）
+
+struct SubtitlePanelView: View {
+    let state: EditorUiState
+    @ObservedObject var vm: EditorViewModel
+    let onClose: () -> Void
+    @State private var text = String()
+    @State private var start = 0.0
+    @State private var end = 2.0
+
+    var body: some View {
+        PanelShell(title: "字幕", onClose: onClose) {
+            Button {
+                vm.transcribeSpeech()
+            } label: {
+                HStack {
+                    if state.isTranscribing {
+                        ProgressView().scaleEffect(0.7)
+                        Text("识别中...").font(.system(size: 13))
+                    } else {
+                        Text("🎙 语音转字幕（识别第一个片段）").font(.system(size: 13))
+                    }
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(state.isTranscribing)
+
+            TextField("手动添加字幕文字", text: $text)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 14))
+            HStack {
+                Text("起止").font(.system(size: 13)).foregroundColor(Color(hex: 0xFF888888))
+                Slider(value: $start, in: 0...max(state.project.totalDuration, 0.5))
+                    .frame(width: 90)
+                Slider(value: $end, in: 0...max(state.project.totalDuration, 0.5))
+                    .frame(width: 90)
+                Button("添加") {
+                    vm.addSubtitle(text, start, end)
+                    text = String()
+                }
+                .disabled(text.isEmpty)
+                .font(.system(size: 13))
+            }
+
+            ForEach(state.project.subtitles) { sub in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(sub.text).font(.system(size: 13))
+                        Text(String(format: "%.1fs - %.1fs", sub.startTime, sub.endTime))
+                            .font(.system(size: 11)).foregroundColor(Color(hex: 0xFF888888))
+                    }
+                    Spacer()
+                    Image(systemName: "trash")
+                        .font(.system(size: 13)).foregroundColor(Color(hex: 0xFFFF7043))
+                        .onTapGesture { vm.beginEdit(); vm.removeSubtitle(sub.id) }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+}
+
+// MARK: - 图片水印面板
+
+struct ImageWatermarkPanelView: View {
+    let clip: Clip?
+    @ObservedObject var vm: EditorViewModel
+    let onClose: () -> Void
+    let onPickImage: () -> Void
+
+    var body: some View {
+        PanelShell(title: "图片水印", onClose: onClose) {
+            if let clip = clip {
+                if clip.imageWatermarkPath == nil {
+                    Button("选择水印图片") { onPickImage() }
+                        .buttonStyle(.borderedProminent)
+                } else {
+                    slider("大小", clip.imageWatermarkScale, 0.05...1) {
+                        vm.beginEdit(); vm.updateImageWatermark(clip.id, scale: $0, opacity: clip.imageWatermarkOpacity, position: clip.imageWatermarkPosition)
+                    }
+                    slider("透明度", clip.imageWatermarkOpacity, 0...1) {
+                        vm.beginEdit(); vm.updateImageWatermark(clip.id, scale: clip.imageWatermarkScale, opacity: $0, position: clip.imageWatermarkPosition)
+                    }
+                    HStack {
+                        Text("位置").font(.system(size: 13)).foregroundColor(Color(hex: 0xFF888888))
+                        ForEach(["top-left", "top-right", "center", "bottom-left", "bottom-right"], id: \.self) { pos in
+                            Text(pos == "top-left" ? "左上" : pos == "top-right" ? "右上" : pos == "center" ? "中" :
+                                 pos == "bottom-left" ? "左下" : "右下")
+                                .font(.system(size: 12))
+                                .foregroundColor(clip.imageWatermarkPosition == pos ? Color(hex: 0xFF2196F3) : Color(hex: 0xFF888888))
+                                .padding(.horizontal, 6).padding(.vertical, 4)
+                                .background(Capsule().fill(Color(hex: 0xFF242424)))
+                                .onTapGesture {
+                                    vm.beginEdit()
+                                    vm.updateImageWatermark(clip.id, scale: clip.imageWatermarkScale,
+                                                            opacity: clip.imageWatermarkOpacity, position: pos)
+                                }
+                        }
+                    }
+                    Button("更换图片") { onPickImage() }.font(.system(size: 13))
+                }
+            } else {
+                panelLabel("请先选中片段")
+            }
+        }
+    }
+
+    private func slider(_ label: String, _ value: Double, _ range: ClosedRange<Double>,
+                        onChange: @escaping (Double) -> Void) -> some View {
+        HStack {
+            Text(label).font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 48, alignment: .leading)
+            Slider(value: Binding(get: { value }, set: { vm.beginEdit(); onChange($0) }), in: range)
+            Text(String(format: "%.2f", value)).font(.system(size: 12)).frame(width: 44)
+        }
+    }
+}
+
+// MARK: - 模糊背景面板
+
+struct BlurBgPanelView: View {
+    let clip: Clip?
+    @ObservedObject var vm: EditorViewModel
+    let onClose: () -> Void
+
+    var body: some View {
+        PanelShell(title: "模糊背景", onClose: onClose) {
+            if let clip = clip {
+                Toggle("开启模糊背景（竖屏转横屏时用模糊画面填充黑边）", isOn: Binding(
+                    get: { clip.blurBgEnabled },
+                    set: { nv, _ in vm.beginEdit();
+                        if nv != clip.blurBgEnabled { vm.toggleBlurBg(clip.id) } }))
+                    .font(.system(size: 13))
+                if clip.blurBgEnabled {
+                    HStack {
+                        Text("模糊强度").font(.system(size: 13)).foregroundColor(Color(hex: 0xFF888888))
+                        Slider(value: Binding(
+                            get: { Double(clip.blurStrength) },
+                            set: { vm.beginEdit(); vm.updateBlurStrength(clip.id, Int($0)) }
+                        ), in: 2...40)
+                        Text("\(clip.blurStrength)").font(.system(size: 12)).frame(width: 28)
+                    }
+                }
+                Text("预览不实时呈现模糊背景，以导出为准")
+                    .font(.system(size: 11)).foregroundColor(Color(hex: 0xFF888888))
+            } else {
+                panelLabel("请先选中片段")
             }
         }
     }
