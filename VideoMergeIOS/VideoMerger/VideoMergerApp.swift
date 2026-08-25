@@ -15,7 +15,7 @@ struct VideoMergerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MergeScreen()
+            HomeView()
         }
     }
 }
