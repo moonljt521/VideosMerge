@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 影剪 adaptive icon foreground: 白色播放三角 + 青色剪辑点缀 -->
+<!--
+    影剪 adaptive icon foreground：白色几何标记（剪映风格）
+    设计语言：上下两条圆角横杠 = 素材条；左右两个对接三角 = 两段视频合并；
+    中心黑色菱形缺口 = 剪切点。整体落在自适应图标 66dp 安全区内。
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 居中白色播放三角 -->
-    <path android:fillColor="#FFFFFFFF" android:pathData="M45,35L74,54L45,73Z"/>
-    <!-- 底部青色剪辑条 -->
-    <path android:fillColor="#FF00D1FF" android:pathData="M36,80L72,80Q74,80 74,82L74,84Q74,86 72,86L36,86Q34,86 34,84L34,82Q34,80 36,80Z"/>
-</vector>
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M33,32 L75,32 Q78,32 78,35 Q78,38 75,38 L33,38 Q30,38 30,35 Q30,32 33,32 Z"/>
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M33,70 L75,70 Q78,70 78,73 Q78,76 75,76 L33,76 Q30,76 30,73 Q30,70 33,70 Z"/>
+    <path android:fillColor="#FFFFFFFF" android:pathData="M30,42 L62,54 L30,66 Z"/>
+    <path android:fillColor="#FFFFFFFF" android:pathData="M78,42 L46,54 L78,66 Z"/>
+    <path android:fillColor="#FF000000" android:pathData="M54,48 L59,54 L54,60 L49,54 Z"/></vector>

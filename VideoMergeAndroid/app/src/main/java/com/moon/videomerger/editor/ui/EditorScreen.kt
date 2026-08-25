@@ -36,8 +36,21 @@ fun EditorScreen(
     onBack: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
-    android.util.Log.w("EditorScreen", "compose state=${state.project.mainTrack?.clips?.size} panel=${state.currentPanel}")
+    // ★ 播放头以 flow 传入子面板自行收集，EditorScreen 不观察它，
+    //   播放时只有预览/时间轴局部重组，工具栏与面板保持静止
     BackHandler { onBack() }
+
+    // ★ 退到后台时暂停预览（省电 + 避免回来时播放头/画面错位）
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+                viewModel.pausePlayback()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     // 添加更多视频的选择器
     val addVideoLauncher = rememberLauncherForActivityResult(
@@ -103,6 +116,7 @@ fun EditorScreen(
                     ) {
                         PreviewPanel(
                             state = state,
+                            playheadFlow = viewModel.playhead,
                             onTogglePlay = { viewModel.togglePlay() },
                             onSeek = { viewModel.seekTo(it) }
                         )
@@ -138,6 +152,7 @@ fun EditorScreen(
                     ) {
                         TimelinePanel(
                             state = state,
+                            playheadFlow = viewModel.playhead,
                             onSelectClip = { viewModel.selectClip(it) },
                             onSeek = { viewModel.seekTo(it) },
                             onSetInPoint = { viewModel.setInPoint() },
@@ -181,6 +196,11 @@ fun EditorScreen(
                         } else {
                             ToolPanelHost(
                                 state = state,
+                                playheadFlow = viewModel.playhead,
+                                onDetectWatermarks = { viewModel.autoDetectWatermarks(state.selectedClipId!!) },
+                                onAddWatermarkRegion = { corner -> viewModel.addWatermarkRegion(state.selectedClipId!!, corner) },
+                                onUpdateWatermarkRegion = { i, r -> viewModel.updateWatermarkRegion(state.selectedClipId!!, i, r) },
+                                onRemoveWatermarkRegion = { i -> viewModel.removeWatermarkRegion(state.selectedClipId!!, i) },
                                 onTrimChange = { s, e -> viewModel.updateTrim(state.selectedClipId!!, s, e) },
                                 onSplitAtPlayhead = { viewModel.splitAtPlayhead() },
                                 onDeleteClip = { state.selectedClipId?.let { viewModel.deleteClip(it) } },
@@ -226,6 +246,16 @@ fun EditorScreen(
             }
         }
 
+        // ── 导入进度浮层（新建项目/添加片段时，可取消）──
+        if (state.isImporting) {
+            ImportOverlay(
+                progress = state.importProgress,
+                message = state.importMessage,
+                indeterminate = state.importProgress <= 0f,
+                onCancel = { viewModel.cancelImport() }
+            )
+        }
+
         // ── 导出进度浮层（不挤压布局，可取消）──
         if (state.isExporting) {
             ExportOverlay(
@@ -237,7 +267,7 @@ fun EditorScreen(
 
         // ── 错误/提示浮层（自动消失）──
         state.errorMessage?.let { msg ->
-            FloatingMessage(message = msg, onDismiss = { viewModel.dismissError() })
+            FloatingMessage(message = msg, severity = state.errorSeverity, onDismiss = { viewModel.dismissError() })
         }
     }
 }
@@ -316,6 +346,65 @@ private fun EditorTopBar(
     }
 }
 
+// ─── 导入进度浮层 ───────────────────────────
+
+@Composable
+private fun ImportOverlay(
+    progress: Float,
+    message: String,
+    indeterminate: Boolean,
+    onCancel: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xAA000000)),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            color = Color(0xFF1E1E1E),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp)
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text("正在导入素材", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.height(16.dp))
+                if (indeterminate) {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = Color(0xFF2196F3),
+                        trackColor = Color(0xFF333333)
+                    )
+                } else {
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = Color(0xFF2196F3),
+                        trackColor = Color(0xFF333333)
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(message, color = Color(0xFFAAAAAA), fontSize = 13.sp)
+                Spacer(Modifier.height(20.dp))
+                TextButton(
+                    onClick = onCancel,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("取消导入", color = Color(0xFFFF7043))
+                }
+            }
+        }
+    }
+}
+
 // ─── 导出进度浮层 ───────────────────────────
 
 @Composable
@@ -362,7 +451,11 @@ private fun ExportOverlay(progress: Float, message: String, onCancel: () -> Unit
 // ─── 错误/提示浮层（自动消失）───────────────────
 
 @Composable
-private fun FloatingMessage(message: String, onDismiss: () -> Unit) {
+private fun FloatingMessage(
+    message: String,
+    severity: com.moon.videomerger.editor.data.MessageSeverity,
+    onDismiss: () -> Unit
+) {
     // 3.5 秒后自动关闭
     LaunchedEffect(message) {
         delay(3500)
@@ -374,7 +467,7 @@ private fun FloatingMessage(message: String, onDismiss: () -> Unit) {
         contentAlignment = Alignment.TopCenter
     ) {
         Surface(
-            color = if (message.startsWith("导出失败") || message.startsWith("保存失败")) {
+            color = if (severity == com.moon.videomerger.editor.data.MessageSeverity.ERROR) {
                 Color(0xFFD32F2F)
             } else {
                 Color(0xFF333333)

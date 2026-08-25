@@ -4,6 +4,7 @@ import java.util.Date
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
@@ -55,6 +56,11 @@ android {
 
     kotlinOptions {
         jvmTarget = "1.8"
+    }
+
+    testOptions {
+        // 允许单元测试调用 android.util.Log 等框架方法返回默认值（FilterBuilder 导出命令测试需要）
+        unitTests.isReturnDefaultValues = true
     }
 
     buildFeatures {
@@ -111,6 +117,12 @@ dependencies {
 
     // Vosk — 离线语音识别（语音转字幕）
     implementation("com.alphacephei:vosk-android:0.3.47")
+
+    // kotlinx-serialization —— 项目草稿持久化
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+
+    // 单元测试 —— 时间轴布局 / 转场重叠等纯数学逻辑
+    testImplementation("junit:junit:4.13.2")
 }
 
 // ── 打包 Task：生成带签名的 release APK，输出到 outputs/ 目录 ──

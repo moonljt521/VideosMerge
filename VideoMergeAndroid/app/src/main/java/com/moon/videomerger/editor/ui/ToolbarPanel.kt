@@ -44,6 +44,7 @@ fun ToolbarPanel(
         ToolItem("文字", Icons.Default.TextFields, ToolPanel.TEXT, enabled = hasSelectedClip),
         ToolItem("字幕", Icons.Default.Subtitles, ToolPanel.SUBTITLE, enabled = true),
         ToolItem("水印", Icons.Default.Image, ToolPanel.IMAGE_WATERMARK, enabled = hasSelectedClip),
+        ToolItem("去水印", Icons.Default.AutoFixHigh, ToolPanel.WATERMARK_REMOVE, enabled = hasSelectedClip),
         ToolItem("画中画", Icons.Default.PictureInPictureAlt, ToolPanel.PICTURE, enabled = true),
         ToolItem("贴纸", Icons.Default.EmojiEmotions, ToolPanel.STICKER, enabled = true),
         ToolItem("音频", Icons.Default.AudioFile, ToolPanel.AUDIO, enabled = hasSelectedClip),
@@ -74,8 +75,8 @@ fun ToolbarPanel(
             )
         }
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp)
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            contentPadding = PaddingValues(horizontal = 10.dp)
         ) {
             items(tools) { tool ->
                 ToolButton(
@@ -113,22 +114,22 @@ private fun ToolButton(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .clickable(enabled = clickable, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 4.dp)
-            .size(width = 56.dp, height = 56.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .padding(horizontal = 6.dp, vertical = 4.dp)
+            .width(48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
             icon,
             contentDescription = name,
             tint = if (enabled) Color.White else Color(0xFF555555),
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(22.dp)
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(3.dp))
         Text(
             name,
             color = if (enabled) Color.White else Color(0xFF555555),
-            fontSize = 10.sp
+            fontSize = 10.sp,
+            maxLines = 1
         )
     }
 }
@@ -140,7 +141,12 @@ private fun ToolButton(
 @Composable
 fun ToolPanelHost(
     state: EditorUiState,
+    playheadFlow: kotlinx.coroutines.flow.StateFlow<Double>,
     onTrimChange: (Double, Double) -> Unit,
+    onDetectWatermarks: () -> Unit,
+    onAddWatermarkRegion: (String?) -> Unit,
+    onUpdateWatermarkRegion: (Int, com.moon.videomerger.editor.data.WatermarkRegion) -> Unit,
+    onRemoveWatermarkRegion: (Int) -> Unit,
     onSplitAtPlayhead: () -> Unit,
     onDeleteClip: () -> Unit,
     onSpeedChange: (Double) -> Unit,
@@ -195,10 +201,13 @@ fun ToolPanelHost(
         return
     }
 
+    // ★ 面板内本地收集播放头（低频场景：分割按钮可用性、关键帧时间标签等）
+    val playhead by playheadFlow.collectAsState()
+
     when (state.currentPanel) {
         ToolPanel.TRIM -> TrimPanel(
             clip = clip!!,
-            currentPosition = state.currentPosition,
+            currentPosition = playhead,
             onTrimChange = onTrimChange,
             onSplitAtPlayhead = onSplitAtPlayhead,
             onDelete = onDeleteClip,
@@ -262,9 +271,20 @@ fun ToolPanelHost(
             onEditStart = onEditStart,
             onClose = onClose
         )
+        ToolPanel.WATERMARK_REMOVE -> WatermarkRemovePanel(
+            clip = clip!!,
+            isDetecting = state.isDetectingWatermark,
+            onDetect = onDetectWatermarks,
+            onAddRegion = { onAddWatermarkRegion(null) },
+            onAddRegionAt = onAddWatermarkRegion,
+            onUpdateRegion = onUpdateWatermarkRegion,
+            onRemoveRegion = onRemoveWatermarkRegion,
+            onEditStart = onEditStart,
+            onClose = onClose
+        )
         ToolPanel.PICTURE -> PicturePanel(
             clip = clip!!,
-            currentPosition = state.currentPosition,
+            currentPosition = playhead,
             totalDuration = state.project.totalDuration,
             onTransformChange = onPipTransformChange,
             onStyleChange = onPipStyleChange,
@@ -282,6 +302,7 @@ fun ToolPanelHost(
         )
         ToolPanel.SUBTITLE -> SubtitlePanel(
             state = state,
+            currentPosition = playhead,
             onAdd = onAddSubtitle,
             onRemove = onRemoveSubtitle,
             onTranscribe = onTranscribe,

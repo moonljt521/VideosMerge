@@ -1,10 +1,12 @@
 package com.moon.videomerger.editor.data
 
+import kotlinx.serialization.Serializable
 import java.util.UUID
 
 /**
  * 轨道类型
  */
+@Serializable
 enum class TrackType {
     /** 主视频轨 */
     MAIN,
@@ -17,47 +19,53 @@ enum class TrackType {
 }
 
 /**
- * 效果类型（对应 29 个 Python 脚本）
+ * 水印区域处理方式
  */
-enum class EffectType {
-    // 基础剪辑
-    TRIM,        // 时间段裁剪
-    CROP,        // 画面空间裁剪
-    ROTATE,      // 旋转/翻转
-    SCALE,       // 缩放
-    REVERSE,     // 倒放
-    SPEED,       // 变速
-    // 视觉特效
-    COLOR_FILTER,   // 滤镜调色
-    TEXT_WATERMARK,  // 文字水印
-    IMAGE_WATERMARK, // 图片水印
-    BLUR_BG,        // 模糊背景
-    TRANSITION,     // 转场
-    LETTERBOX,       // 电影黑边
-    FILM_GRAIN,      // 胶片颗粒
-    MOSAIC,          // 马赛克
-    LUT,             // LUT 调色
-    FREEZE_FRAME,    // 画面定格
-    // 音频
-    VOLUME,          // 音量调整
-    AUDIO_FADE,      // 音频淡入淡出
-    MIX_BGM,         // 背景音乐混合
-    EXTRACT_AUDIO,   // 音频提取
-    REPLACE_AUDIO,   // 音频替换
-    // 导出
-    CONVERT_FORMAT,  // 格式转换
-    COMPRESS,        // 压缩
-    GIF_EXPORT,      // GIF 导出
-    SCREENSHOT,      // 截图
-    INTRO_OUTRO,     // 片头片尾
-    STABILIZE,       // 防抖
-    BATCH,           // 批量处理
-    CONCAT,          // 视频拼接
+@Serializable
+enum class WatermarkMode(val displayName: String) {
+    BLUR("模糊"),
+    MOSAIC("马赛克"),
+}
+
+/**
+ * 去水印区域 —— 片段画面上的一个矩形（归一化坐标 0~1，相对源帧宽高）+ 生效时间段。
+ *
+ * 导出时对该区域做模糊/马赛克覆盖；预览中红框标识（仅时间段内显示）。
+ * 时间为【源视频秒】（与检测抽帧一致），导出/预览各自换算。
+ *
+ * @param startTime 生效开始（源秒）；endTime <= startTime 表示整个片段生效
+ * @param strength BLUR=模糊半径（相对源宽 720 的像素数）；MOSAIC=马赛克块尺寸（px）
+ */
+@Serializable
+data class WatermarkRegion(
+    val x: Double,
+    val y: Double,
+    val w: Double,
+    val h: Double,
+    val mode: WatermarkMode = WatermarkMode.BLUR,
+    val strength: Int = 14,
+    val startTime: Double = 0.0,
+    val endTime: Double = -1.0,
+) {
+    /** 某源时间点是否处于生效期 */
+    fun activeAt(sourceTime: Double): Boolean =
+        endTime <= startTime || (sourceTime >= startTime && sourceTime <= endTime)
+
+    /** 是否与另一区域大面积重叠（用于自动检测结果去重，忽略时间维） */
+    fun overlaps(other: WatermarkRegion, iouThreshold: Double = 0.3): Boolean {
+        val ix = (x + w).coerceAtMost(other.x + other.w) - x.coerceAtLeast(other.x)
+        val iy = (y + h).coerceAtMost(other.y + other.h) - y.coerceAtLeast(other.y)
+        if (ix <= 0 || iy <= 0) return false
+        val inter = ix * iy
+        val union = w * h + other.w * other.h - inter
+        return inter / union > iouThreshold
+    }
 }
 
 /**
  * 滤镜预设
  */
+@Serializable
 enum class FilterPreset(val displayName: String, val brightness: Double, val contrast: Double, val saturation: Double, val hue: Double, val gamma: Double) {
     NONE("原图", 0.0, 0.0, 0.0, 0.0, 1.0),
     VINTAGE("复古", 0.08, -0.15, -0.3, 15.0, 1.1),
@@ -72,6 +80,7 @@ enum class FilterPreset(val displayName: String, val brightness: Double, val con
 /**
  * 旋转角度
  */
+@Serializable
 enum class RotationMode(val displayName: String, val value: Int) {
     NONE("不旋转", 0),
     CW_90("顺时针90°", 90),
@@ -82,6 +91,7 @@ enum class RotationMode(val displayName: String, val value: Int) {
 /**
  * 画中画叠加层形状
  */
+@Serializable
 enum class PipShape(val displayName: String) {
     RECT("矩形"),
     ROUNDED("圆角"),
@@ -89,8 +99,31 @@ enum class PipShape(val displayName: String) {
 }
 
 /**
+ * NONE 转场的等效重叠时长（秒）。
+ * 导出时 xfade 链不能中断，NONE 也用 0.01s 的极短淡入淡出衔接，
+ * 时间轴布局必须使用同一数值，否则累计漂移。
+ */
+const val TRANSITION_NONE_OVERLAP = 0.01
+
+/**
+ * 相邻片段间的有效转场重叠时长（秒）—— 时间轴布局与导出 xfade 的唯一来源。
+ *
+ * - NONE → 极短重叠（见 TRANSITION_NONE_OVERLAP），保持导出链连续；
+ * - 非 NONE → 用户设定值，但不超过较短片段时长的 80%（否则 xfade offset 非法）。
+ *
+ * 时间轴语义：next.timelineStart = prev.timelineEnd - 本函数返回值，
+ * 即转场期间两个片段的画面在时间轴上是重叠的，与 xfade 的实际行为一致。
+ */
+fun effectiveTransitionOverlap(prev: Clip, next: Clip): Double {
+    if (prev.transition == TransitionEffect.NONE) return TRANSITION_NONE_OVERLAP
+    val maxD = minOf(prev.timelineDuration, next.timelineDuration) * 0.8
+    return prev.transitionDuration.coerceIn(0.01, maxD.coerceAtLeast(0.01))
+}
+
+/**
  * 转场效果（xfade 滤镜支持的所有效果）
  */
+@Serializable
 enum class TransitionEffect(val key: String, val displayName: String) {
     NONE("none", "无转场"),
     FADE("fade", "淡入淡出"),
@@ -116,20 +149,12 @@ enum class TransitionEffect(val key: String, val displayName: String) {
 }
 
 /**
- * 效果（应用到片段上的处理）
- */
-data class Effect(
-    val id: String = UUID.randomUUID().toString(),
-    val type: EffectType,
-    val params: Map<String, Any> = emptyMap()
-)
-
-/**
  * 画中画位置关键帧。
  * @param time 项目时间轴上的绝对时间（秒）
  * @param x 归一化水平位置 0~1（0=左，1=右）
  * @param y 归一化垂直位置 0~1（0=上，1=下）
  */
+@Serializable
 data class PipKeyframe(
     val time: Double,
     val x: Double,
@@ -164,6 +189,7 @@ fun interpolatePipPosition(
 /**
  * 视频片段（时间轴上的一个片段）
  */
+@Serializable
 data class Clip(
     val id: String = UUID.randomUUID().toString(),
     val mediaPath: String,          // 源文件路径
@@ -177,8 +203,9 @@ data class Clip(
     val trimStart: Double = 0.0,    // 入点（秒）
     val trimEnd: Double = 0.0,      // 出点（秒），0 表示到结尾
 
-    // 时间轴位置
-    var timelineStart: Double = 0.0, // 在时间轴上的起始位置
+    // 时间轴位置（由 relayoutMainTrackClips 等统一重排；不可变，
+    // 任何位置调整都必须通过 copy 产生新实例，保证撤销快照隔离）
+    val timelineStart: Double = 0.0, // 在时间轴上的起始位置
 
     // 变速
     val speed: Double = 1.0,        // 1.0 = 正常速度
@@ -228,6 +255,9 @@ data class Clip(
 
     // 截断（抖音尾部 logo）
     val logoCutTime: Double? = null,    // logo 截断时间点
+
+    // 去水印区域（静态水印覆盖：模糊/马赛克，归一化源帧坐标）
+    val watermarkRegions: List<WatermarkRegion> = emptyList(),
 
     // 画中画 / 叠加层（PICTURE 轨片段使用，主轨忽略）
     val pipEnabled: Boolean = false,   // 是否作为画中画叠加层
@@ -284,6 +314,7 @@ data class Clip(
 /**
  * 字幕条目（时间轴绝对秒）
  */
+@Serializable
 data class Subtitle(
     val id: String = UUID.randomUUID().toString(),
     val text: String,
@@ -292,8 +323,112 @@ data class Subtitle(
 )
 
 /**
+ * 按列表顺序重排主轨片段的时间轴位置（纯函数，返回全新 Clip 列表）。
+ *
+ * 布局规则：首片段从 0 开始；后续每个片段在前一个片段结束前
+ * 「有效转场重叠时长」处开始（转场 = 重叠，见 effectiveTransitionOverlap）。
+ * 这样时间轴总时长与导出成片时长严格一致。
+ */
+fun relayoutMainTrackClips(clips: List<Clip>): List<Clip> {
+    var nextStart = 0.0
+    return clips.mapIndexed { i, clip ->
+        val placed = clip.copy(timelineStart = nextStart)
+        nextStart = if (i < clips.lastIndex) {
+            placed.timelineEnd - effectiveTransitionOverlap(placed, clips[i + 1])
+        } else {
+            placed.timelineEnd
+        }
+        placed
+    }
+}
+
+/**
+ * 主轨时长变化后，把锚点之后的叠加元素（字幕、画中画等非主轨片段）整体平移 delta，
+ * 保证它们与主轨画面的对齐关系不因主轨增删而错位（剪映式联动）。
+ *
+ * 规则：
+ * - 只平移「起点在锚点之后（含锚点附近 ε 容差）」的元素；
+ * - 跨越锚点的元素保持绝对时间不变（其内容归属在剪辑语义上不明确，v1 不处理）；
+ * - 平移后钳制到 ≥ 0。
+ *
+ * @param anchor 主轨发生变化的时间轴位置（如被删区间的入点）
+ * @param delta  主轨总时长的变化量（删除为负、插入为正），由调用方先算好
+ */
+fun shiftOverlaysAfter(
+    project: EditorProject,
+    anchor: Double,
+    delta: Double
+): EditorProject {
+    if (delta == 0.0) return project
+    val eps = 0.05
+
+    val newSubtitles = project.subtitles.map { sub ->
+        if (sub.startTime >= anchor - eps) {
+            sub.copy(
+                startTime = (sub.startTime + delta).coerceAtLeast(0.0),
+                endTime = (sub.endTime + delta).coerceAtLeast(0.05)
+            )
+        } else {
+            sub
+        }
+    }
+
+    val newTracks = project.tracks.map { track ->
+        if (track.type == TrackType.MAIN) {
+            track
+        } else {
+            track.copy(clips = track.clips.map { c ->
+                if (c.timelineStart >= anchor - eps) {
+                    c.copy(timelineStart = (c.timelineStart + delta).coerceAtLeast(0.0))
+                } else {
+                    c
+                }
+            }.toMutableList())
+        }
+    }
+
+    return project.copy(subtitles = newSubtitles, tracks = newTracks.toMutableList())
+}
+
+/**
+ * 相邻片段间的转场重叠区（时间轴上的一段区间）。
+ *
+ * 区间 = [next.timelineStart, prev.timelineEnd]，与导出 xfade 的作用范围一致：
+ * 播放头进入区间即开始转场，progress 0→1 对应第二片段从不可见到完全可见。
+ */
+data class TransitionZone(val prev: Clip, val next: Clip) {
+    val start: Double get() = next.timelineStart
+    val end: Double get() = prev.timelineEnd
+    val duration: Double get() = (end - start).coerceAtLeast(1e-6)
+
+    /** 播放头在转场内的进度 0~1 */
+    fun progress(timelinePos: Double): Double =
+        ((timelinePos - start) / duration).coerceIn(0.0, 1.0)
+}
+
+/** 小于此重叠时长的转场不做双轨预览（NONE 的 0.01s 视为硬切换） */
+const val TRANSITION_PREVIEW_MIN_OVERLAP = 0.05
+
+/**
+ * 找到播放头所在的转场重叠区；不在任何转场内返回 null。
+ */
+fun findTransitionZone(clips: List<Clip>, timelinePos: Double): TransitionZone? {
+    for (i in 0 until clips.lastIndex) {
+        val a = clips[i]
+        val b = clips[i + 1]
+        if (a.transition == TransitionEffect.NONE) continue
+        if (effectiveTransitionOverlap(a, b) < TRANSITION_PREVIEW_MIN_OVERLAP) continue
+        if (timelinePos >= b.timelineStart && timelinePos < a.timelineEnd) {
+            return TransitionZone(a, b)
+        }
+    }
+    return null
+}
+
+/**
  * 轨道
  */
+@Serializable
 data class Track(
     val id: String = UUID.randomUUID().toString(),
     val type: TrackType,
@@ -311,6 +446,7 @@ data class Track(
  *
  * 注意：canvasWidth / canvasHeight 必须是 16 的倍数（h264_mediacodec 硬件编码器要求 macroblock 对齐）。
  */
+@Serializable
 data class EditorProject(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "未命名项目",

@@ -39,63 +39,187 @@ class FilterBuilder {
      * @param fps 输出帧率（统一所有片段帧率，避免 xfade/concat 因输入帧率不同失败）
      */
     fun buildVideoFilters(clip: Clip, canvasW: Int, canvasH: Int, fps: Int): String {
-        val filters = mutableListOf<String>()
+        val (pre, post) = buildVideoFiltersSegmented(clip, canvasW, canvasH, fps)
+        return when {
+            pre.isEmpty() -> post
+            post.isEmpty() -> pre
+            else -> "$pre,$post"
+        }
+    }
+
+    /**
+     * 分段构建单片段视频滤镜链：
+     *   pre  = trim/变速/倒放 —— 输出保持【源帧几何】（未旋转未缩放）
+     *   post = 旋转/翻转/缩放/调色/帧率/格式
+     *
+     * ★ 去水印区域按「源帧归一化坐标」定义（与预览所见一致），
+     *   因此水印滤镜图必须插在 pre 与 post 之间。
+     */
+    fun buildVideoFiltersSegmented(clip: Clip, canvasW: Int, canvasH: Int, fps: Int): Pair<String, String> {
+        val pre = mutableListOf<String>()
 
         // 1. 时间裁剪（trim）—— 必须放在最前，裁剪后再做其他处理
         if (clip.trimStart > 0 || (clip.trimEnd > 0 && clip.trimEnd < clip.mediaDuration)) {
             val end = if (clip.trimEnd > 0) clip.trimEnd else clip.mediaDuration
-            filters.add("trim=start=${clip.trimStart.fmt()}:end=${end.fmt()}")
-            filters.add("setpts=PTS-STARTPTS")
+            pre.add("trim=start=${clip.trimStart.fmt()}:end=${end.fmt()}")
+            pre.add("setpts=PTS-STARTPTS")
         }
 
         // 2. 变速（setpts）—— speed>1 加速（PTS 减小），speed<1 减速（PTS 增大）
         if (clip.speed != 1.0) {
-            filters.add("setpts=PTS/${clip.speed.fmt()}")
+            pre.add("setpts=PTS/${clip.speed.fmt()}")
         }
 
         // 2.5 倒放（对应 reverse_video.py）—— 注意：reverse 会把整段片段载入内存，
         //     放在 trim 之后执行，只对裁剪后的区间倒放，控制内存占用
         if (clip.reversed) {
-            filters.add("reverse")
+            pre.add("reverse")
         }
+
+        val post = mutableListOf<String>()
 
         // 3. 旋转/翻转
         when (clip.rotation) {
-            90 -> filters.add("transpose=1")
-            -90 -> filters.add("transpose=0")
-            180 -> { filters.add("transpose=1"); filters.add("transpose=1") }
+            90 -> post.add("transpose=1")
+            -90 -> post.add("transpose=0")
+            180 -> { post.add("transpose=1"); post.add("transpose=1") }
         }
-        if (clip.hflip) filters.add("hflip")
-        if (clip.vflip) filters.add("vflip")
+        if (clip.hflip) post.add("hflip")
+        if (clip.vflip) post.add("vflip")
 
         // 4. 缩放到画布尺寸
         //    - 模糊背景模式：不在这里缩放，由 buildExportCommand 的 split 逻辑处理
         //    - 普通模式：cover（填充画布，可能裁剪边缘）
         if (!clip.blurBgEnabled) {
             // cover 模式：填充画布 + crop 到精确尺寸
-            filters.add("scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos")
-            filters.add("crop=${canvasW}:${canvasH}")
-            filters.add("setsar=1")
+            post.add("scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos")
+            post.add("crop=${canvasW}:${canvasH}")
+            post.add("setsar=1")
         }
 
         // 5. 滤镜调色（eq + huesaturation，与 color_filter.py 的 eq/hue 参数保持一致）
-        appendColorAdjust(clip, filters)
+        appendColorAdjust(clip, post)
 
         // 5.5 统一帧率：不同来源视频帧率可能不同，xfade/concat 要求一致
         //     ★ min 版 FFmpegKit 不含 fps 滤镜，改用 framerate 滤镜
-        filters.add("framerate=fps=${fps}")
+        post.add("framerate=fps=${fps}")
         //     ★ framerate 只统一帧率，不统一 timebase；xfade/concat 要求 timebase 一致，
         //       这里显式把 timebase 设为 1/fps，并用 setpts=N 重新编号帧，保证时间戳连续。
-        filters.add("settb=1/${fps}")
-        filters.add("setpts=N")
+        post.add("settb=1/${fps}")
+        post.add("setpts=N")
 
         // 6. 格式统一（h264_mediacodec 要求 yuv420p）—— 模糊背景模式由后续 split 逻辑处理
         if (!clip.blurBgEnabled) {
-            filters.add("format=yuv420p")
+            post.add("format=yuv420p")
         }
 
-        return filters.joinToString(",")
+        return pre.joinToString(",") to post.joinToString(",")
     }
+
+    /**
+     * 构建去水印滤镜图：对 [inputLabel] 的每个水印区域
+     *   crop 出区域 → 模糊（avgblur）或马赛克（缩小再放大）→ overlay 回原位
+     *
+     * 坐标为源帧归一化 0~1，映射到 [frameW]×[frameH]（clip.width/height）。
+     * 前置 format=yuv420p 保证 split 出的各路与 overlay 输入像素格式一致。
+     */
+    fun buildWatermarkGraph(
+        inputLabel: String,
+        outputLabel: String,
+        clip: Clip,
+        frameW: Int,
+        frameH: Int,
+        parts: MutableList<String>
+    ) {
+        val regions = clip.watermarkRegions.filter { it.w >= 0.005 && it.h >= 0.005 }
+        if (regions.isEmpty()) {
+            parts.add("$inputLabel,null$outputLabel")
+            return
+        }
+
+        val base = "[wm_base]"
+        // ★ 标签后不能跟逗号（[label]filter 语法），否则 ffmpeg 解析失败
+        parts.add("$inputLabel format=yuv420p$base")
+
+        // 统一结构：split 出 N+1 路，每路处理一个区域，依次 overlay 回基路（按各自时间段生效）
+        // ★ 不能走「单区域直接 crop 输出」的捷径——那会把整帧变成小区域，丢掉其余画面
+        val n = regions.size
+        val splitLabels = (0..n).joinToString("") { "[wm_s${it}]" }
+        parts.add("$base split=${n + 1}$splitLabels")
+        var cur = "[wm_s0]"
+        regions.forEachIndexed { k, r ->
+            val processed = "[wm_b$k]"
+            parts.add("[wm_s${k + 1}]${regionFilterBody(r, frameW, frameH)}$processed")
+            val out = if (k == n - 1) outputLabel else "[wm_o$k]"
+            parts.add(
+                "$cur$processed overlay=${evenPx(r.x * frameW, frameW)}:${evenPx(r.y * frameH, frameH)}" +
+                    ":${regionEnableExpr(clip, r)}$out"
+            )
+            cur = out
+        }
+    }
+
+    /**
+     * 区域生效时间表达式（overlay enable）。
+     * 区域时间存的是【源视频秒】，而滤镜链 pre 段已做 trim+变速，
+     * t 是片段流时间，需要换算：
+     *   正放：streamT = (srcT - trimStart) / speed
+     *   倒放：streamT = (srcEnd - srcT) / speed
+     * endTime <= startTime 视为整个片段生效。
+     */
+    private fun regionEnableExpr(clip: Clip, r: WatermarkRegion): String {
+        val dur = clip.timelineDuration
+        val s = sourceToStreamTime(clip, r.startTime).coerceIn(0.0, dur)
+        val e = if (r.endTime <= r.startTime) {
+            dur
+        } else {
+            sourceToStreamTime(clip, r.endTime).coerceIn(0.0, dur)
+        }
+        // enable 表达式含逗号，单引号包裹避免被滤镜链解析器切分
+        return "enable='between(t,${s.fmt(2)},${e.fmt(2)})'"
+    }
+
+    /** 源视频时间 → 片段流时间（pre 段 trim/setpts/变速之后的 t） */
+    private fun sourceToStreamTime(clip: Clip, srcT: Double): Double {
+        val end = if (clip.trimEnd > 0) clip.trimEnd else clip.mediaDuration
+        return if (clip.reversed) {
+            (end - srcT) / clip.speed
+        } else {
+            (srcT - clip.trimStart) / clip.speed
+        }
+    }
+
+    /** 单个水印区域的处理滤镜体（crop → 处理 → 尺寸还原） */
+    private fun regionFilterBody(r: WatermarkRegion, frameW: Int, frameH: Int): String {
+        val x = evenPx(r.x * frameW, frameW)
+        val y = evenPx(r.y * frameH, frameH)
+        val w = evenPx(r.w * frameW, frameW - x).coerceAtLeast(8)
+        val h = evenPx(r.h * frameH, frameH - y).coerceAtLeast(8)
+        return when (r.mode) {
+            WatermarkMode.BLUR -> {
+                // ★ 模糊半径不能超过区域尺寸（否则 ffmpeg 报错），下限 1
+                val radius = minOf(
+                    r.strength.coerceIn(1, 40),
+                    maxOf(1, w / 2),
+                    maxOf(1, h / 2),
+                )
+                "crop=$w:$h:$x:$y,avgblur=sizeX=$radius:sizeY=$radius,format=yuv420p"
+            }
+            WatermarkMode.MOSAIC -> {
+                val block = r.strength.coerceIn(4, 64)
+                val sw = (w / block).coerceAtLeast(2)
+                val sh = (h / block).coerceAtLeast(2)
+                "crop=$w:$h:$x:$y,scale=$sw:$sh:flags=neighbor,scale=$w:$h:flags=neighbor,format=yuv420p"
+            }
+        }
+    }
+
+    /** 像素值取偶数并钳制（yuv420p/编码器对齐友好） */
+    private fun evenPx(v: Double, max: Int): Int {
+        val i = kotlin.math.round(v).toInt().coerceIn(0, max.coerceAtLeast(0))
+        return if (i % 2 == 0) i else (i - 1).coerceAtLeast(0)
+    }
+
 
     /**
      * 调色滤镜：
@@ -460,17 +584,27 @@ class FilterBuilder {
         val imageWatermarkInputIdx = mutableMapOf<Int, Int>()  // clipIndex -> 输入流编号
 
         clips.forEachIndexed { i, clip ->
+            val (preFilters, postFilters) = buildVideoFiltersSegmented(clip, canvasW, canvasH, project.fps)
+            val prePrefix = if (preFilters.isEmpty()) "" else "$preFilters,"
+            val postSeg = if (postFilters.isEmpty()) "" else "$postFilters,"
+
             if (clip.blurBgEnabled) {
                 // 模糊背景模式：
-                //   buildVideoFilters 已做 trim/变速/旋转/调色（无 scale）
+                //   pre 段已做 trim/变速/倒放；post 段做旋转/调色（无 scale）
+                //   ★ 去水印区域在 pre 与 post 之间应用（源帧几何，与预览一致）
                 //   split 两路：
                 //     背景路：scale cover（填满画布）+ avgblur（模糊）
                 //     前景路：scale contain（保留比例）
                 //   overlay 前景居中到背景
                 val blurR = clip.blurStrength
-                val baseFilters = buildVideoFilters(clip, canvasW, canvasH, project.fps)
-                val filterPrefix = if (baseFilters.isEmpty()) "" else "$baseFilters,"
-                parts.add("[${i}:v]${filterPrefix}split=2[bg${i}][fg${i}]")
+                val baseLabel = if (clip.watermarkRegions.isNotEmpty()) {
+                    parts.add("[${i}:v]${prePrefix}format=yuv420p[wm_in$i]")
+                    buildWatermarkGraph("[wm_in$i]", "[wm_g$i]", clip, clip.width, clip.height, parts)
+                    "[wm_g$i]"
+                } else {
+                    "[${i}:v]"
+                }
+                parts.add("$baseLabel${postSeg}split=2[bg${i}][fg${i}]")
                 // 背景路：cover 缩放 + 模糊
                 parts.add("[bg${i}]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH},setsar=1,avgblur=sizeX=${blurR}:sizeY=${blurR},format=yuv420p[bgblur${i}]")
                 // 前景路：contain 缩放
@@ -479,8 +613,17 @@ class FilterBuilder {
                 parts.add("[bgblur${i}][fgscaled${i}]overlay=(W-w)/2:(H-h)/2[v$i]")
             } else {
                 // 普通模式
-                val vFilters = buildVideoFilters(clip, canvasW, canvasH, project.fps)
-                parts.add("[${i}:v]${vFilters}[v$i]")
+                // ★ 去水印区域在 pre（源帧几何）与 post（旋转/缩放/调色）之间应用，
+                //   坐标与预览所见完全一致
+                if (clip.watermarkRegions.isNotEmpty()) {
+                    parts.add("[${i}:v]${prePrefix}format=yuv420p[wm_in$i]")
+                    buildWatermarkGraph("[wm_in$i]", "[wm_g$i]", clip, clip.width, clip.height, parts)
+                    // ★ post 直接接标签，不能带尾逗号
+                    parts.add("[wm_g$i]$postFilters[v$i]")
+                } else {
+                    val vFilters = buildVideoFilters(clip, canvasW, canvasH, project.fps)
+                    parts.add("[${i}:v]${vFilters}[v$i]")
+                }
             }
             videoLabels.add("[v$i]")
 
@@ -726,14 +869,11 @@ class FilterBuilder {
 
     /**
      * 相邻片段间的有效转场时长。
-     * 限制：不超过较短片段时长的 80%（否则 xfade offset 非法）；
-     * NONE 转场用 0.01s 的极短淡入淡出近似（保持 xfade 链连续）。
+     * ★ 委托给数据层唯一实现（effectiveTransitionOverlap），
+     *   保证导出 xfade 的重叠时长与时间轴布局严格一致。
      */
-    fun effectiveTransitionDur(clips: List<Clip>, i: Int): Double {
-        if (clips[i].transition == TransitionEffect.NONE) return 0.01
-        val maxD = minOf(clips[i].timelineDuration, clips[i + 1].timelineDuration) * 0.8
-        return clips[i].transitionDuration.coerceIn(0.01, maxD.coerceAtLeast(0.01))
-    }
+    fun effectiveTransitionDur(clips: List<Clip>, i: Int): Double =
+        effectiveTransitionOverlap(clips[i], clips[i + 1])
 
     /**
      * 主轨是否存在至少一个非 NONE 且时长大于 0 的转场。
@@ -744,20 +884,12 @@ class FilterBuilder {
         }
 
     /**
-     * 计算导出后的实际输出时长（xfade 转场会使总时长缩短）。
-     * 用于 ffmpeg -t 限制和进度条百分比计算。
+     * 计算导出后的实际输出时长。
+     * ★ 时间轴已按「转场 = 重叠」建模（见 relayoutMainTrackClips），
+     *   输出时长即最后一个片段的结束位置，与时间轴显示一致。
      */
-    fun computeOutputDuration(project: EditorProject): Double {
-        val mainTrack = project.mainTrack ?: return 0.0
-        val clips = mainTrack.clips.sortedBy { it.timelineStart }
-        var total = clips.sumOf { it.timelineDuration }
-        if (hasAnyTransition(clips)) {
-            for (i in 0 until clips.size - 1) {
-                total -= effectiveTransitionDur(clips, i)
-            }
-        }
-        return total.coerceAtLeast(0.0)
-    }
+    fun computeOutputDuration(project: EditorProject): Double =
+        project.mainTrack?.duration ?: 0.0
 
     /**
      * 构建 xfade 转场链。

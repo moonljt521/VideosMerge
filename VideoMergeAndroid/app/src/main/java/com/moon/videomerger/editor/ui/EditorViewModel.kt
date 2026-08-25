@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.moon.videomerger.editor.data.*
 import com.moon.videomerger.editor.engine.ExportEngine
+import com.moon.videomerger.editor.engine.WatermarkDetector
 import com.moon.videomerger.editor.engine.StickerRenderer
 import com.moon.videomerger.editor.engine.VoskSpeechRecognizer
 import com.moon.videomerger.util.MediaUtils
@@ -14,18 +15,32 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.util.Log as AndroidLog
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
+    // ── 依赖与状态（★ 必须全部声明在 init 块之前：
+    //    viewModelScope 用 Main.immediate，init 里的协程会在构造期间同步执行，
+    //    若此时引用了尚未初始化的属性会直接 NPE）──
     private val exportEngine = ExportEngine(app.applicationContext)
     private val appContext = app.applicationContext
 
     private val _uiState = MutableStateFlow(EditorUiState())
     val uiState: StateFlow<EditorUiState> = _uiState.asStateFlow()
+
+    // ★ 播放头独立 flow：播放时以 ~10Hz 高频更新，
+    //   与低频的编辑状态（uiState）分离，避免整棵编辑器 UI 跟随播放重组。
+    private val _playhead = MutableStateFlow(0.0)
+    val playhead: StateFlow<Double> = _playhead.asStateFlow()
 
     // ── 撤销/重做栈（保存项目快照，最多 30 步）──
     private val undoStack = ArrayDeque<EditorProject>()
@@ -33,6 +48,86 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 当前导出任务（用于取消） */
     private var exportJob: Job? = null
+
+    /** 当前导入任务（用于取消） */
+    private var importJob: Job? = null
+
+    init {
+        // 启动时清理过期临时文件（导出成品/缩略图等，历史记录有独立拷贝，可安全删除）
+        viewModelScope.launch(Dispatchers.IO) {
+            MediaUtils.cleanupStaleCache(appContext)
+        }
+
+        // ★ 草稿自动保存：项目变化后防抖 800ms 写盘（单槽位，返回首页不丢内容）
+        viewModelScope.launch {
+            _uiState
+                .map { it.project }
+                .distinctUntilChanged()
+                .debounce(800)
+                .collect { project ->
+                    val hasContent = !project.mainTrack?.clips.isNullOrEmpty() || project.subtitles.isNotEmpty()
+                    if (hasContent) {
+                        withContext(Dispatchers.IO) { DraftStore.save(appContext, project) }
+                    }
+                }
+        }
+    }
+
+    // ═══════════════════════════════════════
+    //  素材导入（统一入口）
+    // ═══════════════════════════════════════
+
+    /**
+     * 批量导入视频：拷贝到编辑器素材目录（filesDir/editor_media，持久化）→
+     * 提取元数据与首帧缩略图。IO 线程执行，逐个上报进度。
+     */
+    private suspend fun importVideoClips(
+        uris: List<Uri>,
+        onProgress: (done: Int, total: Int) -> Unit
+    ): List<Clip> = withContext(Dispatchers.IO) {
+        val seed = System.currentTimeMillis()
+        val total = uris.size
+        uris.mapIndexed { index, uri ->
+            val file = MediaUtils.copyUriToEditorMedia(appContext, uri, seed + index)
+            val meta = MediaUtils.getVideoMeta(file.absolutePath)
+            val thumb = MediaUtils.loadThumbnailFromFile(file.absolutePath)
+            var thumbPath: String? = null
+            if (thumb != null) {
+                val thumbFile = File(MediaUtils.editorMediaDir(appContext), "thumb_${seed}_${index}.jpg")
+                MediaUtils.saveBitmapAsJpeg(thumb, thumbFile)
+                thumbPath = thumbFile.absolutePath
+            }
+            onProgress(index + 1, total)
+            Clip(
+                mediaPath = file.absolutePath,
+                mediaName = file.name,
+                mediaDuration = meta.duration,
+                width = meta.width,
+                height = meta.height,
+                hasAudio = meta.hasAudio,
+                trimEnd = meta.duration,
+                timelineStart = 0.0,
+                thumbnailPath = thumbPath,
+            )
+        }
+    }
+
+    /** 进入导入中状态 */
+    private fun beginImport(message: String) {
+        _uiState.value = _uiState.value.copy(
+            isImporting = true, importProgress = 0f, importMessage = message
+        )
+    }
+
+    /** 结束导入状态（成功路径由各调用方整体重置 uiState） */
+    private fun endImportOnError(e: Exception) {
+        _uiState.value = _uiState.value.copy(isImporting = false, importMessage = "")
+        if (e is kotlinx.coroutines.CancellationException) {
+            // 取消属于正常流程（用户点了取消/新的导入接管），但必须重新抛出以完成协程取消
+            throw e
+        }
+        showError("导入失败：${e.message}", MessageSeverity.ERROR)
+    }
 
     // ═══════════════════════════════════════
     //  项目管理
@@ -42,55 +137,58 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
      * 创建新项目并导入视频。
      */
     fun createProject(uris: List<Uri>) {
-        viewModelScope.launch {
-            android.util.Log.d("EditorVM", "createProject: uris.size=${uris.size}")
-            val clips = withContext(Dispatchers.IO) {
-                uris.mapIndexed { index, uri ->
-                    android.util.Log.d("EditorVM", "createProject: processing uri[$index]=$uri")
-                    val tempFile = MediaUtils.copyUriToTempFile(appContext, uri, index)
-                    val meta = MediaUtils.getVideoMeta(tempFile.absolutePath)
-                    val thumb = MediaUtils.loadThumbnailFromFile(tempFile.absolutePath)
-                    val thumbFile = File(appContext.cacheDir, "thumb_${System.currentTimeMillis()}_${index}.jpg")
-                    if (thumb != null) MediaUtils.saveBitmapAsJpeg(thumb, thumbFile)
-
-                    Clip(
-                        mediaPath = tempFile.absolutePath,
-                        mediaName = tempFile.name,
-                        mediaDuration = meta.duration,
-                        width = meta.width,
-                        height = meta.height,
-                        hasAudio = meta.hasAudio,
-                        trimEnd = meta.duration,
-                        timelineStart = 0.0,
-                        thumbnailPath = thumbFile.absolutePath,
+        if (uris.isEmpty()) return
+        importJob?.cancel()
+        importJob = viewModelScope.launch {
+            beginImport("准备导入 ${uris.size} 个视频...")
+            try {
+                val clips = importVideoClips(uris) { done, total ->
+                    _uiState.value = _uiState.value.copy(
+                        importProgress = done.toFloat() / total,
+                        importMessage = "正在导入视频 $done/$total"
                     )
                 }
+
+                // 时间轴布局（统一走重叠模型；初始无转场 = 首尾拼接）
+                val mainTrack = Track(type = TrackType.MAIN, clips = relayoutMainTrackClips(clips).toMutableList())
+                val project = EditorProject(
+                    name = "项目 ${SimpleDateFormat("MMdd-HHmmss", Locale.CHINA).format(Date())}",
+                    tracks = mutableListOf(mainTrack),
+                )
+
+                undoStack.clear()
+                redoStack.clear()
+
+                // ★ 单槽位草稿：新建项目即覆盖旧槽位，清理上一项目遗留的素材文件，
+                //   只保留本次导入引用到的（防止 editor_media 无限膨胀）
+                withContext(Dispatchers.IO) {
+                    val keep = clips.map { it.mediaPath }.toSet() +
+                        clips.mapNotNull { it.thumbnailPath }.toSet()
+                    MediaUtils.editorMediaDir(appContext).listFiles()?.forEach { f ->
+                        if (f.absolutePath !in keep) f.delete()
+                    }
+                }
+
+                _uiState.value = EditorUiState(
+                    project = project,
+                    selectedClipId = clips.firstOrNull()?.id
+                )
+            } catch (e: Exception) {
+                endImportOnError(e)
             }
-
-            android.util.Log.d("EditorVM", "createProject: clips.size=${clips.size}")
-
-            // 计算时间轴位置（首尾拼接）
-            var timelinePos = 0.0
-            clips.forEach { clip ->
-                clip.timelineStart = timelinePos
-                timelinePos += clip.timelineDuration
-            }
-
-            val mainTrack = Track(type = TrackType.MAIN, clips = clips.toMutableList())
-            val project = EditorProject(
-                name = "项目 ${System.currentTimeMillis() % 10000}",
-                tracks = mutableListOf(mainTrack),
-            )
-
-            // ★ 导入视频后自动选中第一个片段，工具栏按钮立即可用
-            undoStack.clear()
-            redoStack.clear()
-            _uiState.value = EditorUiState(
-                project = project,
-                selectedClipId = clips.firstOrNull()?.id
-            )
         }
     }
+
+    /** 取消正在进行的导入 */
+    fun cancelImport() {
+        importJob?.cancel()
+        importJob = null
+        _uiState.value = _uiState.value.copy(isImporting = false, importMessage = "")
+    }
+
+    // ═══════════════════════════════════════
+    //  项目管理
+    // ═══════════════════════════════════════
 
     // ═══════════════════════════════════════
     //  片段选择
@@ -105,7 +203,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         } else {
             null
         }
-        val currentPos = state.currentPosition
+        val currentPos = _playhead.value
         val newPosition = if (clip != null &&
             (currentPos < clip.timelineStart - 0.05 || currentPos >= clip.timelineEnd - 0.05)
         ) {
@@ -113,10 +211,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         } else {
             currentPos
         }
+        _playhead.value = newPosition
         _uiState.value = _uiState.value.copy(
             selectedClipId = clipId,
-            currentPanel = if (clipId != null) _uiState.value.currentPanel else ToolPanel.NONE,
-            currentPosition = newPosition
+            currentPanel = if (clipId != null) _uiState.value.currentPanel else ToolPanel.NONE
         )
     }
 
@@ -133,20 +231,41 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun pushUndo() {
+        // 去重：栈顶与当前项目结构一致时不再入栈（连续空操作不会污染撤销栈）
+        if (undoStack.isNotEmpty() && sameStructure(undoStack.last(), _uiState.value.project)) return
         undoStack.addLast(deepCopy(_uiState.value.project))
         if (undoStack.size > 30) undoStack.removeFirst()
         redoStack.clear()
         _uiState.value = _uiState.value.copy(canUndo = true, canRedo = false)
     }
 
+    /** 项目结构比较（忽略 updatedAt 等非编辑字段），用于撤销栈去重 */
+    private fun sameStructure(a: EditorProject, b: EditorProject): Boolean =
+        a.tracks == b.tracks && a.subtitles == b.subtitles
+
+    /**
+     * 撤销后尽量保留选中与面板：若选中片段在恢复的项目中仍存在（id 不变），
+     * 则保持选中并停留在当前面板；否则清空选中、关闭面板。
+     */
+    private fun restoreSelection(project: EditorProject): Pair<String?, ToolPanel> {
+        val sel = _uiState.value.selectedClipId
+        val exists = sel != null && project.tracks.any { t -> t.clips.any { it.id == sel } }
+        return if (exists) {
+            _uiState.value.selectedClipId to _uiState.value.currentPanel
+        } else {
+            null to ToolPanel.NONE
+        }
+    }
+
     fun undo() {
         if (undoStack.isEmpty()) return
         redoStack.addLast(deepCopy(_uiState.value.project))
         val prev = undoStack.removeLast()
+        val (sel, panel) = restoreSelection(prev)
         _uiState.value = _uiState.value.copy(
             project = prev,
-            selectedClipId = null,
-            currentPanel = ToolPanel.NONE,
+            selectedClipId = sel,
+            currentPanel = panel,
             canUndo = undoStack.isNotEmpty(),
             canRedo = true
         )
@@ -156,10 +275,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (redoStack.isEmpty()) return
         undoStack.addLast(deepCopy(_uiState.value.project))
         val next = redoStack.removeLast()
+        val (sel, panel) = restoreSelection(next)
         _uiState.value = _uiState.value.copy(
             project = next,
-            selectedClipId = null,
-            currentPanel = ToolPanel.NONE,
+            selectedClipId = sel,
+            currentPanel = panel,
             canUndo = true,
             canRedo = redoStack.isNotEmpty()
         )
@@ -185,11 +305,50 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * 重置状态 —— 返回首页时调用，清空项目和播放状态。
-     * 下次进入 Editor 时用 key 强制重建 ViewModel，确保干净状态。
+     * 恢复草稿 —— 首页「继续编辑」入口调用。
+     * 校验素材文件仍存在，剔除丢失的片段，避免导出阶段崩溃。
+     */
+    fun loadDraft() {
+        viewModelScope.launch {
+            val loaded = withContext(Dispatchers.IO) { DraftStore.load(appContext) }
+            if (loaded == null) {
+                showError("草稿不存在或已损坏")
+                return@launch
+            }
+
+            val cleaned = withContext(Dispatchers.IO) {
+                val newTracks = loaded.tracks.mapNotNull { track ->
+                    val kept = track.clips.filter { File(it.mediaPath).exists() }
+                    if (track.type == TrackType.MAIN && kept.isEmpty()) {
+                        null // 主轨全丢 → 整轨移除
+                    } else {
+                        track.copy(clips = kept.toMutableList())
+                    }
+                }.toMutableList()
+                // 主轨重排（转场重叠布局），画中画保持自由定位
+                val fixedTracks = newTracks.map { t ->
+                    if (t.type == TrackType.MAIN) t.copy(clips = relayoutMainTrackClips(t.clips).toMutableList()) else t
+                }.toMutableList()
+                loaded.copy(tracks = fixedTracks)
+            }
+
+            undoStack.clear()
+            redoStack.clear()
+            _playhead.value = 0.0
+            _uiState.value = EditorUiState(
+                project = cleaned,
+                selectedClipId = cleaned.mainTrack?.clips?.firstOrNull()?.id
+            )
+        }
+    }
+
+    /**
+     * 重置内存状态 —— 返回首页时调用。
+     * ★ 草稿已由自动保存落盘，这里只清空运行态；删除草稿走 DraftStore.clear()。
      */
     fun resetState() {
         _uiState.value = EditorUiState()
+        _playhead.value = 0.0
     }
 
     /**
@@ -197,58 +356,43 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun addClips(uris: List<Uri>) {
         if (uris.isEmpty()) return
-        viewModelScope.launch {
-            pushUndo()
-            val newClips = withContext(Dispatchers.IO) {
-                uris.mapIndexed { index, uri ->
-                    val tempFile = MediaUtils.copyUriToTempFile(appContext, uri, System.currentTimeMillis().toInt() + index)
-                    val meta = MediaUtils.getVideoMeta(tempFile.absolutePath)
-                    val thumb = MediaUtils.loadThumbnailFromFile(tempFile.absolutePath)
-                    val thumbFile = File(appContext.cacheDir, "thumb_${System.currentTimeMillis()}_${index}_add.jpg")
-                    if (thumb != null) MediaUtils.saveBitmapAsJpeg(thumb, thumbFile)
-
-                    Clip(
-                        mediaPath = tempFile.absolutePath,
-                        mediaName = tempFile.name,
-                        mediaDuration = meta.duration,
-                        width = meta.width,
-                        height = meta.height,
-                        hasAudio = meta.hasAudio,
-                        trimEnd = meta.duration,
-                        timelineStart = 0.0,
-                        thumbnailPath = thumbFile.absolutePath,
+        importJob?.cancel()
+        importJob = viewModelScope.launch {
+            beginImport("准备添加 ${uris.size} 个视频...")
+            try {
+                val newClips = importVideoClips(uris) { done, total ->
+                    _uiState.value = _uiState.value.copy(
+                        importProgress = done.toFloat() / total,
+                        importMessage = "正在添加视频 $done/$total"
                     )
                 }
-            }
+                pushUndo()
 
-            val state = _uiState.value
-            val mainTrack = state.project.mainTrack
-            if (mainTrack == null) {
-                // 没有主轨，直接创建
-                var pos = 0.0
-                newClips.forEach { it.timelineStart = pos; pos += it.timelineDuration }
-                val track = Track(type = TrackType.MAIN, clips = newClips.toMutableList())
-                _uiState.value = state.copy(
-                    project = state.project.copy(tracks = mutableListOf(track)),
-                    // ★ 当前无选中片段时自动选中第一个，保证工具栏可用
-                    selectedClipId = state.selectedClipId ?: newClips.firstOrNull()?.id
+                val state = _uiState.value.copy(
+                    // ★ 导入成功，清除导入中状态（否则浮层永远不消失）
+                    isImporting = false, importProgress = 0f, importMessage = ""
                 )
-            } else {
-                // 追加到主轨末尾
-                val allClips = mainTrack.clips.toMutableList()
-                var pos = state.project.totalDuration
-                newClips.forEach {
-                    it.timelineStart = pos
-                    pos += it.timelineDuration
-                    allClips.add(it)
+                val mainTrack = state.project.mainTrack
+                if (mainTrack == null) {
+                    // 没有主轨，直接创建
+                    val track = Track(type = TrackType.MAIN, clips = relayoutMainTrackClips(newClips).toMutableList())
+                    _uiState.value = state.copy(
+                        project = state.project.copy(tracks = mutableListOf(track)),
+                        // ★ 当前无选中片段时自动选中第一个，保证工具栏可用
+                        selectedClipId = state.selectedClipId ?: newClips.firstOrNull()?.id
+                    )
+                } else {
+                    // 追加到主轨末尾（含与前一片段的转场重叠），统一重排
+                    val allClips = mainTrack.clips + newClips
+                    val newTrack = mainTrack.copy(clips = relayoutMainTrackClips(allClips).toMutableList())
+                    val newTracks = state.project.tracks.map { if (it.id == mainTrack.id) newTrack else it }
+                    _uiState.value = state.copy(
+                        project = state.project.copy(tracks = newTracks.toMutableList()),
+                        selectedClipId = state.selectedClipId ?: newClips.firstOrNull()?.id
+                    )
                 }
-                val newTrack = mainTrack.copy(clips = allClips)
-                val newTracks = state.project.tracks.map { if (it.id == mainTrack.id) newTrack else it }
-                _uiState.value = state.copy(
-                    project = state.project.copy(tracks = newTracks.toMutableList()),
-                    // ★ 当前无选中片段时自动选中第一个，保证工具栏可用
-                    selectedClipId = state.selectedClipId ?: allClips.firstOrNull()?.id
-                )
+            } catch (e: Exception) {
+                endImportOnError(e)
             }
         }
     }
@@ -256,75 +400,101 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * 添加画中画叠加层（PICTURE 轨）：把选中的视频/图片叠加在主轨之上。
      * 默认从当前播放头位置开始，叠加层占据整个源时长。
+     *
+     * ★ 图片与贴纸规则统一：mediaDuration 上限一致（300s，图片可循环填充），
+     *   默认时长 3s；用户后续可在画中画面板把时长拉长。
      */
     fun addPipOverlay(uris: List<Uri>) {
         if (uris.isEmpty()) return
-        viewModelScope.launch {
-            pushUndo()
-            val newClips = withContext(Dispatchers.IO) {
-                uris.mapIndexed { index, uri ->
-                    val tempFile = MediaUtils.copyUriToTempFile(appContext, uri, System.currentTimeMillis().toInt() + index)
-                    val thumbFile = File(appContext.cacheDir, "thumb_pip_${System.currentTimeMillis()}_${index}.jpg")
+        importJob?.cancel()
+        importJob = viewModelScope.launch {
+            beginImport("准备添加画中画...")
+            try {
+                val seed = System.currentTimeMillis()
+                val maxImageDuration = 300.0
+                val defaultImageDuration = 3.0
+                val newClips = withContext(Dispatchers.IO) {
+                    uris.mapIndexed { index, uri ->
+                        val file = MediaUtils.copyUriToEditorMedia(appContext, uri, seed + index)
+                        var thumbPath: String? = null
 
-                    if (MediaUtils.isImageFile(tempFile.absolutePath)) {
-                        // 图片叠加：默认时长 3 秒、无音轨
-                        val dims = MediaUtils.getImageDimensions(tempFile.absolutePath)
-                        val thumb = MediaUtils.loadImageFromFile(tempFile.absolutePath)
-                        if (thumb != null) MediaUtils.saveBitmapAsJpeg(thumb, thumbFile)
-                        val dur = 3.0
-                        Clip(
-                            mediaPath = tempFile.absolutePath,
-                            mediaName = tempFile.name,
-                            mediaDuration = dur,
-                            width = dims?.first ?: 0,
-                            height = dims?.second ?: 0,
-                            hasAudio = false,
-                            trimEnd = dur,
-                            timelineStart = 0.0,
-                            thumbnailPath = thumbFile.absolutePath,
-                            pipEnabled = true,
-                            isImage = true,
-                        )
-                    } else {
-                        val meta = MediaUtils.getVideoMeta(tempFile.absolutePath)
-                        val thumb = MediaUtils.loadThumbnailFromFile(tempFile.absolutePath)
-                        if (thumb != null) MediaUtils.saveBitmapAsJpeg(thumb, thumbFile)
-                        Clip(
-                            mediaPath = tempFile.absolutePath,
-                            mediaName = tempFile.name,
-                            mediaDuration = meta.duration,
-                            width = meta.width,
-                            height = meta.height,
-                            hasAudio = meta.hasAudio,
-                            trimEnd = meta.duration,
-                            timelineStart = 0.0,
-                            thumbnailPath = thumbFile.absolutePath,
-                            pipEnabled = true,
-                        )
+                        if (MediaUtils.isImageFile(file.absolutePath)) {
+                            // 图片叠加：默认 3 秒、无音轨；上限与贴纸一致（300s）
+                            val dims = MediaUtils.getImageDimensions(file.absolutePath)
+                            val thumb = MediaUtils.loadImageFromFile(file.absolutePath)
+                            if (thumb != null) {
+                                val thumbFile = File(MediaUtils.editorMediaDir(appContext), "thumb_pip_${seed}_${index}.jpg")
+                                MediaUtils.saveBitmapAsJpeg(thumb, thumbFile)
+                                thumbPath = thumbFile.absolutePath
+                            }
+                            Clip(
+                                mediaPath = file.absolutePath,
+                                mediaName = file.name,
+                                mediaDuration = maxImageDuration,
+                                width = dims?.first ?: 0,
+                                height = dims?.second ?: 0,
+                                hasAudio = false,
+                                trimEnd = defaultImageDuration,
+                                timelineStart = 0.0,
+                                thumbnailPath = thumbPath,
+                                pipEnabled = true,
+                                isImage = true,
+                            )
+                        } else {
+                            val meta = MediaUtils.getVideoMeta(file.absolutePath)
+                            val thumb = MediaUtils.loadThumbnailFromFile(file.absolutePath)
+                            if (thumb != null) {
+                                val thumbFile = File(MediaUtils.editorMediaDir(appContext), "thumb_pip_${seed}_${index}.jpg")
+                                MediaUtils.saveBitmapAsJpeg(thumb, thumbFile)
+                                thumbPath = thumbFile.absolutePath
+                            }
+                            Clip(
+                                mediaPath = file.absolutePath,
+                                mediaName = file.name,
+                                mediaDuration = meta.duration,
+                                width = meta.width,
+                                height = meta.height,
+                                hasAudio = meta.hasAudio,
+                                trimEnd = meta.duration,
+                                timelineStart = 0.0,
+                                thumbnailPath = thumbPath,
+                                pipEnabled = true,
+                            )
+                        }
                     }
                 }
+
+                pushUndo()
+                val state = _uiState.value.copy(
+                    // ★ 导入成功，清除导入中状态（否则浮层永远不消失）
+                    isImporting = false, importProgress = 0f, importMessage = ""
+                )
+                // 默认从播放头处开始依次排布（不可变：copy 新实例）
+                var pos = _playhead.value
+                val placedClips = newClips.map { c ->
+                    val placed = c.copy(timelineStart = pos)
+                    pos += placed.timelineDuration
+                    placed
+                }
+
+                val existingPip = state.project.tracks.find { it.type == TrackType.PICTURE }
+                val newTracks = state.project.tracks.toMutableList()
+                if (existingPip == null) {
+                    newTracks.add(Track(type = TrackType.PICTURE, clips = placedClips.toMutableList()))
+                } else {
+                    val idx = newTracks.indexOfFirst { it.id == existingPip.id }
+                    newTracks[idx] = existingPip.copy(clips = (existingPip.clips + placedClips).toMutableList())
+                }
+
+                _uiState.value = state.copy(
+                    project = state.project.copy(tracks = newTracks, updatedAt = System.currentTimeMillis()),
+                    selectedClipId = placedClips.firstOrNull()?.id,
+                    selectedTrackId = newTracks.find { it.type == TrackType.PICTURE }?.id,
+                    currentPanel = ToolPanel.PICTURE
+                )
+            } catch (e: Exception) {
+                endImportOnError(e)
             }
-
-            val state = _uiState.value
-            // 默认从播放头处开始叠加
-            var pos = state.currentPosition
-            newClips.forEach { it.timelineStart = pos; pos += it.timelineDuration }
-
-            val existingPip = state.project.tracks.find { it.type == TrackType.PICTURE }
-            val newTracks = state.project.tracks.toMutableList()
-            if (existingPip == null) {
-                newTracks.add(Track(type = TrackType.PICTURE, clips = newClips.toMutableList()))
-            } else {
-                val idx = newTracks.indexOfFirst { it.id == existingPip.id }
-                newTracks[idx] = existingPip.copy(clips = (existingPip.clips + newClips).toMutableList())
-            }
-
-            _uiState.value = state.copy(
-                project = state.project.copy(tracks = newTracks, updatedAt = System.currentTimeMillis()),
-                selectedClipId = newClips.firstOrNull()?.id,
-                selectedTrackId = newTracks.find { it.type == TrackType.PICTURE }?.id,
-                currentPanel = ToolPanel.PICTURE
-            )
         }
     }
 
@@ -344,7 +514,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 height = 256,
                 hasAudio = false,
                 trimEnd = dur,
-                timelineStart = _uiState.value.currentPosition,
+                timelineStart = _playhead.value,
                 thumbnailPath = png.absolutePath,
                 pipEnabled = true,
                 isImage = true,
@@ -415,7 +585,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 在当前播放头处添加画中画位置关键帧（记录片段当前静态位置 pipX/pipY） */
     fun addPipKeyframe(clipId: String) {
-        val time = _uiState.value.currentPosition
+        val time = _playhead.value
         updateClip(clipId) { clip ->
             val kf = PipKeyframe(
                 time = time,
@@ -531,16 +701,22 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun togglePlay() {
         val state = _uiState.value
         val totalDur = state.project.totalDuration
-        // 如果已到结尾，先回到开头再播放
-        val newPos = if (state.currentPosition >= totalDur - 0.1) 0.0 else state.currentPosition
-        _uiState.value = state.copy(
-            isPlaying = !state.isPlaying,
-            currentPosition = newPos
-        )
+        // 如果已到结尾，先回到开头再播放；空项目不进入播放态
+        if (totalDur <= 0.0) return
+        val cur = _playhead.value
+        if (cur >= totalDur - 0.1) _playhead.value = 0.0
+        _uiState.value = state.copy(isPlaying = !state.isPlaying)
+    }
+
+    /** 暂停播放（退后台/导出开始时调用，不改变播放头位置） */
+    fun pausePlayback() {
+        if (_uiState.value.isPlaying) {
+            _uiState.value = _uiState.value.copy(isPlaying = false)
+        }
     }
 
     fun seekTo(position: Double) {
-        _uiState.value = _uiState.value.copy(currentPosition = position.coerceIn(0.0, _uiState.value.project.totalDuration))
+        _playhead.value = position.coerceIn(0.0, _uiState.value.project.totalDuration)
     }
 
     // ═══════════════════════════════════════
@@ -554,7 +730,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             val safeEnd = trimEnd.coerceIn(safeStart + 0.1, it.mediaDuration)
             it.copy(trimStart = safeStart, trimEnd = safeEnd)
         }
-        retimelineAfter(clipId)
+        retimelineAll()
     }
 
     /**
@@ -572,6 +748,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 _uiState.value = _uiState.value.copy(isDetectingLogo = false)
                 if (clip == null) return@withContext
                 if (cut != null && cut < clip.mediaDuration - 0.1) {
+                    // ★ VM 内部触发的裁剪不经过面板手势，必须自己推撤销栈
+                    pushUndo()
                     updateTrim(clipId, clip.trimStart, cut)
                     showError("已去除片尾静止片段，出点裁至 ${"%.2f".format(cut)}s")
                 } else {
@@ -596,6 +774,12 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
             withContext(Dispatchers.Main) {
                 var removed = 0
+                // ★ 批量裁剪是 VM 内部行为，整批只推一次撤销栈（有实际裁剪才推）
+                val willCut = cuts.any { (id, cut) ->
+                    val c = _uiState.value.project.mainTrack?.clips?.find { it.id == id }
+                    c != null && cut != null && cut < c.mediaDuration - 0.1
+                }
+                if (willCut) pushUndo()
                 cuts.forEach { (id, cut) ->
                     val clip = _uiState.value.project.mainTrack?.clips?.find { it.id == id }
                     if (clip != null && cut != null && cut < clip.mediaDuration - 0.1) {
@@ -613,20 +797,30 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * 在当前播放头位置分割选中的片段（剪映式交互）。
-     * 播放头必须落在片段内部（距边界 > 0.05s）才执行。
+     * 在当前播放头位置分割片段（剪映式交互）。
+     * ★ 优先分割当前选中的片段（含画中画轨）；未选中或播放头不在其中时，
+     *   回退到主轨上播放头所在片段。播放头必须落在片段内部（距边界 > 0.05s）。
      */
     fun splitAtPlayhead() {
         val state = _uiState.value
-        val pos = state.currentPosition
-        val clip = state.project.mainTrack?.clips?.find {
-            pos > it.timelineStart + 0.05 && pos < it.timelineEnd - 0.05
-        } ?: return
+        val pos = _playhead.value
+        val selected = state.selectedClip
+        val clip = if (selected != null &&
+            pos > selected.timelineStart + 0.05 && pos < selected.timelineEnd - 0.05
+        ) {
+            selected
+        } else {
+            state.project.mainTrack?.clips?.find {
+                pos > it.timelineStart + 0.05 && pos < it.timelineEnd - 0.05
+            } ?: return
+        }
         splitClip(clip.id, pos)
     }
 
     /**
      * 删除片段（可撤销）。删除后自动重排后续片段并选中相邻片段。
+     * ★ 删除主轨片段时，锚点（被删片段原起点）之后的字幕/画中画整体前移，
+     *   保持与主轨画面对齐。
      */
     fun deleteClip(clipId: String) {
         val state = _uiState.value
@@ -635,30 +829,39 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val track = state.project.tracks[trackIdx]
         val clipIdx = track.clips.indexOfFirst { it.id == clipId }
         if (clipIdx < 0) return
+        val deletedClip = track.clips[clipIdx]
 
         pushUndo()
 
         val remaining = track.clips.toMutableList().also { it.removeAt(clipIdx) }
-        // 重排剩余片段（不可变：全部新建 Clip 实例）
-        var pos = 0.0
-        val relaid = remaining.map { c ->
-            val nc = c.copy(timelineStart = pos)
-            pos += nc.timelineDuration
-            nc
-        }.toMutableList()
+        // 主轨重排剩余片段（转场重叠布局）；
+        // 其他轨（画中画等）为自由定位，删除后保持其余片段位置不变
+        val relaid = if (track.type == TrackType.MAIN) {
+            relayoutMainTrackClips(remaining).toMutableList()
+        } else {
+            remaining
+        }
 
         val newTrack = track.copy(clips = relaid)
         val newTracks = state.project.tracks.toMutableList()
         newTracks[trackIdx] = newTrack
 
+        var newProject = state.project.copy(
+            tracks = newTracks,
+            updatedAt = System.currentTimeMillis()
+        )
+
+        // ★ 主轨时长变化 → 锚点之后的叠加元素联动平移
+        if (track.type == TrackType.MAIN) {
+            val delta = newProject.totalDuration - state.project.totalDuration
+            newProject = shiftOverlaysAfter(newProject, deletedClip.timelineStart, delta)
+        }
+
         // 优先选中后一个片段，其次前一个
         val nextSelected = relaid.getOrNull(clipIdx)?.id ?: relaid.getOrNull(clipIdx - 1)?.id
 
         _uiState.value = state.copy(
-            project = state.project.copy(
-                tracks = newTracks,
-                updatedAt = System.currentTimeMillis()
-            ),
+            project = newProject,
             selectedClipId = nextSelected
         )
     }
@@ -671,8 +874,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setInPoint() {
         val state = _uiState.value
         _uiState.value = state.copy(
-            inPoint = state.currentPosition,
-            outPoint = state.outPoint?.takeIf { it > state.currentPosition + 0.05 }
+            inPoint = _playhead.value,
+            outPoint = state.outPoint?.takeIf { it > _playhead.value + 0.05 }
         )
     }
 
@@ -680,8 +883,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setOutPoint() {
         val state = _uiState.value
         _uiState.value = state.copy(
-            outPoint = state.currentPosition,
-            inPoint = state.inPoint?.takeIf { it < state.currentPosition - 0.05 }
+            outPoint = _playhead.value,
+            inPoint = state.inPoint?.takeIf { it < _playhead.value - 0.05 }
         )
     }
 
@@ -763,24 +966,26 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
         pushUndo()
 
-        // 首尾重新拼接
-        var pos = 0.0
-        val relaid = kept.map { c ->
-            val nc = c.copy(timelineStart = pos)
-            pos += nc.timelineDuration
-            nc
-        }.toMutableList()
+        // 首尾重新拼接（统一走转场重叠布局）
+        val relaid = relayoutMainTrackClips(kept).toMutableList()
 
         val newTrack = mainTrack.copy(clips = relaid)
         val newTracks = state.project.tracks.map { if (it.id == mainTrack.id) newTrack else it }
 
+        var newProject = state.project.copy(
+            tracks = newTracks.toMutableList(),
+            updatedAt = System.currentTimeMillis()
+        )
+
+        // ★ 主轨缩短 → 入点之后的字幕/画中画整体前移，保持与画面对齐
+        val delta = newProject.totalDuration - state.project.totalDuration
+        newProject = shiftOverlaysAfter(newProject, inP, delta)
+
+        // 播放头回到删除点，选中删除点后的片段
+        _playhead.value = inP.coerceAtMost(relaid.lastOrNull()?.timelineEnd ?: 0.0)
         _uiState.value = state.copy(
-            project = state.project.copy(
-                tracks = newTracks.toMutableList(),
-                updatedAt = System.currentTimeMillis()
-            ),
-            // 播放头回到删除点，选中删除点后的片段
-            currentPosition = inP.coerceAtMost(pos),
+            project = newProject,
+
             selectedClipId = relaid.firstOrNull { it.timelineStart >= inP - 0.05 }?.id
                 ?: relaid.lastOrNull()?.id,
             inPoint = null,
@@ -865,8 +1070,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun updateSpeed(clipId: String, speed: Double) {
         val s = speed.coerceIn(0.25, 4.0)
         updateClip(clipId) { it.copy(speed = s) }
-        // 变速后该片段的时间轴时长改变，需要重算后续片段位置
-        retimelineAfter(clipId)
+        // 变速后该片段的时间轴时长改变（也影响与相邻片段的转场重叠），需要重排
+        retimelineAll()
     }
 
     /** 切换倒放（对应 reverse_video.py） */
@@ -989,10 +1194,99 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setTransition(clipId: String, effect: TransitionEffect) {
         updateClip(clipId) { it.copy(transition = effect) }
+        // ★ 转场类型改变重叠时长（NONE=0.01s，其他为设定值），时间轴需重排
+        retimelineAll()
     }
 
     fun updateTransitionDuration(clipId: String, duration: Double) {
         updateClip(clipId) { it.copy(transitionDuration = duration.coerceIn(0.2, 3.0)) }
+        // ★ 转场时长直接决定与下一片段的重叠量，时间轴需重排
+        retimelineAll()
+    }
+
+    // ═══════════════════════════════════════
+    //  去水印
+    // ═══════════════════════════════════════
+
+    /**
+     * 添加水印区域。
+     * @param corner null=画面中央；"tl"/"tr"/"bl"/"br" = 对应角落预设
+     *   （抖音水印常用位置，一键框住，再微调大小）
+     */
+    fun addWatermarkRegion(clipId: String, corner: String? = null) {
+        pushUndo()
+        updateClip(clipId) { clip ->
+            val nth = clip.watermarkRegions.size
+            val region = when (corner) {
+                "tl" -> WatermarkRegion(x = 0.02, y = 0.03, w = 0.45, h = 0.18)
+                "tr" -> WatermarkRegion(x = 0.53, y = 0.03, w = 0.45, h = 0.18)
+                "bl" -> WatermarkRegion(x = 0.02, y = 0.79, w = 0.45, h = 0.18)
+                "br" -> WatermarkRegion(x = 0.53, y = 0.79, w = 0.45, h = 0.18)
+                else -> {
+                    // 多个区域时纵向错开，避免完全重叠
+                    val y = (0.42 + nth * 0.08).coerceAtMost(0.8)
+                    WatermarkRegion(x = 0.55, y = y, w = 0.3, h = 0.12)
+                }
+            }
+            clip.copy(watermarkRegions = clip.watermarkRegions + region)
+        }
+    }
+
+    /** 自动检测静态水印（时域方差分析），结果追加到片段 */
+    fun autoDetectWatermarks(clipId: String) {
+        if (_uiState.value.isDetectingWatermark) return
+        val clip = _uiState.value.selectedClip ?: return
+        _uiState.value = _uiState.value.copy(isDetectingWatermark = true)
+        viewModelScope.launch(Dispatchers.IO) {
+            val found = WatermarkDetector.detect(appContext, clip.mediaPath)
+            withContext(Dispatchers.Main) {
+                _uiState.value = _uiState.value.copy(isDetectingWatermark = false)
+                if (found.isEmpty()) {
+                    showError("未检测到静态水印，可手动框选区域")
+                    return@withContext
+                }
+                pushUndo()
+                updateClip(clipId) { c ->
+                    // 与已有区域明显重叠的检测结果不重复添加
+                    val merged = c.watermarkRegions +
+                        found.filter { r -> c.watermarkRegions.none { it.overlaps(r) } }
+                    c.copy(watermarkRegions = merged)
+                }
+                showError("检测到 ${found.size} 处水印，可微调位置和强度")
+            }
+        }
+    }
+
+    /** 更新水印区域（位置/大小/模式/强度/时间段） */
+    fun updateWatermarkRegion(clipId: String, index: Int, region: WatermarkRegion) {
+        updateClip(clipId) { clip ->
+            if (index !in clip.watermarkRegions.indices) clip
+            else clip.copy(watermarkRegions = clip.watermarkRegions.toMutableList().also {
+                val end = if (region.endTime <= region.startTime) {
+                    region.endTime // ≤起点 = 整段生效
+                } else {
+                    region.endTime.coerceAtLeast(region.startTime + 0.1)
+                }
+                it[index] = region.copy(
+                    x = region.x.coerceIn(0.0, 0.98),
+                    y = region.y.coerceIn(0.0, 0.98),
+                    // ★ 保证 x+w / y+h 不超过 1（区域完整落在画面内）
+                    w = region.w.coerceIn(0.01, 1.0 - region.x.coerceIn(0.0, 0.99)),
+                    h = region.h.coerceIn(0.01, 1.0 - region.y.coerceIn(0.0, 0.99)),
+                    startTime = region.startTime.coerceIn(0.0, clip.mediaDuration),
+                    endTime = end.coerceAtMost(clip.mediaDuration),
+                )
+            })
+        }
+    }
+
+    /** 删除水印区域 */
+    fun removeWatermarkRegion(clipId: String, index: Int) {
+        pushUndo()
+        updateClip(clipId) { clip ->
+            if (index !in clip.watermarkRegions.indices) clip
+            else clip.copy(watermarkRegions = clip.watermarkRegions.toMutableList().also { it.removeAt(index) })
+        }
     }
 
     // ═══════════════════════════════════════
@@ -1041,7 +1335,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                         onFailure = { e ->
                             _uiState.value = _uiState.value.copy(
                                 isExporting = false,
-                                errorMessage = "保存失败: ${e.message}"
+                                errorMessage = "保存失败: ${e.message}",
+                                errorSeverity = MessageSeverity.ERROR
                             )
                         }
                     )
@@ -1051,7 +1346,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                         isExporting = false,
                         exportProgress = 0f,
                         exportMessage = "",
-                        errorMessage = "导出失败: ${e.message}"
+                        errorMessage = "导出失败: ${e.message}",
+                        errorSeverity = MessageSeverity.ERROR
                     )
                 }
             )
@@ -1072,12 +1368,12 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun dismissError() {
-        _uiState.value = _uiState.value.copy(errorMessage = null)
+        _uiState.value = _uiState.value.copy(errorMessage = null, errorSeverity = MessageSeverity.INFO)
     }
 
     /** 显示一条提示信息（浮层，自动消失） */
-    fun showError(message: String) {
-        _uiState.value = _uiState.value.copy(errorMessage = message)
+    fun showError(message: String, severity: MessageSeverity = MessageSeverity.INFO) {
+        _uiState.value = _uiState.value.copy(errorMessage = message, errorSeverity = severity)
     }
 
     // ═══════════════════════════════════════
@@ -1114,65 +1410,20 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * 重算主轨所有片段的时间轴位置（timelineStart）。
-     * 按 clips 在列表中的顺序首尾拼接：
-     *   clip[i].timelineStart = clip[i-1].timelineEnd
      *
-     * 当 trim/speed 改变导致某个片段的 timelineDuration 变化时，
-     * 必须重算后续片段的 timelineStart，否则时间轴会错位/重叠。
+     * ★ 布局规则（与导出 xfade 一致，见 relayoutMainTrackClips）：
+     *   clip[i+1].timelineStart = clip[i].timelineEnd - 有效转场重叠时长。
+     *   即转场期间两个片段在时间轴上重叠，时间轴总时长 = 导出成片时长。
+     *
+     * 当 trim/speed/transition 改变导致片段时长或重叠变化时，
+     * 必须重算后续片段的 timelineStart，否则时间轴会错位/重叠不一致。
      */
     private fun retimelineAll() {
         val state = _uiState.value
         val mainTrack = state.project.mainTrack ?: return
-        val sortedClips = mainTrack.clips.sortedBy { it.timelineStart }
 
-        // 不可变重排：全部新建 Clip 实例，避免旧状态引用被修改
-        var pos = 0.0
-        val newClips = sortedClips.map { clip ->
-            val newClip = clip.copy(timelineStart = pos)
-            pos += newClip.timelineDuration
-            newClip
-        }.toMutableList()
-
-        val newTrack = mainTrack.copy(clips = newClips)
-        val newTracks = state.project.tracks.map { if (it.id == mainTrack.id) newTrack else it }
-        _uiState.value = state.copy(
-            project = state.project.copy(
-                tracks = newTracks.toMutableList(),
-                updatedAt = System.currentTimeMillis()
-            )
-        )
-    }
-
-    /**
-     * 从指定片段开始重算时间轴位置（该片段及其后续片段）。
-     * 用于 trim/speed 变更后只更新受影响的部分。
-     */
-    private fun retimelineAfter(clipId: String) {
-        val state = _uiState.value
-        val mainTrack = state.project.mainTrack ?: return
-        val sortedClips = mainTrack.clips.sortedBy { it.timelineStart }
-
-        val startIdx = sortedClips.indexOfFirst { it.id == clipId }
-        if (startIdx < 0) return
-
-        // 起始位置：前一个片段的结尾（如果是第一个片段，从 0 开始）
-        val startPos = if (startIdx > 0) {
-            sortedClips[startIdx - 1].timelineEnd
-        } else {
-            0.0
-        }
-
-        // 从 startIdx 开始累加 timelineStart（不可变：新建 Clip 实例）
-        var pos = startPos
-        val newClips = sortedClips.mapIndexed { index, clip ->
-            if (index >= startIdx) {
-                val newClip = clip.copy(timelineStart = pos)
-                pos += newClip.timelineDuration
-                newClip
-            } else {
-                clip
-            }
-        }.toMutableList()
+        // 不可变重排：relayoutMainTrackClips 返回全新 Clip 实例，避免旧状态引用被修改
+        val newClips = relayoutMainTrackClips(mainTrack.clips.sortedBy { it.timelineStart }).toMutableList()
 
         val newTrack = mainTrack.copy(clips = newClips)
         val newTracks = state.project.tracks.map { if (it.id == mainTrack.id) newTrack else it }
