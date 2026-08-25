@@ -44,6 +44,55 @@ object MediaUtils {
     }
 
     /**
+     * 编辑器素材目录（filesDir/editor_media）。
+     *
+     * ★ 与 cacheDir 不同：filesDir 不会被系统在磁盘紧张时清理，
+     *   编辑器导入的素材与缩略图放这里，草稿才能长期引用。
+     */
+    fun editorMediaDir(context: Context): File =
+        File(context.filesDir, "editor_media").apply { mkdirs() }
+
+    /**
+     * 将 content URI 对应的媒体复制到编辑器素材目录（持久化，供草稿引用）。
+     */
+    fun copyUriToEditorMedia(context: Context, uri: Uri, index: Long): File {
+        val ext = guessExtension(uri, context)
+        val timestamp = System.currentTimeMillis()
+        val dest = File(editorMediaDir(context), "input_${timestamp}_${index}.$ext")
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            FileOutputStream(dest).use { output ->
+                input.copyTo(output)
+            }
+        } ?: throw IllegalStateException("无法读取媒体: $uri")
+        return dest
+    }
+
+    /**
+     * 清理 cacheDir 中的过期临时文件（安全：历史记录与导出结果均有独立拷贝）：
+     * - editor_export_*.mp4：导出已完成（已存相册+历史），24h 后删除；
+     * - thumb_* / editor_history_thumb_*：缩略图，7 天后删除；
+     * - merge_inputs/：合并模块临时输入，7 天后删除。
+     */
+    fun cleanupStaleCache(context: Context) {
+        val now = System.currentTimeMillis()
+        val day = 24 * 3600_000L
+        context.cacheDir.listFiles()?.forEach { f ->
+            val age = now - f.lastModified()
+            if (f.isFile) {
+                val stale = when {
+                    f.name.startsWith("editor_export_") -> age > day
+                    f.name.startsWith("thumb_") || f.name.startsWith("editor_history_thumb_") -> age > 7 * day
+                    else -> false
+                }
+                if (stale) f.delete()
+            }
+        }
+        File(context.cacheDir, "merge_inputs").listFiles()?.forEach {
+            if (now - it.lastModified() > 7 * day) it.delete()
+        }
+    }
+
+    /**
      * 用 FFprobeKit 提取视频元数据（宽高、时长、是否有音频）。
      */
     fun getVideoMeta(path: String): VideoMeta {

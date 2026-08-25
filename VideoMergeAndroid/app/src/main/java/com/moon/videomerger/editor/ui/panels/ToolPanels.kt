@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -617,6 +619,7 @@ fun AudioPanel(
 @Composable
 fun SubtitlePanel(
     state: EditorUiState,
+    currentPosition: Double,
     onAdd: (String, Double, Double) -> Unit,
     onRemove: (String) -> Unit,
     onTranscribe: () -> Unit,
@@ -624,8 +627,8 @@ fun SubtitlePanel(
     onClose: () -> Unit
 ) {
     var text by remember { mutableStateOf("") }
-    var start by remember { mutableStateOf(state.currentPosition.toFloat()) }
-    var end by remember { mutableStateOf((state.currentPosition + 2.0).toFloat()) }
+    var start by remember { mutableStateOf(currentPosition.toFloat()) }
+    var end by remember { mutableStateOf((currentPosition + 2.0).toFloat()) }
     val total = state.project.totalDuration.toFloat().coerceAtLeast(0.1f)
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -1300,5 +1303,186 @@ fun ExportPanel(
             Spacer(Modifier.height(8.dp))
             Text("✅ 已导出: $it", color = Color(0xFF4CAF50), fontSize = 12.sp)
         }
+    }
+}
+
+// ═══════════════════════════════════════
+//  去水印面板
+// ═══════════════════════════════════════
+
+@Composable
+fun WatermarkRemovePanel(
+    clip: Clip,
+    isDetecting: Boolean,
+    onDetect: () -> Unit,
+    onAddRegion: () -> Unit,
+    onAddRegionAt: (String) -> Unit,
+    onUpdateRegion: (Int, com.moon.videomerger.editor.data.WatermarkRegion) -> Unit,
+    onRemoveRegion: (Int) -> Unit,
+    onEditStart: () -> Unit,
+    onClose: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF1A1A1A))
+            .padding(vertical = 8.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        PanelHeader("去水印", onClose)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "框选画面中的水印位置（预览中红框标识），导出时对该区域做模糊/马赛克覆盖。\n" +
+                "自动检测识别静态水印（如抖音 logo/昵称），检测不到可手动添加。",
+            color = Color(0xFF888888),
+            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        Spacer(Modifier.height(12.dp))
+
+        Row(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Button(
+                onClick = onDetect,
+                enabled = !isDetecting,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
+            ) {
+                if (isDetecting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("检测中...", color = Color.White, fontSize = 13.sp)
+                } else {
+                    Text("自动检测水印", color = Color.White, fontSize = 13.sp)
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            OutlinedButton(onClick = onAddRegion) {
+                Text("手动添加区域", color = Color.White, fontSize = 13.sp)
+            }
+        }
+
+        // 四角快捷预设（抖音水印常用位置，一键框住再微调）
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                "常用水印位置：",
+                color = Color(0xFF888888),
+                fontSize = 11.sp,
+                modifier = Modifier.align(Alignment.CenterVertically)
+            )
+            listOf("tl" to "左上", "tr" to "右上", "bl" to "左下", "br" to "右下").forEach { (corner, label) ->
+                Text(
+                    label,
+                    color = Color(0xFF2196F3),
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable { onAddRegionAt(corner) }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        if (clip.watermarkRegions.isEmpty()) {
+            Text(
+                "暂无区域",
+                color = Color(0xFF666666),
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+
+        clip.watermarkRegions.forEachIndexed { index, region ->
+            var mode by remember(clip.id, index) { mutableStateOf(region.mode) }
+            Surface(
+                color = Color(0xFF242424),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "区域 ${index + 1}",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        // 模式切换
+                        listOf(
+                            com.moon.videomerger.editor.data.WatermarkMode.BLUR to "模糊",
+                            com.moon.videomerger.editor.data.WatermarkMode.MOSAIC to "马赛克",
+                        ).forEach { (m, label) ->
+                            Text(
+                                label,
+                                color = if (mode == m) Color(0xFF2196F3) else Color(0xFF888888),
+                                fontSize = 12.sp,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable {
+                                        onEditStart()
+                                        mode = m
+                                        onUpdateRegion(index, region.copy(mode = m))
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                        IconButton(onClick = { onEditStart(); onRemoveRegion(index) }, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Default.Delete, contentDescription = "删除区域", tint = Color(0xFFFF7043), modifier = Modifier.size(16.dp))
+                        }
+                    }
+
+                    SliderRow("位置X", region.x.toFloat(), 0f..0.99f, onValueChange = {
+                        onUpdateRegion(index, region.copy(x = it.toDouble()))
+                    }, onValueChangeStarted = onEditStart)
+                    SliderRow("位置Y", region.y.toFloat(), 0f..0.99f, onValueChange = {
+                        onUpdateRegion(index, region.copy(y = it.toDouble()))
+                    }, onValueChangeStarted = onEditStart)
+                    SliderRow("宽度", region.w.toFloat(), 0.02f..1f, onValueChange = {
+                        onUpdateRegion(index, region.copy(w = it.toDouble()))
+                    }, onValueChangeStarted = onEditStart)
+                    SliderRow("高度", region.h.toFloat(), 0.02f..1f, onValueChange = {
+                        onUpdateRegion(index, region.copy(h = it.toDouble()))
+                    }, onValueChangeStarted = onEditStart)
+                    SliderRow(
+                        if (mode == com.moon.videomerger.editor.data.WatermarkMode.BLUR) "模糊强度" else "马赛克块",
+                        region.strength.toFloat(),
+                        (if (mode == com.moon.videomerger.editor.data.WatermarkMode.BLUR) 1f else 4f)..40f,
+                        onValueChange = {
+                            onUpdateRegion(index, region.copy(strength = it.toInt().coerceAtLeast(1)))
+                        },
+                        onValueChangeStarted = onEditStart
+                    )
+
+                    // 生效时间段（源视频秒；移动水印可分时段框选）
+                    val durF = clip.mediaDuration.toFloat().coerceAtLeast(0.5f)
+                    SliderRow("起始", region.startTime.toFloat().coerceIn(0f, durF), 0f..durF,
+                        onValueChange = {
+                            onUpdateRegion(index, region.copy(startTime = it.toDouble()))
+                        },
+                        onValueChangeStarted = onEditStart
+                    )
+                    val shownEnd = if (region.endTime <= region.startTime) durF else region.endTime.toFloat()
+                    SliderRow("结束", shownEnd.coerceIn(0f, durF), 0f..durF,
+                        onValueChange = {
+                            onUpdateRegion(index, region.copy(endTime = it.toDouble()))
+                        },
+                        onValueChangeStarted = onEditStart
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
     }
 }

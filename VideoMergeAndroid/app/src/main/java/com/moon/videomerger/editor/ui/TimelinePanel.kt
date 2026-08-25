@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.moon.videomerger.editor.data.EditorUiState
 import com.moon.videomerger.editor.data.Clip
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * 时间轴面板 —— 多轨片段可视化 + 播放头。
@@ -41,6 +42,7 @@ import com.moon.videomerger.editor.data.Clip
 @Composable
 fun TimelinePanel(
     state: EditorUiState,
+    playheadFlow: StateFlow<Double>,
     onSelectClip: (String?) -> Unit,
     onSeek: (Double) -> Unit,
     onSetInPoint: () -> Unit,
@@ -50,14 +52,16 @@ fun TimelinePanel(
     onDeleteClip: () -> Unit,
     onOpenTransition: (String) -> Unit
 ) {
+    // ★ 本地收集播放头：只有时间轴区域跟随播放重组
+    val currentPosition by playheadFlow.collectAsState()
     val totalDuration = state.project.totalDuration.coerceAtLeast(1.0)
     val horizontalPadding = 12.dp
 
     // 播放头是否落在选中片段内部（决定分割按钮可用性）
     val selectedClip = state.selectedClip
     val canSplit = selectedClip != null &&
-        state.currentPosition > selectedClip.timelineStart + 0.05 &&
-        state.currentPosition < selectedClip.timelineEnd - 0.05
+        currentPosition > selectedClip.timelineStart + 0.05 &&
+        currentPosition < selectedClip.timelineEnd - 0.05
 
     // ★ 用 BoxWithConstraints 获取实际可用宽度
     // pixelsPerSecond = (屏幕宽度 - 左右padding) / 总时长
@@ -82,7 +86,7 @@ fun TimelinePanel(
         ) {
             // ── 快捷操作行：时间码 + 入出点 + 分割/删除 ──
             TimelineActionBar(
-                currentPosition = state.currentPosition,
+                currentPosition = currentPosition,
                 totalDuration = state.project.totalDuration,
                 hasSelectedClip = selectedClip != null,
                 canSplit = canSplit,
@@ -100,7 +104,7 @@ fun TimelinePanel(
                 totalDuration = totalDuration,
                 pixelsPerSecond = pixelsPerSecond,
                 usableWidthPx = usableWidthPx,
-                currentPosition = state.currentPosition,
+                currentPosition = currentPosition,
                 inPoint = state.inPoint,
                 outPoint = state.outPoint,
                 onSeek = onSeek
@@ -134,7 +138,7 @@ fun TimelinePanel(
 
                 // ── 播放头竖线 ──
                 Playhead(
-                    position = state.currentPosition,
+                    position = currentPosition,
                     pixelsPerSecond = pixelsPerSecond,
                     modifier = Modifier.fillMaxHeight()
                 )
@@ -394,44 +398,47 @@ private fun TrackRow(
                 )
             }
     ) {
-        // 轨道类型图标
-        Box(
-            modifier = Modifier
-                .width(24.dp)
-                .fillMaxHeight()
-                .background(Color(0xFF333333), RoundedCornerShape(4.dp))
-                .align(Alignment.CenterStart),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                when (track.type) {
-                    com.moon.videomerger.editor.data.TrackType.MAIN -> Icons.Default.VideoFile
-                    com.moon.videomerger.editor.data.TrackType.PICTURE -> Icons.Default.Image
-                    com.moon.videomerger.editor.data.TrackType.TEXT -> Icons.Default.TextFields
-                    com.moon.videomerger.editor.data.TrackType.AUDIO -> Icons.Default.AudioFile
-                },
-                contentDescription = null,
-                tint = Color(0xFFAAAAAA),
-                modifier = Modifier.size(14.dp)
-            )
-        }
-
-        // 片段区域（从 28dp 开始，避开图标；★ 不再额外加 padding，
-        // ClipBlock 内部的 +28dp offset 已含偏移，重复会导致片段与播放头错位）
+        // 片段区域（★ 轨道类型图标已移除，片段从最左开始，多出 28dp 显示宽度）
+        val sortedClips = track.clips.sortedBy { it.timelineStart }
         Box(
             modifier = Modifier.fillMaxHeight()
         ) {
-            track.clips.sortedBy { it.timelineStart }.forEach { clip ->
+            // ★ 主轨显示坐标模型（剪映式）：
+            //   转场重叠布局下相邻片段在时间上互相重叠，若按真实位置绘制会互相覆盖、
+            //   边界含糊。改为「块首尾相接、接缝 = 前一片段真正结束点」：
+            //   displayWidth_i = trueEnd_i - trueEnd_{i-1}，displayStart 顺序累加。
+            //   播放头语义随之直观：bar 离开某块 ⇔ 该片段真正结束。
+            //   重叠区（转场进行中）归属前一块的尾部显示。
+            //   其他轨（画中画等）无转场链，仍按真实位置绘制。
+            data class DisplayRect(val clip: com.moon.videomerger.editor.data.Clip, val start: Double, val width: Double)
+            val displayRects: List<DisplayRect> = if (track.type == com.moon.videomerger.editor.data.TrackType.MAIN) {
+                var x = 0.0
+                var prevEnd = 0.0
+                sortedClips.map { c ->
+                    val w = c.timelineEnd - prevEnd
+                    val r = DisplayRect(c, x, w)
+                    x += w
+                    prevEnd = c.timelineEnd
+                    r
+                }
+            } else {
+                sortedClips.map { DisplayRect(it, it.timelineStart, it.timelineDuration) }
+            }
+
+            // ★ 选中片段最后绘制，保证选中的块不被相邻块盖住
+            displayRects.sortedBy { it.clip.id == selectedClipId }.forEach { r ->
                 ClipBlock(
-                    clip = clip,
+                    clip = r.clip,
+                    displayStartSeconds = r.start,
+                    displayWidthSeconds = r.width,
                     pixelsPerSecond = pixelsPerSecond,
-                    isSelected = clip.id == selectedClipId,
-                    onClick = { onSelectClip(if (clip.id == selectedClipId) null else clip.id) }
+                    isSelected = r.clip.id == selectedClipId,
+                    onClick = { onSelectClip(if (r.clip.id == selectedClipId) null else r.clip.id) }
                 )
             }
 
-            // 转场指示器：片段边界上的圆形图标（剪映风格），点击打开转场面板
-            track.clips.sortedBy { it.timelineStart }.forEach { clip ->
+            // 转场指示器：接缝处（前一片段真正结束点）的圆形图标，点击打开转场面板
+            sortedClips.forEachIndexed { i, clip ->
                 if (clip.transition != com.moon.videomerger.editor.data.TransitionEffect.NONE) {
                     TransitionBadge(
                         clip = clip,
@@ -445,7 +452,7 @@ private fun TrackRow(
 }
 
 /**
- * 转场指示器 —— 位于片段结尾边界上的小圆形，点击可修改转场。
+ * 转场指示器 —— 位于接缝（前一片段真正结束点）的小圆形，点击可修改转场。
  */
 @Composable
 private fun TransitionBadge(
@@ -455,7 +462,7 @@ private fun TransitionBadge(
 ) {
     val density = LocalDensity.current
     val size = 16.dp
-    val centerX = with(density) { (clip.timelineEnd * pixelsPerSecond).toFloat().toDp() } + 28.dp
+    val centerX = with(density) { (clip.timelineEnd * pixelsPerSecond).toFloat().toDp() }
 
     // ★ 不能用 align（非 BoxScope 内），用 offset 垂直居中：
     // 轨道行 48dp - 上下 padding 4dp = 44dp，(44 - 16) / 2 = 14dp
@@ -479,22 +486,26 @@ private fun TransitionBadge(
 
 /**
  * 片段块 —— 点击选中。
+ * ★ 显示位置/宽度由调用方计算（主轨 = 接缝对齐显示坐标，见 TrackRow），
+ *   与播放头/标尺的真实时间一一对应。
  */
 @Composable
 private fun ClipBlock(
     clip: Clip,
+    displayStartSeconds: Double,
+    displayWidthSeconds: Double,
     pixelsPerSecond: Float,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
     val density = LocalDensity.current
-    val width = with(density) { (clip.timelineDuration * pixelsPerSecond).toFloat().toDp() }
+    val width = with(density) { (displayWidthSeconds * pixelsPerSecond).toFloat().toDp() }
         .coerceAtLeast(20.dp)
-    val offsetX = with(density) { (clip.timelineStart * pixelsPerSecond).toFloat().toDp() }
+    val offsetX = with(density) { (displayStartSeconds * pixelsPerSecond).toFloat().toDp() }
 
     Box(
         modifier = Modifier
-            .offset(x = offsetX + 28.dp)
+            .offset(x = offsetX)
             .width(width)
             .fillMaxHeight()
             .clip(RoundedCornerShape(6.dp))

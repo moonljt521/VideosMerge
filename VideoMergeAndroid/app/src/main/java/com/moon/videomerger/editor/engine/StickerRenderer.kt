@@ -25,7 +25,10 @@ object StickerRenderer {
         val baseline = size / 2f - (fm.ascent + fm.descent) / 2f
         canvas.drawText(emoji, size / 2f, baseline, paint)
 
-        val file = File(context.cacheDir, "sticker_${System.currentTimeMillis()}.png")
+        // ★ 存 filesDir（非 cacheDir）：贴纸 PNG 会被草稿长期引用，
+        //   cacheDir 可能被系统清理导致素材丢失
+        val dir = File(context.filesDir, "editor_media").apply { mkdirs() }
+        val file = File(dir, "sticker_${System.currentTimeMillis()}.png")
         FileOutputStream(file).use { out ->
             bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
         }

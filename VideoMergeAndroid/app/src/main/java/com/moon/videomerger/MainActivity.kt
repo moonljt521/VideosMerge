@@ -38,12 +38,21 @@ fun AppNavigation() {
     var selectedUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     // ★ 每次进入 Editor 用唯一 key，强制重建 EditorScreen 和 ViewModel
     var editorSessionId by remember { mutableStateOf(0) }
+    // ★ 进入编辑器的两种模式：从选中视频新建 / 恢复已有草稿
+    var resumeDraft by remember { mutableStateOf(false) }
 
     when (val s = screen) {
         is Screen.Home -> {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            // ★ 可观察状态：删除草稿后立即刷新卡片；
+            //   返回首页时本分支重建组合，remember 重新执行也会自动刷新
+            var draftInfo by remember {
+                mutableStateOf(com.moon.videomerger.editor.data.DraftStore.peek(context))
+            }
             HomeScreen(
                 onNewProject = { uris ->
                     selectedUris = uris
+                    resumeDraft = false
                     editorSessionId++  // 新的编辑会话
                     screen = Screen.Editor
                 },
@@ -53,6 +62,16 @@ fun AppNavigation() {
                 },
                 onOpenHistory = {
                     screen = Screen.History
+                },
+                draftInfo = draftInfo,
+                onResumeDraft = {
+                    resumeDraft = true
+                    editorSessionId++
+                    screen = Screen.Editor
+                },
+                onDeleteDraft = {
+                    com.moon.videomerger.editor.data.DraftStore.clear(context)
+                    draftInfo = null
                 }
             )
         }
@@ -65,10 +84,11 @@ fun AppNavigation() {
             // ★ 用 key 强制重建 EditorScreen，避免旧 UI 状态残留
             key(editorSessionId) {
                 val viewModel: EditorViewModel = viewModel()
-                // selectedUris 非空时创建项目（只执行一次）
+                // 新建：selectedUris 非空时创建项目；恢复：加载草稿（只执行一次）
                 LaunchedEffect(editorSessionId) {
-                    if (selectedUris.isNotEmpty()) {
-                        android.util.Log.d("AppNav", "LaunchedEffect: createProject uris=${selectedUris.size}")
+                    if (resumeDraft) {
+                        viewModel.loadDraft()
+                    } else if (selectedUris.isNotEmpty()) {
                         viewModel.createProject(selectedUris)
                         // 不清空 selectedUris，避免 LaunchedEffect 重复触发
                     }

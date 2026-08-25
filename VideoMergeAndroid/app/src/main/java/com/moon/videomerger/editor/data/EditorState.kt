@@ -14,10 +14,16 @@ enum class ToolPanel {
     AUDIO,          // 音频面板
     SUBTITLE,       // 字幕面板
     STICKER,        // 贴纸面板
+    WATERMARK_REMOVE, // 去水印面板
     BLUR_BG,        // 模糊背景面板
     TRANSITION,     // 转场面板
     EXPORT,         // 导出面板
 }
+
+/**
+ * 提示信息严重级别（决定浮层样式）
+ */
+enum class MessageSeverity { INFO, ERROR }
 
 /**
  * 编辑器 UI 状态
@@ -28,15 +34,19 @@ data class EditorUiState(
     val selectedTrackId: String? = null,
     val currentPanel: ToolPanel = ToolPanel.NONE,
     val isPlaying: Boolean = false,
-    val currentPosition: Double = 0.0,       // 播放头位置（秒）
     val inPoint: Double? = null,             // 区间删除：入点（时间轴秒）
     val outPoint: Double? = null,            // 区间删除：出点（时间轴秒）
-    val timelineScale: Float = 1f,           // 时间轴缩放
     val isExporting: Boolean = false,
     val exportProgress: Float = 0f,
     val exportMessage: String = "",
     val outputPath: String? = null,
+    // ── 导入进度（新建项目 / 添加片段时反馈，避免大文件长时间"假死"）──
+    val isImporting: Boolean = false,
+    val importProgress: Float = 0f,
+    val importMessage: String = "",
     val errorMessage: String? = null,
+    val errorSeverity: MessageSeverity = MessageSeverity.INFO,
+    val isDetectingWatermark: Boolean = false,   // 去水印自动检测进行中
     val isDetectingLogo: Boolean = false,
     val isTranscribing: Boolean = false,   // 语音转字幕进行中
     val canUndo: Boolean = false,
