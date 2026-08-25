@@ -98,7 +98,8 @@ final class FFmpegRunner {
 
     private func handleStatistics(_ stats: Statistics?) {
         guard let stats = stats, totalDuration > 0 else { return }
-        let currentSec = stats.getTime()
+        // ★ getTime() 返回毫秒（Android 端同样 /1000），漏除会瞬间到 100%
+        let currentSec = Double(stats.getTime()) / 1000.0
         let progress = Float(max(0, min(1, currentSec / totalDuration)))
         onProgress(progress)
     }

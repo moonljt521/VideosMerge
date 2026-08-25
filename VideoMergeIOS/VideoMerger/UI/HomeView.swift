@@ -16,6 +16,8 @@ struct HomeView: View {
     @State private var showDraftDialog = false
     @State private var showEditor = false
     @State private var showMerge = false
+    @State private var mergeInitialURLs: [URL] = []
+    @State private var mergeHint: String? = nil
     @State private var editorMode: EditorScreen.Mode = .draft
     @State private var pendingURLs: [URL] = []
 
@@ -35,6 +37,21 @@ struct HomeView: View {
                     Spacer()
                 }
                 .padding(.top, 8)
+                .overlay(alignment: .bottom) {
+                    if let hint = mergeHint {
+                        Text(hint)
+                            .font(.system(size: 13))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16).padding(.vertical, 10)
+                            .background(Capsule().fill(Color(hex: 0xFFD32F2F).opacity(0.95)))
+                            .padding(.bottom, 40)
+                            .onTapGesture { mergeHint = nil }
+                            .task {
+                                try? await Task.sleep(nanoseconds: 3_500_000_000)
+                                mergeHint = nil
+                            }
+                    }
+                }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -44,12 +61,13 @@ struct HomeView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     if draftInfo != nil {
                         Button { showDraftDialog = true } label: {
-                            Image(systemName: "folder.fill")
-                            // 红点角标
-                            Image(systemName: "circle.fill")
-                                .font(.system(size: 7))
-                                .foregroundColor(.red)
-                                .offset(x: 8, y: -8)
+                            ZStack(alignment: .topTrailing) {
+                                Image(systemName: "folder.fill")
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: 6, y: -4)
+                            }
                         }
                     }
                 }
@@ -67,13 +85,14 @@ struct HomeView: View {
                 .navigationBarBackButtonHidden(true)
             }
             .navigationDestination(isPresented: $showMerge) {
-                MergeScreen()
+                MergeScreen(initialURLs: mergeInitialURLs)
             }
         }
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showNewProjectPicker) {
             VideoPicker(maxSelection: 10) { ids in
-                Task {
+                // ★ @State 必须在主线程更新，否则首次导航不生效
+                Task { @MainActor in
                     let urls = await MediaUtils.loadVideoURLs(assetIdentifiers: ids)
                     pendingURLs = urls
                     editorMode = .new(urls)
@@ -83,14 +102,14 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showMergePicker) {
             VideoPicker(maxSelection: 10) { ids in
-                Task {
+                Task { @MainActor in
                     let urls = await MediaUtils.loadVideoURLs(assetIdentifiers: ids)
-                    if urls.count >= 2 {
-                        showMerge = true
-                    } else if !urls.isEmpty {
-                        // 不足 2 个的提示由合并页处理；此处直接进入
-                        showMerge = true
+                    guard urls.count >= 2 else {
+                        if !urls.isEmpty { mergeHint = "视频合并至少需要选择 2 个视频（当前 \(urls.count) 个）" }
+                        return
                     }
+                    mergeInitialURLs = urls
+                    showMerge = true
                 }
             }
         }

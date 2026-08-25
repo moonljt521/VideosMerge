@@ -26,7 +26,14 @@ enum DraftStore {
 
     static func save(_ project: EditorProject) {
         do {
-            let data = try JSONEncoder().encode(project)
+            // ★ 绝对路径 → 相对路径：iOS 重装/更新后容器 UUID 会变，
+            //   绝对路径全部失效；相对路径加载时映射回当前容器
+            var p = project
+            mapPaths(&p) { base, path in
+                guard path.hasPrefix(base) else { return path }
+                return "editor_media" + path.dropFirst(base.count)
+            }
+            let data = try JSONEncoder().encode(p)
             try data.write(to: draftURL, options: .atomic)
         } catch {
             print("[DraftStore] 保存失败: \(error)")
@@ -35,7 +42,37 @@ enum DraftStore {
 
     static func load() -> EditorProject? {
         guard let data = try? Data(contentsOf: draftURL) else { return nil }
-        return try? JSONDecoder().decode(EditorProject.self, from: data)
+        do {
+            var project = try JSONDecoder().decode(EditorProject.self, from: data)
+            // 相对路径 → 当前容器绝对路径
+            mapPaths(&project) { base, path in
+                // ★ base 已是 editor_media 目录，去掉相对路径的前缀再拼，避免重复
+                guard path.hasPrefix("editor_media/") else { return path }
+                return base + path.dropFirst("editor_media".count)
+            }
+            let clipCount = project.tracks.map(\.clips.count).reduce(0,+)
+            print("[DraftStore] 解码成功 clips=\(clipCount)")
+            return project
+        } catch {
+            print("[DraftStore] 解码失败: \(error)")
+            return nil
+        }
+    }
+
+    /// 对项目中所有媒体文件路径做映射（mediaPath/thumbnailPath/imageWatermarkPath）
+    private static func mapPaths(_ project: inout EditorProject, _ transform: (String, String) -> String) {
+        let base = EditorViewModel.editorMediaDir.path
+        func map(_ path: String?) -> String? {
+            guard let path = path else { return nil }
+            return transform(base, path)
+        }
+        for ti in project.tracks.indices {
+            for ci in project.tracks[ti].clips.indices {
+                project.tracks[ti].clips[ci].mediaPath = map(project.tracks[ti].clips[ci].mediaPath) ?? ""
+                project.tracks[ti].clips[ci].thumbnailPath = map(project.tracks[ti].clips[ci].thumbnailPath)
+                project.tracks[ti].clips[ci].imageWatermarkPath = map(project.tracks[ti].clips[ci].imageWatermarkPath)
+            }
+        }
     }
 
     static func clear() {
