@@ -7,6 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2000000000000000000000E1 /* EditorTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E1 /* EditorTypes.swift */; };
+		2000000000000000000000E2 /* FilterBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E2 /* FilterBuilder.swift */; };
+		2000000000000000000000E3 /* TextWatermarkRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E3 /* TextWatermarkRenderer.swift */; };
+		2000000000000000000000E4 /* ExportEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E4 /* ExportEngine.swift */; };
+		2000000000000000000000E5 /* DraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E5 /* DraftStore.swift */; };
+		2000000000000000000000E6 /* EditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E6 /* EditorViewModel.swift */; };
+		2000000000000000000000E7 /* EditorScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E7 /* EditorScreen.swift */; };
+		2000000000000000000000E8 /* PreviewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E8 /* PreviewPanel.swift */; };
+		2000000000000000000000E9 /* EditorPanels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E9 /* EditorPanels.swift */; };
+		2000000000000000000000EA /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000EA /* HomeView.swift */; };
 		200000000000000000000001 /* VideoMergerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000001 /* VideoMergerApp.swift */; };
 		200000000000000000000002 /* MergeTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000002 /* MergeTypes.swift */; };
 		200000000000000000000003 /* VideoMeta.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000003 /* VideoMeta.swift */; };
@@ -33,6 +43,16 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1000000000000000000000E1 /* EditorTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTypes.swift; sourceTree = "<group>"; };
+		1000000000000000000000E2 /* FilterBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBuilder.swift; sourceTree = "<group>"; };
+		1000000000000000000000E3 /* TextWatermarkRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextWatermarkRenderer.swift; sourceTree = "<group>"; };
+		1000000000000000000000E4 /* ExportEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportEngine.swift; sourceTree = "<group>"; };
+		1000000000000000000000E5 /* DraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraftStore.swift; sourceTree = "<group>"; };
+		1000000000000000000000E6 /* EditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorViewModel.swift; sourceTree = "<group>"; };
+		1000000000000000000000E7 /* EditorScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorScreen.swift; sourceTree = "<group>"; };
+		1000000000000000000000E8 /* PreviewPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewPanel.swift; sourceTree = "<group>"; };
+		1000000000000000000000E9 /* EditorPanels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorPanels.swift; sourceTree = "<group>"; };
+		1000000000000000000000EA /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		07A93845A7C16B3783C4CFC4 /* Pods_VideoMerger.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_VideoMerger.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		100000000000000000000001 /* VideoMergerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoMergerApp.swift; sourceTree = "<group>"; };
 		100000000000000000000002 /* MergeTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergeTypes.swift; sourceTree = "<group>"; };
@@ -78,6 +98,55 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		3000000000000000000000E1 /* Editor */ = {
+			isa = PBXGroup;
+			children = (
+				3000000000000000000000E2 /* Models */,
+				3000000000000000000000E3 /* Engine */,
+				3000000000000000000000E4 /* Data */,
+				3000000000000000000000E5 /* UI */,
+				1000000000000000000000E6 /* EditorViewModel.swift */,
+			);
+			path = Editor;
+			sourceTree = "<group>";
+		};
+		3000000000000000000000E2 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				1000000000000000000000E1 /* EditorTypes.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		3000000000000000000000E3 /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				1000000000000000000000E2 /* FilterBuilder.swift */,
+				1000000000000000000000E3 /* TextWatermarkRenderer.swift */,
+				1000000000000000000000E4 /* ExportEngine.swift */,
+			);
+			path = Engine;
+			sourceTree = "<group>";
+		};
+		3000000000000000000000E4 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				1000000000000000000000E5 /* DraftStore.swift */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		3000000000000000000000E5 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				1000000000000000000000E7 /* EditorScreen.swift */,
+				1000000000000000000000E8 /* PreviewPanel.swift */,
+				1000000000000000000000E9 /* EditorPanels.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+
 		16407893A56B80E37668EEED /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -110,6 +179,7 @@
 			isa = PBXGroup;
 			children = (
 				100000000000000000000001 /* VideoMergerApp.swift */,
+				3000000000000000000000E1 /* Editor */,
 				300000000000000000000003 /* Models */,
 				300000000000000000000004 /* Merger */,
 				300000000000000000000005 /* Util */,
@@ -156,6 +226,7 @@
 		300000000000000000000006 /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				1000000000000000000000EA /* HomeView.swift */,
 				10000000000000000000000D /* MergeScreen.swift */,
 				10000000000000000000000E /* MergeViewModel.swift */,
 				10000000000000000000000F /* VideoPlayerView.swift */,
@@ -297,6 +368,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2000000000000000000000E1 /* EditorTypes.swift in Sources */,
+				2000000000000000000000E2 /* FilterBuilder.swift in Sources */,
+				2000000000000000000000E3 /* TextWatermarkRenderer.swift in Sources */,
+				2000000000000000000000E4 /* ExportEngine.swift in Sources */,
+				2000000000000000000000E5 /* DraftStore.swift in Sources */,
+				2000000000000000000000E6 /* EditorViewModel.swift in Sources */,
+				2000000000000000000000E7 /* EditorScreen.swift in Sources */,
+				2000000000000000000000E8 /* PreviewPanel.swift in Sources */,
+				2000000000000000000000E9 /* EditorPanels.swift in Sources */,
+				2000000000000000000000EA /* HomeView.swift in Sources */,
 				200000000000000000000001 /* VideoMergerApp.swift in Sources */,
 				200000000000000000000002 /* MergeTypes.swift in Sources */,
 				200000000000000000000003 /* VideoMeta.swift in Sources */,
