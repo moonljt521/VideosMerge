@@ -138,6 +138,32 @@ struct WatermarkRegion: Codable, Equatable {
     }
 }
 
+// MARK: - 画中画位置关键帧
+
+struct PipKeyframe: Codable, Equatable {
+    /// 项目时间轴绝对时间（秒）
+    var time: Double
+    /// 归一化位置 0~1
+    var x: Double
+    var y: Double
+}
+
+/// 在时间 t 处对关键帧线性插值；无关键帧返回 fallback
+func interpolatePipPosition(_ keyframes: [PipKeyframe], _ t: Double, _ fallbackX: Double, _ fallbackY: Double) -> (Double, Double) {
+    guard !keyframes.isEmpty else { return (fallbackX, fallbackY) }
+    let sorted = keyframes.sorted { $0.time < $1.time }
+    if t <= sorted.first!.time { return (sorted[0].x, sorted[0].y) }
+    if t >= sorted.last!.time { return (sorted.last!.x, sorted.last!.y) }
+    for i in 0..<sorted.count - 1 {
+        let a = sorted[i], b = sorted[i + 1]
+        if t >= a.time && t <= b.time {
+            let f = b.time == a.time ? 0.0 : (t - a.time) / (b.time - a.time)
+            return (a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f)
+        }
+    }
+    return (sorted.last!.x, sorted.last!.y)
+}
+
 // MARK: - 转场重叠（时间轴布局与导出 xfade 的唯一来源）
 
 /// NONE 转场的等效重叠时长（导出 xfade 链用 0.01s 淡变衔接，时间轴必须同值）
@@ -252,6 +278,10 @@ struct Clip: Codable, Equatable, Identifiable {
     var volume: Double = 1.0
     var audioFadeIn: Double = 0.0
     var audioFadeOut: Double = 0.0
+    /// 变声音高倍率 0.5~2.0（>1 高音）
+    var pitchShift: Double = 1.0
+    /// FFT 降噪
+    var noiseReduction: Bool = false
 
     // 旋转/翻转
     var rotation: Int = 0
@@ -303,6 +333,8 @@ struct Clip: Codable, Equatable, Identifiable {
     var pipCornerRadius: Double = 0.15
     var pipBorder: Bool = false
     var pipBorderWidth: Double = 0.02
+    /// 位置关键帧（time=项目时间轴绝对秒）
+    var pipKeyframes: [PipKeyframe] = []
 
     // 缩略图路径
     var thumbnailPath: String? = nil

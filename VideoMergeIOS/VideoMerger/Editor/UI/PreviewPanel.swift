@@ -78,6 +78,21 @@ private struct PreviewContent: View {
             // 去水印区域标识（红框，按时段显隐）
             WatermarkRegionOverlayView(clip: primary, playhead: playhead)
 
+            // 画中画叠加（静态帧：视频用缩略图、图片用原图；导出为真实动态叠加）
+            PipOverlaysView(state: state, playhead: playhead)
+
+            // 字幕预览（当前时间生效的字幕）
+            let activeSubs = state.project.subtitles.filter { playhead >= $0.startTime && playhead <= $0.endTime }
+            ForEach(activeSubs) { sub in
+                Text(sub.text)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .background(Color.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 4))
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 24)
+            }
+
             // 预览保真度提示
             let unpreviewed: [String] = {
                 var list: [String] = []
@@ -85,6 +100,8 @@ private struct PreviewContent: View {
                 if primary.rotation != 0 || primary.hflip || primary.vflip { list.append("旋转/翻转") }
                 if primary.textOverlay != nil { list.append("文字水印") }
                 if primary.logoCutTime != nil { list.append("截断") }
+                if primary.blurBgEnabled { list.append("模糊背景") }
+                if !state.project.tracks.filter({ $0.type == .picture }).flatMap(\.clips).isEmpty { list.append("画中画动态画面") }
                 return list
             }()
             if !unpreviewed.isEmpty {
@@ -374,4 +391,50 @@ private func sourceTime(_ clip: Clip, _ timelinePos: Double) -> Double {
         return clip.trimStart + (timelinePos - clip.timelineStart) * clip.speed
     }
     return min(max(clip.sourceTimeAt(timelinePos), clip.trimStart), endOf(clip))
+}
+
+// MARK: - 画中画叠加预览（静态帧）
+
+private struct PipOverlaysView: View {
+    let state: EditorUiState
+    let playhead: Double
+
+    var body: some View {
+        let pipClips = state.project.tracks
+            .filter { $0.type == .picture }
+            .flatMap { $0.clips }
+            .filter { $0.pipEnabled && playhead >= $0.timelineStart - 0.05 && playhead < $0.timelineEnd - 0.05 }
+        if pipClips.isEmpty { return AnyView(EmptyView()) }
+        return AnyView(
+            GeometryReader { geo in
+                ForEach(Array(pipClips.enumerated()), id: \.element.id) { _, pip in
+                    let srcPath = pip.isImage ? pip.mediaPath : pip.thumbnailPath
+                    if let srcPath = srcPath, let img = UIImage(contentsOfFile: srcPath) {
+                        let pipW = geo.size.width * pip.pipWidth
+                        let pipH = pipW * (img.size.height / max(img.size.width, 1))
+                        let (nx, ny) = interpolatePipPosition(pip.pipKeyframes, playhead, pip.pipX, pip.pipY)
+                        let shape: AnyShape = {
+                            switch pip.pipShape {
+                            case .circle: return AnyShape(Circle())
+                            case .rounded:
+                                return AnyShape(RoundedRectangle(cornerRadius: pipW * pip.pipCornerRadius))
+                            default: return AnyShape(Rectangle())
+                            }
+                        }()
+                        Image(uiImage: img)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: pipW, height: pipH)
+                            .clipShape(shape)
+                            .overlay(
+                                shape.stroke(Color.white, lineWidth: pip.pipBorder ? geo.size.width * pip.pipBorderWidth : 0)
+                            )
+                            .opacity(pip.pipOpacity)
+                            .offset(x: (geo.size.width - pipW) * nx, y: (geo.size.height - pipH) * ny)
+                            .allowsHitTesting(false)
+                    }
+                }
+            }
+        )
+    }
 }

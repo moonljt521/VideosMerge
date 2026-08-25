@@ -130,6 +130,17 @@ final class FilterBuilder {
         if clip.reversed {
             f.append("areverse")
         }
+        // 降噪（FFT）
+        if clip.noiseReduction {
+            f.append("afftdn=nf=-25")
+        }
+        // 变声（asetrate 改音高 + atempo 恢复时长，保持原速改音色）
+        if clip.pitchShift != 1.0 {
+            let p = min(max(clip.pitchShift, 0.5), 2.0)
+            f.append("asetrate=\(Int(44100 * p))")
+            f.append("aresample=44100")
+            f.append("atempo=\(fmt(1.0 / p))")
+        }
         if clip.volume != 1.0 {
             f.append("volume=\(fmt(clip.volume))")
         }
@@ -271,6 +282,102 @@ final class FilterBuilder {
         return prevLabel
     }
 
+    // MARK: - 画中画 / 字幕 / 图片水印
+
+    /// 画中画片段滤镜：缩放到叠加尺寸 + PTS 平移到时间轴位置 + rgba 透明度
+    func buildPipVideoFilters(_ clip: Clip, _ canvasW: Int, _ canvasH: Int, _ fps: Int) -> String {
+        var f: [String] = []
+        if clip.isImage {
+            // 静态图片：loop 填充时长
+            let dur = max(clip.effectiveDuration, 0.1)
+            f.append("loop=loop=-1:size=1:start=0")
+            f.append("trim=duration=\(fmt(dur))")
+            f.append("setpts=PTS-STARTPTS")
+        } else {
+            if clip.trimStart > 0 || (clip.trimEnd > 0 && clip.trimEnd < clip.mediaDuration) {
+                let end = clip.trimEnd > 0 ? clip.trimEnd : clip.mediaDuration
+                f.append("trim=start=\(fmt(clip.trimStart)):end=\(fmt(end))")
+                f.append("setpts=PTS-STARTPTS")
+            }
+            if clip.speed != 1.0 { f.append("setpts=PTS/\(fmt(clip.speed))") }
+            if clip.reversed { f.append("reverse") }
+            switch clip.rotation {
+            case 90: f.append("transpose=1")
+            case -90: f.append("transpose=0")
+            case 180: f.append("transpose=1,transpose=1")
+            default: break
+            }
+            if clip.hflip { f.append("hflip") }
+            if clip.vflip { f.append("vflip") }
+        }
+        let (pipW, pipH) = pipOutputSize(clip, canvasW)
+        f.append("scale=\(pipW):\(pipH):flags=lanczos")
+        f.append("setsar=1")
+        // PTS 平移到 timelineStart（不用 enable：禁用期仍消耗叠加帧会提前 EOF）
+        f.append("framerate=fps=\(fps)")
+        f.append("settb=1/\(fps)")
+        f.append("setpts=PTS+\(fmt(max(clip.timelineStart, 0)))/TB")
+        f.append("format=rgba")
+        if clip.pipOpacity < 1.0 {
+            f.append("colorchannelmixer=aa=\(fmt(min(max(clip.pipOpacity, 0), 1)))")
+        }
+        return f.joined(separator: ",")
+    }
+
+    /// 画中画输出尺寸（偶数对齐；旋转 90/270 宽高互换）
+    func pipOutputSize(_ clip: Clip, _ canvasW: Int) -> (Int, Int) {
+        var pipW = Int(Double(canvasW) * min(max(clip.pipWidth, 0.05), 1.0))
+        pipW = max(pipW, 16) - max(pipW, 16) % 2
+        let swapped = clip.rotation % 360 == 90 || clip.rotation % 360 == 270 || clip.rotation % 360 == -90
+        let effW = swapped ? clip.height : clip.width
+        let effH = swapped ? clip.width : clip.height
+        let aspect = (effW > 0 && effH > 0) ? Double(effH) / Double(effW) : 1.0
+        var pipH = Int(Double(pipW) * aspect)
+        pipH = max(pipH, 2) - max(pipH, 2) % 2
+        return (pipW, pipH)
+    }
+
+    /// 位置关键帧 → ffmpeg 表达式（随 t 分段线性插值，倒序嵌套 if）
+    func buildPipNormExpr(_ keyframes: [PipKeyframe], axis: String, fallback: Double) -> String {
+        if keyframes.isEmpty { return fmt(min(max(fallback, 0), 1)) }
+        let sorted = keyframes.sorted { $0.time < $1.time }
+        if sorted.count == 1 {
+            let v = axis == "x" ? sorted[0].x : sorted[0].y
+            return fmt(min(max(v, 0), 1))
+        }
+        func valueOf(_ k: PipKeyframe) -> Double { min(max(axis == "x" ? k.x : k.y, 0), 1) }
+        var expr = fmt(valueOf(sorted[sorted.count - 1]))
+        for i in stride(from: sorted.count - 2, through: 0, by: -1) {
+            let a = sorted[i], b = sorted[i + 1]
+            let va = valueOf(a), vb = valueOf(b)
+            let dt = max(b.time - a.time, 0.0001)
+            let seg = "clip(\(fmt(va))+(\(fmt(vb))-\(fmt(va)))*(t-\(fmt(a.time)))/\(fmt(dt)),\(fmt(min(va, vb))),\(fmt(max(va, vb))))"
+            expr = "if(lt(t,\(fmt(b.time))),\(seg),\(expr))"
+        }
+        return expr
+    }
+
+    /// 字幕位置：水平居中，底部留 8% 边距
+    func subtitleOverlayPosition(_ textW: Int, _ textH: Int, _ videoW: Int, _ videoH: Int) -> (Int, Int) {
+        let margin = max(Int(Double(videoH) * 0.08), 20)
+        return ((videoW - textW) / 2, videoH - textH - margin)
+    }
+
+    /// 图片水印九宫格位置
+    func imageOverlayPosition(_ position: String) -> String {
+        switch position {
+        case "top-left": return "12:12"
+        case "top-right": return "W-w-12:12"
+        case "center-left": return "12:(H-h)/2"
+        case "center": return "(W-w)/2:(H-h)/2"
+        case "center-right": return "W-w-12:(H-h)/2"
+        case "bottom-left": return "12:H-h-12"
+        case "bottom-center": return "(W-w)/2:H-h-12"
+        case "top-center": return "(W-w)/2:12"
+        default: return "W-w-12:H-h-12"
+        }
+    }
+
     // MARK: - 完整导出命令
 
     func buildExportCommand(_ project: EditorProject, _ outputPath: String) -> String {
@@ -293,13 +400,69 @@ final class FilterBuilder {
             }
         }
 
+        // 画中画（PICTURE 轨）
+        let pipClips = project.tracks
+            .filter { $0.type == .picture }
+            .flatMap { $0.clips }
+            .filter { $0.pipEnabled }
+            .sorted { $0.timelineStart < $1.timelineStart }
+
+        // 画中画形状蒙版/描边 PNG
+        var pipMaskInputIdx: [String: Int] = [:]
+        var pipBorderInputIdx: [String: Int] = [:]
+        var pipMaskFiles: [String: URL] = [:]
+        var pipBorderFiles: [String: URL] = [:]
+        for clip in pipClips {
+            let (pipW, pipH) = pipOutputSize(clip, canvasW)
+            let radius = Double(pipW) * min(max(clip.pipCornerRadius, 0), 0.5)
+            if clip.pipShape != .rect {
+                if let f = PipMaskRenderer.renderMask(width: pipW, height: pipH, shape: clip.pipShape, radius: CGFloat(radius)) {
+                    pipMaskFiles[clip.id] = f
+                }
+            }
+            if clip.pipBorder {
+                let sw = Float(Double(pipW) * min(max(clip.pipBorderWidth, 0), 0.2))
+                if let f = PipMaskRenderer.renderBorder(width: pipW, height: pipH, shape: clip.pipShape, radius: CGFloat(radius), strokeWidth: max(sw, 1)) {
+                    pipBorderFiles[clip.id] = f
+                }
+            }
+        }
+
+        // 字幕 PNG（fontSize 64，白字黑边，底部居中）
+        var subtitlePngs: [(Subtitle, TextPngResult)] = []
+        for sub in project.subtitles.sorted(by: { $0.startTime < $1.startTime }) {
+            if let png = TextWatermarkRenderer.renderToPng(text: sub.text, fontSize: 64,
+                                                           colorStr: "white", opacity: 1.0, border: true) {
+                subtitlePngs.append((sub, png))
+            }
+        }
+
         var parts: [String] = []
         var videoLabels: [String] = []
         var audioLabels: [String] = []
 
-        // 输入编号：0..n-1 主轨；之后文字水印 PNG
-        var nextInputIdx = clips.count
+        // 输入编号：0..n-1 主轨；之后 画中画 / 文字水印PNG / 蒙版 / 描边 / 字幕PNG
+        var pipInputIdx: [String: Int] = [:]
+        pipClips.enumerated().forEach { i, clip in pipInputIdx[clip.id] = clips.count + i }
+        var nextInputIdx = clips.count + pipClips.count
         var textPngInputIdx: [Int: Int] = [:]
+        for i in clips.indices {
+            if textPngs[i] != nil { textPngInputIdx[i] = nextInputIdx; nextInputIdx += 1 }
+        }
+        var imageWatermarkInputIdx: [Int: Int] = [:]
+        for (i, clip) in clips.enumerated() {
+            if clip.imageWatermarkPath != nil { imageWatermarkInputIdx[i] = nextInputIdx; nextInputIdx += 1 }
+        }
+        for clip in pipClips {
+            if pipMaskFiles[clip.id] != nil { pipMaskInputIdx[clip.id] = nextInputIdx; nextInputIdx += 1 }
+        }
+        for clip in pipClips {
+            if pipBorderFiles[clip.id] != nil { pipBorderInputIdx[clip.id] = nextInputIdx; nextInputIdx += 1 }
+        }
+        var subtitleInputIdx: [String: Int] = [:]
+        for (sub, _) in subtitlePngs {
+            subtitleInputIdx[sub.id] = nextInputIdx; nextInputIdx += 1
+        }
 
         for (i, clip) in clips.enumerated() {
             let (pre, post) = buildVideoFiltersSegmented(clip, canvasW, canvasH, project.fps)
@@ -353,6 +516,15 @@ final class FilterBuilder {
                 parts.append("\(label)[png\(i)]overlay=\(ox):\(oy)\(newLabel)")
                 label = newLabel
             }
+            if let imgPath = clip.imageWatermarkPath {
+                let idx = imageWatermarkInputIdx[i]!
+                let targetW = max(Int(Double(canvasW) * clip.imageWatermarkScale), 16)
+                let opacity = min(max(clip.imageWatermarkOpacity, 0), 1)
+                parts.append("[\(idx):v]scale=\(targetW):-1,format=rgba,colorchannelmixer=aa=\(fmt(opacity))[wm\(i)]")
+                let newLabel = "[vw\(i)]"
+                parts.append("\(label)[wm\(i)]overlay=\(imageOverlayPosition(clip.imageWatermarkPosition))\(newLabel)")
+                label = newLabel
+            }
             finalVideoLabels.append(label)
         }
 
@@ -379,6 +551,50 @@ final class FilterBuilder {
                 return "[vout]"
             }()
 
+        // 画中画叠加：PTS 平移 + eof_action=pass（关键帧 → 位置表达式随 t 插值）
+        for (i, clip) in pipClips.enumerated() {
+            guard let idx = pipInputIdx[clip.id] else { continue }
+            let start = max(clip.timelineStart, 0)
+            let dur = clip.timelineDuration
+            let xNorm = buildPipNormExpr(clip.pipKeyframes, axis: "x", fallback: clip.pipX)
+            let yNorm = buildPipNormExpr(clip.pipKeyframes, axis: "y", fallback: clip.pipY)
+            let xExpr = "'(W-w)*\(xNorm)'"
+            let yExpr = "'(H-h)*\(yNorm)'"
+
+            var pipLabel = "[pip\(i)]"
+            parts.append("[\(idx):v]\(buildPipVideoFilters(clip, canvasW, canvasH, project.fps))\(pipLabel)")
+
+            if let maskIdx = pipMaskInputIdx[clip.id] {
+                parts.append("[\(maskIdx):v]format=rgba,fps=\(project.fps),setpts=PTS+\(fmt(start))/TB,trim=duration=\(fmt(dur))[mask\(i)]")
+                parts.append("\(pipLabel)[mask\(i)]alphamerge[ps\(i)]")
+                pipLabel = "[ps\(i)]"
+            }
+
+            let isLast = i == pipClips.count - 1
+            let hasBorder = pipBorderInputIdx[clip.id] != nil
+            let afterPip = (isLast && !hasBorder) ? "[vout2]" : "[pov\(i)]"
+            parts.append("\(finalVideoLabel)\(pipLabel)overlay=\(xExpr):\(yExpr):eof_action=pass\(afterPip)")
+            finalVideoLabel = afterPip
+
+            if let borderIdx = pipBorderInputIdx[clip.id] {
+                parts.append("[\(borderIdx):v]format=rgba,fps=\(project.fps),setpts=PTS+\(fmt(start))/TB,trim=duration=\(fmt(dur))[border\(i)]")
+                let afterBorder = isLast ? "[vout2]" : "[povb\(i)]"
+                parts.append("\(finalVideoLabel)[border\(i)]overlay=\(xExpr):\(yExpr):eof_action=pass\(afterBorder)")
+                finalVideoLabel = afterBorder
+            }
+        }
+
+        // 字幕烧录：PNG 按时间窗 overlay（画中画之上）
+        for (i, (sub, png)) in subtitlePngs.enumerated() {
+            guard let idx = subtitleInputIdx[sub.id] else { continue }
+            let dur = max(sub.endTime - sub.startTime, 0.1)
+            let (ox, oy) = subtitleOverlayPosition(png.width, png.height, canvasW, canvasH)
+            let subLabel = i == subtitlePngs.count - 1 ? "[vsub]" : "[sub\(i)]"
+            parts.append("[\(idx):v]format=rgba,fps=\(project.fps),setpts=PTS+\(fmt(sub.startTime))/TB,trim=duration=\(fmt(dur))[subpng\(i)]")
+            parts.append("\(finalVideoLabel)[subpng\(i)]overlay=\(ox):\(oy):eof_action=pass\(subLabel)")
+            finalVideoLabel = subLabel
+        }
+
         // 音频拼接（转场时 acrossfade 同步缩短）
         let hasAudio = !audioLabels.isEmpty
         var finalAudioLabel: String? = nil
@@ -398,10 +614,31 @@ final class FilterBuilder {
         for clip in clips {
             cmd += " -i \"\(clip.mediaPath)\""
         }
+        for clip in pipClips {
+            cmd += " -i \"\(clip.mediaPath)\""
+        }
         for i in clips.indices {
             if textPngs[i] != nil {
                 cmd += " -i \"\(textPngs[i]!.file.path)\""
             }
+        }
+        for (i, clip) in clips.enumerated() {
+            if let path = clip.imageWatermarkPath {
+                cmd += " -i \"\(path)\""
+            }
+        }
+        for clip in pipClips {
+            if let f = pipMaskFiles[clip.id] {
+                cmd += " -loop 1 -i \"\(f.path)\""
+            }
+        }
+        for clip in pipClips {
+            if let f = pipBorderFiles[clip.id] {
+                cmd += " -loop 1 -i \"\(f.path)\""
+            }
+        }
+        for (_, png) in subtitlePngs {
+            cmd += " -loop 1 -i \"\(png.file.path)\""
         }
         cmd += " -filter_complex \"\(filterComplex)\""
         cmd += " -map \"\(finalVideoLabel)\""

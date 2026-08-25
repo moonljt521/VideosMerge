@@ -42,6 +42,8 @@ struct EditorUiState {
     var errorMessage: String? = nil
     var errorSeverity: MessageSeverity = .info
     var isDetectingWatermark = false
+    var isDetectingLogo = false
+    var isTranscribing = false
     var canUndo = false
     var canRedo = false
 
@@ -79,7 +81,7 @@ final class EditorViewModel: ObservableObject {
     // MARK: 素材导入
 
     /// 编辑器素材目录（Documents/editor_media，持久化供草稿引用）
-    static var editorMediaDir: URL {
+    nonisolated static var editorMediaDir: URL {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("editor_media", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -154,7 +156,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     /// 单个视频导入：拷贝到素材目录 → 元数据 → 首帧缩略图
-    private func importClip(url: URL, seed: Int) throws -> Clip {
+    func importClip(url: URL, seed: Int) throws -> Clip {
         let ext = url.pathExtension.isEmpty ? "mp4" : url.pathExtension
         let dest = Self.editorMediaDir.appendingPathComponent("input_\(seed).\(ext)")
         try? FileManager.default.removeItem(at: dest)
@@ -220,13 +222,13 @@ final class EditorViewModel: ObservableObject {
         }
     }
 
-    private func beginImport(_ message: String) {
+    func beginImport(_ message: String) {
         uiState.isImporting = true
         uiState.importProgress = 0
         uiState.importMessage = message
     }
 
-    private func endImportOnError(_ e: Error) {
+    func endImportOnError(_ e: Error) {
         uiState.isImporting = false
         uiState.importMessage = ""
         showError("导入失败：\(e.localizedDescription)")
@@ -255,7 +257,7 @@ final class EditorViewModel: ObservableObject {
 
     // MARK: 撤销 / 重做
 
-    private func pushUndo() {
+    func pushUndo() {
         // 去重：栈顶与当前项目一致时跳过
         if let last = undoStack.last, last == uiState.project { return }
         undoStack.append(uiState.project)
@@ -321,7 +323,7 @@ final class EditorViewModel: ObservableObject {
 
     // MARK: 通用片段更新
 
-    private func updateClip(_ clipId: String, _ transform: (Clip) -> Clip) {
+    func updateClip(_ clipId: String, _ transform: (Clip) -> Clip) {
         for ti in uiState.project.tracks.indices {
             if let ci = uiState.project.tracks[ti].clips.firstIndex(where: { $0.id == clipId }) {
                 uiState.project.tracks[ti].clips[ci] = transform(uiState.project.tracks[ti].clips[ci])
@@ -333,7 +335,7 @@ final class EditorViewModel: ObservableObject {
 
     // MARK: 时间轴重排
 
-    private func retimelineAll() {
+    func retimelineAll() {
         guard var mainTrack = uiState.project.mainTrack else { return }
         mainTrack.clips = relayoutMainTrackClips(mainTrack.clips.sorted { $0.timelineStart < $1.timelineStart })
         uiState.project.mainTrack = mainTrack

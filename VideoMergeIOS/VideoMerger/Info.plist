@@ -53,6 +53,10 @@
     <string>用于选择视频进行合并，并将合并后的视频保存到相册</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>用于将合并后的视频保存到相册</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>用于将视频中的语音识别为字幕（离线/本机处理）</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>语音识别需要访问麦克风权限（仅本机识别，不上传）</string>
     <key>UIBackgroundModes</key>
     <array>
         <string>fetch</string>

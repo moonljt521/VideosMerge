@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2000000000000000000000EB /* EditorViewModel+Features.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000EB /* EditorViewModel+Features.swift */; };
+		2000000000000000000000EC /* PipMaskRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000EC /* PipMaskRenderer.swift */; };
+		2000000000000000000000ED /* StickerRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000ED /* StickerRenderer.swift */; };
+		2000000000000000000000EE /* WatermarkDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000EE /* WatermarkDetector.swift */; };
+		2000000000000000000000EF /* SpeechRecognizerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000EF /* SpeechRecognizerService.swift */; };
+		2000000000000000000000F0 /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F0 /* ImagePicker.swift */; };
 		2000000000000000000000E1 /* EditorTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E1 /* EditorTypes.swift */; };
 		2000000000000000000000E2 /* FilterBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E2 /* FilterBuilder.swift */; };
 		2000000000000000000000E3 /* TextWatermarkRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E3 /* TextWatermarkRenderer.swift */; };
@@ -43,6 +49,12 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1000000000000000000000EB /* EditorViewModel+Features.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+Features.swift"; sourceTree = "<group>"; };
+		1000000000000000000000EC /* PipMaskRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PipMaskRenderer.swift; sourceTree = "<group>"; };
+		1000000000000000000000ED /* StickerRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerRenderer.swift; sourceTree = "<group>"; };
+		1000000000000000000000EE /* WatermarkDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatermarkDetector.swift; sourceTree = "<group>"; };
+		1000000000000000000000EF /* SpeechRecognizerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognizerService.swift; sourceTree = "<group>"; };
+		1000000000000000000000F0 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
 		1000000000000000000000E1 /* EditorTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTypes.swift; sourceTree = "<group>"; };
 		1000000000000000000000E2 /* FilterBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBuilder.swift; sourceTree = "<group>"; };
 		1000000000000000000000E3 /* TextWatermarkRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextWatermarkRenderer.swift; sourceTree = "<group>"; };
@@ -106,6 +118,7 @@
 				3000000000000000000000E4 /* Data */,
 				3000000000000000000000E5 /* UI */,
 				1000000000000000000000E6 /* EditorViewModel.swift */,
+				1000000000000000000000EB /* EditorViewModel+Features.swift */,
 			);
 			path = Editor;
 			sourceTree = "<group>";
@@ -124,6 +137,10 @@
 				1000000000000000000000E2 /* FilterBuilder.swift */,
 				1000000000000000000000E3 /* TextWatermarkRenderer.swift */,
 				1000000000000000000000E4 /* ExportEngine.swift */,
+				1000000000000000000000EC /* PipMaskRenderer.swift */,
+				1000000000000000000000ED /* StickerRenderer.swift */,
+				1000000000000000000000EE /* WatermarkDetector.swift */,
+				1000000000000000000000EF /* SpeechRecognizerService.swift */,
 			);
 			path = Engine;
 			sourceTree = "<group>";
@@ -142,6 +159,7 @@
 				1000000000000000000000E7 /* EditorScreen.swift */,
 				1000000000000000000000E8 /* PreviewPanel.swift */,
 				1000000000000000000000E9 /* EditorPanels.swift */,
+				1000000000000000000000F0 /* ImagePicker.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -368,6 +386,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2000000000000000000000EB /* EditorViewModel+Features.swift in Sources */,
+				2000000000000000000000EC /* PipMaskRenderer.swift in Sources */,
+				2000000000000000000000ED /* StickerRenderer.swift in Sources */,
+				2000000000000000000000EE /* WatermarkDetector.swift in Sources */,
+				2000000000000000000000EF /* SpeechRecognizerService.swift in Sources */,
+				2000000000000000000000F0 /* ImagePicker.swift in Sources */,
 				2000000000000000000000E1 /* EditorTypes.swift in Sources */,
 				2000000000000000000000E2 /* FilterBuilder.swift in Sources */,
 				2000000000000000000000E3 /* TextWatermarkRenderer.swift in Sources */,

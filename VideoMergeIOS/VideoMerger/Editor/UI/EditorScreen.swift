@@ -21,6 +21,9 @@ struct EditorScreen: View {
 
     @State private var started = false
     @State private var showAddPicker = false
+    @State private var showPipVideoPicker = false
+    @State private var showPipImagePicker = false
+    @State private var showWmImagePicker = false
     @State private var draftSaveTask: Task<Void, Never>? = nil
     @Environment(\.scenePhase) private var scenePhase
 
@@ -73,6 +76,14 @@ struct EditorScreen: View {
                                         } else {
                                             viewModel.showPanel(panel)
                                         }
+                                    },
+                                    onPipClick: {
+                                        // 已选中画中画片段 → 面板调整；否则 → 选择视频新增
+                                        if viewModel.uiState.selectedClip?.pipEnabled == true {
+                                            viewModel.showPanel(.picture)
+                                        } else {
+                                            showPipVideoPicker = true
+                                        }
                                     }
                                 )
                             } else {
@@ -118,6 +129,26 @@ struct EditorScreen: View {
                 Task {
                     let urls = await MediaUtils.loadVideoURLs(assetIdentifiers: ids)
                     viewModel.addClips(urls: urls)
+                }
+            }
+        }
+        .sheet(isPresented: $showPipVideoPicker) {
+            VideoPicker(maxSelection: 5) { ids in
+                Task {
+                    let urls = await MediaUtils.loadVideoURLs(assetIdentifiers: ids)
+                    viewModel.addPipOverlay(urls: urls)
+                }
+            }
+        }
+        .sheet(isPresented: $showPipImagePicker) {
+            ImagePicker { data in
+                if let data = data { viewModel.addPipImage(data: data) }
+            }
+        }
+        .sheet(isPresented: $showWmImagePicker) {
+            ImagePicker { data in
+                if let data = data, let sel = viewModel.uiState.selectedClipId {
+                    viewModel.setImageWatermark(sel, data: data)
                 }
             }
         }
@@ -222,6 +253,22 @@ struct EditorScreen: View {
             TransitionPanelView(clip: clip, vm: viewModel, onClose: { viewModel.closePanel() })
         case .watermarkRemove:
             WatermarkRemovePanelView(clip: clip, vm: viewModel, onClose: { viewModel.closePanel() })
+        case .picture:
+            PicturePanelView(clip: clip, vm: viewModel,
+                             onClose: { viewModel.closePanel() },
+                             onPickVideo: { showPipVideoPicker = true },
+                             onPickImage: { showPipImagePicker = true })
+        case .sticker:
+            StickerPanelView(vm: viewModel, onClose: { viewModel.closePanel() })
+        case .subtitle:
+            SubtitlePanelView(state: viewModel.uiState, vm: viewModel,
+                              onClose: { viewModel.closePanel() })
+        case .imageWatermark:
+            ImageWatermarkPanelView(clip: clip, vm: viewModel,
+                                    onClose: { viewModel.closePanel() },
+                                    onPickImage: { showWmImagePicker = true })
+        case .blurBg:
+            BlurBgPanelView(clip: clip, vm: viewModel, onClose: { viewModel.closePanel() })
         case .export:
             ExportPanelView(state: viewModel.uiState, vm: viewModel, onClose: { viewModel.closePanel() })
         default:
@@ -413,10 +460,12 @@ struct TimelinePanel: View {
             let width = geo.size.width
             let pps = (width - 24) / totalDuration
             ZStack(alignment: .topLeading) {
-                if let mainTrack = state.project.mainTrack {
-                    // 主轨片段块（接缝对齐显示模型：块首尾相接，接缝=前段真正结束点）
-                    let sorted = mainTrack.clips.sorted { $0.timelineStart < $1.timelineStart }
-                    let rects = displayRects(sorted)
+                // 多轨：主轨（接缝显示模型）+ 画中画等自由定位轨（真实位置）
+                ForEach(Array(state.project.tracks.enumerated()), id: \.element.id) { rowIdx, track in
+                    let sorted = track.clips.sorted { $0.timelineStart < $1.timelineStart }
+                    let rects: [(clip: Clip, start: Double, width: Double)] =
+                        track.type == .main ? displayRects(sorted)
+                        : sorted.map { ($0, $0.timelineStart, $0.timelineDuration) }
                     ForEach(Array(rects.enumerated()), id: \.element.clip.id) { _, rect in
                         ClipBlockView(
                             clip: rect.clip,
@@ -425,13 +474,15 @@ struct TimelinePanel: View {
                             onTap: {
                                 onSelectClip(rect.clip.id == state.selectedClipId ? nil : rect.clip.id)
                             })
-                        .offset(x: 24 + rect.start * pps, y: 4)
+                        .offset(x: 24 + rect.start * pps, y: CGFloat(rowIdx * 48) + 4)
                     }
-                    // 转场徽标（接缝处）
-                    ForEach(Array(sorted.enumerated()), id: \.element.id) { i, clip in
-                        if clip.transition != .none {
-                            TransitionBadgeView()
-                                .offset(x: 24 + clip.timelineEnd * pps - 8, y: 4 + 16)
+                    if track.type == .main {
+                        ForEach(Array(sorted.enumerated()), id: \.element.id) { _, clip in
+                            if clip.transition != .none {
+                                TransitionBadgeView()
+                                    .offset(x: 24 + clip.timelineEnd * pps - 8,
+                                            y: CGFloat(rowIdx * 48) + 20)
+                            }
                         }
                     }
                 }
@@ -536,14 +587,21 @@ struct ToolbarPanel: View {
         var enabled: Bool
     }
 
+    var onPipClick: (() -> Void)? = nil
+
     private var items: [Item] {
         var base: [Item] = [
             .init(name: "剪辑", icon: "scissors", panel: .trim, enabled: hasSelectedClip),
             .init(name: "变速", icon: "speedometer", panel: .speed, enabled: hasSelectedClip),
             .init(name: "滤镜", icon: "camera.filters", panel: .filter, enabled: hasSelectedClip),
             .init(name: "文字", icon: "textformat", panel: .text, enabled: hasSelectedClip),
+            .init(name: "字幕", icon: "captions.bubble", panel: .subtitle, enabled: true),
+            .init(name: "贴纸", icon: "face.smiling", panel: .sticker, enabled: true),
+            .init(name: "画中画", icon: "rectangle.on.rectangle", panel: .picture, enabled: true),
+            .init(name: "水印", icon: "photo.badge.plus", panel: .imageWatermark, enabled: hasSelectedClip),
             .init(name: "去水印", icon: "wand.and.stars", panel: .watermarkRemove, enabled: hasSelectedClip),
             .init(name: "音频", icon: "music.note", panel: .audio, enabled: hasSelectedClip),
+            .init(name: "背景", icon: "drop.halffull", panel: .blurBg, enabled: hasSelectedClip),
         ]
         if canTransition {
             base.append(.init(name: "转场", icon: "arrow.left.arrow.right", panel: .transition, enabled: hasSelectedClip))
@@ -572,7 +630,10 @@ struct ToolbarPanel: View {
                         .frame(width: 52)
                         .padding(.vertical, 6)
                         .contentShape(Rectangle())
-                        .onTapGesture { if !isExporting { onToolClick(item.panel) } }
+                        .onTapGesture {
+                            if isExporting { return }
+                            if item.panel == .picture { onPipClick?() } else { onToolClick(item.panel) }
+                        }
                     }
                 }
                 .padding(.horizontal, 10)
