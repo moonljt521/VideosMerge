@@ -165,6 +165,27 @@ private struct VideoLayerView: View {
     @State private var timeObserver: Any? = nil
     @State private var lastSeekedPos: Double = 0
 
+    // 调色参数（预设+手动，与 FilterBuilder/Android 预览一致）
+    private var filterBrightness: Float {
+        Float(min(max(clip.filterPreset.brightness + clip.brightness, -1), 1))
+    }
+    private var filterContrast: Float {
+        Float(min(max(clip.filterPreset.contrast + clip.contrast, -1), 1))
+    }
+    private var filterSaturation: Float {
+        Float(min(max(clip.filterPreset.saturation + clip.saturation, -1), 1))
+    }
+    private var filterHue: Float {
+        Float(clip.filterPreset.hue)
+    }
+    private var blurSigma: Float {
+        clip.blurBgEnabled ? Float(min(max(clip.blurStrength, 2), 40)) / 4 : 0
+    }
+    private var hasFilter: Bool {
+        filterBrightness != 0 || filterContrast != 0 || filterSaturation != 0 ||
+        filterHue != 0 || blurSigma > 0
+    }
+
     var body: some View {
         ZStack {
             // AVPlayerLayer 由 PlayerContainerView 承载
@@ -179,6 +200,7 @@ private struct VideoLayerView: View {
                 let p = AVPlayer(playerItem: item)
                 p.rate = Float(clip.speed)
                 p.isMuted = false
+                applyFilters(to: item)
                 // 初始定位到播放头对应的源时间
                 let src = sourceTime(clip, playhead)
                 p.seek(to: CMTime(seconds: src, preferredTimescale: 600))
@@ -189,6 +211,11 @@ private struct VideoLayerView: View {
                 addPeriodicObserver(p)
             }
         }
+        .onChange(of: filterBrightness) { _ in applyFilters() }
+        .onChange(of: filterContrast) { _ in applyFilters() }
+        .onChange(of: filterSaturation) { _ in applyFilters() }
+        .onChange(of: filterHue) { _ in applyFilters() }
+        .onChange(of: blurSigma) { _ in applyFilters() }
         .onDisappear {
             if let t = timeObserver { player?.removeTimeObserver(t) }
             player?.pause()
@@ -436,5 +463,55 @@ private struct PipOverlaysView: View {
                 }
             }
         )
+    }
+}
+
+// MARK: - 实时调色（AVVideoComposition + CIFilter，与导出 eq/huesaturation 近似）
+
+extension VideoLayerView {
+
+    fileprivate func applyFilters(to item: AVPlayerItem? = nil) {
+        guard let item = item ?? player?.currentItem else { return }
+        guard hasFilter else {
+            item.videoComposition = nil
+            return
+        }
+        let brightness = filterBrightness
+        let contrast = 1 + filterContrast
+        let saturation = 1 + filterSaturation
+        let hue = filterHue
+        let blur = blurSigma
+
+        // asset 初始化：自动带 renderSize/帧率
+        let asset = AVURLAsset(url: URL(fileURLWithPath: clip.mediaPath))
+        let composition = AVMutableVideoComposition(asset: asset, applyingCIFiltersWithHandler: { request in
+            var image = request.sourceImage
+            // 模糊背景（整帧近似，与 Android 预览策略一致；导出按 split/overlay 精确处理）
+            if blur > 0 {
+                if let f = CIFilter(name: "CIGaussianBlur") {
+                    f.setValue(image, forKey: kCIInputImageKey)
+                    f.setValue(blur, forKey: kCIInputRadiusKey)
+                    if let out = f.outputImage { image = out.cropped(to: request.sourceImage.extent) }
+                }
+            }
+            if brightness != 0 || contrast != 1 || saturation != 1 {
+                if let f = CIFilter(name: "CIColorControls") {
+                    f.setValue(image, forKey: kCIInputImageKey)
+                    f.setValue(saturation, forKey: "inputSaturation")
+                    f.setValue(contrast, forKey: "inputContrast")
+                    f.setValue(brightness, forKey: "inputBrightness")
+                    if let out = f.outputImage { image = out }
+                }
+            }
+            if hue != 0 {
+                if let f = CIFilter(name: "CIHueAdjust") {
+                    f.setValue(image, forKey: kCIInputImageKey)
+                    f.setValue(hue, forKey: kCIInputAngleKey)
+                    if let out = f.outputImage { image = out }
+                }
+            }
+            request.finish(with: image, context: nil)
+        })
+        item.videoComposition = composition
     }
 }
