@@ -178,7 +178,7 @@ fun EditorScreen(
                                 canTransition = state.selectedClipCanTransition,
                                 isExporting = state.isExporting,
                                 onToolClick = { panel ->
-                                    if (state.selectedClip == null && panel != ToolPanel.EXPORT && panel != ToolPanel.SUBTITLE) {
+                                    if (state.selectedClip == null && panel != ToolPanel.EXPORT && panel != ToolPanel.SUBTITLE && panel != ToolPanel.CANVAS) {
                                         viewModel.showError("请先点击时间轴上的视频片段选中后再使用该工具")
                                     } else {
                                         viewModel.showPanel(panel)
@@ -236,6 +236,7 @@ fun EditorScreen(
                                 onRemoveSubtitle = { id -> viewModel.removeSubtitle(id) },
                                 onTranscribe = { viewModel.transcribeSpeech() },
                                 onPickSticker = { emoji -> viewModel.addSticker(emoji) },
+                                onSetCanvas = { w, h -> viewModel.setCanvasSize(w, h) },
                                 onEditStart = { viewModel.beginEdit() },
                                 onExport = { viewModel.export() },
                                 onClose = { viewModel.closePanel() }

@@ -17,6 +17,7 @@ enum class ToolPanel {
     WATERMARK_REMOVE, // 去水印面板
     BLUR_BG,        // 模糊背景面板
     TRANSITION,     // 转场面板
+    CANVAS,         // 画布比例/清晰度面板
     EXPORT,         // 导出面板
 }
 

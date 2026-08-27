@@ -49,6 +49,7 @@ fun ToolbarPanel(
         ToolItem("贴纸", Icons.Default.EmojiEmotions, ToolPanel.STICKER, enabled = true),
         ToolItem("音频", Icons.Default.AudioFile, ToolPanel.AUDIO, enabled = hasSelectedClip),
         ToolItem("背景", Icons.Default.BlurOn, ToolPanel.BLUR_BG, enabled = hasSelectedClip),
+        ToolItem("画布", Icons.Default.AspectRatio, ToolPanel.CANVAS),
         ToolItem("导出", Icons.Default.Download, ToolPanel.EXPORT),
     ).let { base ->
         if (canTransition) {
@@ -181,22 +182,25 @@ fun ToolPanelHost(
     onRemoveSubtitle: (String) -> Unit,
     onTranscribe: () -> Unit,
     onPickSticker: (String) -> Unit,
+    onSetCanvas: (Int, Int) -> Unit,
     onEditStart: () -> Unit,
     onExport: () -> Unit,
     onClose: () -> Unit
 ) {
     val clip = state.selectedClip
     // ★ 组合阶段不能直接调用 onClose（副作用），改用 LaunchedEffect
-    //   EXPORT/SUBTITLE/STICKER 为项目级面板，无需选中片段
+    //   EXPORT/SUBTITLE/STICKER/CANVAS 为项目级面板，无需选中片段
     LaunchedEffect(clip?.id, state.currentPanel) {
         val projectLevel = state.currentPanel == ToolPanel.EXPORT ||
-            state.currentPanel == ToolPanel.SUBTITLE || state.currentPanel == ToolPanel.STICKER
+            state.currentPanel == ToolPanel.SUBTITLE || state.currentPanel == ToolPanel.STICKER ||
+            state.currentPanel == ToolPanel.CANVAS
         if (clip == null && !projectLevel && state.currentPanel != ToolPanel.NONE) {
             onClose()
         }
     }
     if (clip == null && state.currentPanel != ToolPanel.EXPORT &&
-        state.currentPanel != ToolPanel.SUBTITLE && state.currentPanel != ToolPanel.STICKER
+        state.currentPanel != ToolPanel.SUBTITLE && state.currentPanel != ToolPanel.STICKER &&
+        state.currentPanel != ToolPanel.CANVAS
     ) {
         return
     }
@@ -311,6 +315,12 @@ fun ToolPanelHost(
         )
         ToolPanel.STICKER -> StickerPanel(
             onPick = onPickSticker,
+            onClose = onClose
+        )
+        ToolPanel.CANVAS -> CanvasPanel(
+            project = state.project,
+            onSetCanvas = onSetCanvas,
+            onEditStart = onEditStart,
             onClose = onClose
         )
         ToolPanel.EXPORT -> ExportPanel(
