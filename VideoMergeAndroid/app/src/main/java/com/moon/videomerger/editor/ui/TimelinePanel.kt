@@ -176,7 +176,9 @@ fun TimelinePanel(
                 }
 
                 // ── ★ 固定播放头：钉死屏幕中央的白线 + 顶部手柄 ──
-                CenterPlayhead(modifier = Modifier.fillMaxHeight())
+                // ★ 必须 fillMaxSize：内容对齐居中依赖盒子本身铺满视口，
+                //   否则盒宽收缩为线条宽度、被放在左上角（正是竖线跑到最左的原因）
+                CenterPlayhead(modifier = Modifier.fillMaxSize())
             }
         }
     }

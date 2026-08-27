@@ -178,7 +178,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
                 _uiState.value = EditorUiState(
                     project = project,
-                    selectedClipId = clips.firstOrNull()?.id
+                    selectedClipId = clips.firstOrNull()?.id,
+                    // ★ 剪映式体验：导入完成即自动播放，避免预览区黑屏停在首帧
+                    isPlaying = true
                 )
             } catch (e: Exception) {
                 endImportOnError(e)
