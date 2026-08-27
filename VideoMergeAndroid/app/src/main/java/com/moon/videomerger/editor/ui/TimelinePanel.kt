@@ -3,9 +3,11 @@ package com.moon.videomerger.editor.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -18,26 +20,29 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.moon.videomerger.editor.data.EditorUiState
 import com.moon.videomerger.editor.data.Clip
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 /**
- * 时间轴面板 —— 多轨片段可视化 + 播放头。
+ * 时间轴面板（剪映式）—— ★ 播放头固定在屏幕中央，胶片横向滚动。
  *
- * 核心设计：整个项目总时长铺满屏幕宽度（左右各留 12dp 边距），
- * 不需要水平滚动。拖动/点击通过百分比计算播放头位置。
+ * 核心设计：
+ * - 内容宽度 = 总时长 × 固定缩放(pps) + 左右各半个屏幕的留白，
+ *   使 t=0 与 t=结尾 都能精确居中到播放头下。
+ * - 播放中：胶片自动滚动，播放头位置始终对准中央竖线。
+ * - 拖动：原生横向滚动手势（代替旧的拖播放头）。
+ * - 点击空白/标尺：seek 到该时间点并动画居中。
+ * - 点击片段块：选中片段。
+ * - 片段边界上的圆形图标 → 已设置转场，点击可修改。
  *
- * 交互：
- * - 点击/拖动标尺 → 移动播放头
- * - 点击/拖动轨道空白处 → 移动播放头
- * - 点击片段块 → 选中片段
- * - 顶部快捷操作行：时间码 + 入点/出点 + 分割 + 删除（区间/片段）
- * - 片段边界上的圆形图标 → 已设置转场，点击可修改
+ * 时间↔坐标换算：
+ *   contentX(t) = halfViewport + t × pps     （t 在胶片内容中的 x）
+ *   scroll(t)   = t × pps                    （把 t 滚到中央所需偏移）
  */
 @Composable
 fun TimelinePanel(
@@ -63,26 +68,44 @@ fun TimelinePanel(
         currentPosition > selectedClip.timelineStart + 0.05 &&
         currentPosition < selectedClip.timelineEnd - 0.05
 
-    // ★ 用 BoxWithConstraints 获取实际可用宽度
-    // pixelsPerSecond = (屏幕宽度 - 左右padding) / 总时长
-    // 这样总时长始终铺满屏幕，不需要滚动
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF1A1A1A))
+            .background(Color(0xFF161616))
     ) {
         val density = LocalDensity.current
-        val screenWidthPx = with(density) { maxWidth.toPx() }
-        val paddingPx = with(density) { horizontalPadding.toPx() }
-        val usableWidthPx = (screenWidthPx - paddingPx * 2).coerceAtLeast(1f)
-        val pixelsPerSecond = (usableWidthPx / totalDuration.toFloat()).coerceAtLeast(1f)
+        val scope = rememberCoroutineScope()
 
-        // ★ 不能用 fillMaxSize：外层已移除固定高度约束，
-        // fillMaxSize 会吃掉 EditorScreen Column 的全部剩余高度，
-        // 把预览区（weight）和底部工具栏挤压为 0。这里高度由内容撑开。
+        // ★ 固定缩放：每秒 60dp（≈10 秒可见一屏，后续可加捏合缩放）
+        val pixelsPerSecond = with(density) { 60.dp.toPx() }
+        val halfViewportPx = with(density) { maxWidth.toPx() } / 2f
+
+        val filmWidthPx = totalDuration.toFloat() * pixelsPerSecond
+        val contentWidthPx = filmWidthPx + halfViewportPx * 2f
+        val contentWidthDp = with(density) { contentWidthPx.toDp() }
+        val edgePadDp = with(density) { halfViewportPx.toDp() }
+        val filmWidthDp = with(density) { filmWidthPx.toDp() }
+
+        val scrollState = rememberScrollState()
+
+        // ── 播放中自动跟滚：让当前位置始终对准中央播放头 ──
+        LaunchedEffect(currentPosition, state.isPlaying) {
+            if (state.isPlaying && !scrollState.isScrollInProgress) {
+                val target = (currentPosition.toFloat() * pixelsPerSecond).toInt()
+                scrollState.scrollTo(target)
+            }
+        }
+
+        // seek 后主动把目标点居中（点击定位时调用）
+        fun seekAndCenter(time: Double) {
+            onSeek(time.coerceIn(0.0, totalDuration))
+            scope.launch {
+                scrollState.animateScrollTo((time.toFloat() * pixelsPerSecond).toInt())
+            }
+        }
+
         Column(
-            modifier = Modifier
-                .padding(horizontal = horizontalPadding)
+            modifier = Modifier.padding(horizontal = horizontalPadding)
         ) {
             // ── 快捷操作行：时间码 + 入出点 + 分割/删除 ──
             TimelineActionBar(
@@ -99,49 +122,61 @@ fun TimelinePanel(
                 onDeleteClip = onDeleteClip
             )
 
-            // ── 时间标尺（显示入出点区间高亮）──
-            TimelineRuler(
-                totalDuration = totalDuration,
-                pixelsPerSecond = pixelsPerSecond,
-                usableWidthPx = usableWidthPx,
-                currentPosition = currentPosition,
-                inPoint = state.inPoint,
-                outPoint = state.outPoint,
-                onSeek = onSeek
-            )
-
-            // ── 轨道区域（多轨时按轨道数撑高）──
+            // ── 可滚动胶片区（标尺 + 轨道），高度由轨道数撑开 ──
+            val trackAreaHeight = (state.project.tracks.size * 48 + 8).dp + 32.dp // 32dp = 标尺高
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height((state.project.tracks.size * 48 + 8).dp)
+                    .height(trackAreaHeight)
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(vertical = 4.dp)
+                        .horizontalScroll(scrollState)
                 ) {
-                    state.project.tracks.forEach { track ->
-                        TrackRow(
-                            track = track,
-                            selectedClipId = state.selectedClipId,
-                            pixelsPerSecond = pixelsPerSecond,
+                    Column(
+                        modifier = Modifier
+                            .width(contentWidthDp)
+                            .padding(horizontal = edgePadDp)
+                    ) {
+                        // 时间标尺（点击定位）
+                        TimelineRuler(
                             totalDuration = totalDuration,
-                            onSeek = onSeek,
-                            onSelectClip = { clipId ->
-                                onSelectClip(clipId)
-                            },
-                            onOpenTransition = onOpenTransition
+                            pixelsPerSecond = pixelsPerSecond,
+                            widthDp = filmWidthDp,
+                            currentPosition = currentPosition,
+                            inPoint = state.inPoint,
+                            outPoint = state.outPoint,
+                            onSeek = ::seekAndCenter
                         )
+
+                        // 多轨区域
+                        Box(
+                            modifier = Modifier.height((state.project.tracks.size * 48 + 8).dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                state.project.tracks.forEach { track ->
+                                    TrackRow(
+                                        track = track,
+                                        selectedClipId = state.selectedClipId,
+                                        pixelsPerSecond = pixelsPerSecond,
+                                        totalDuration = totalDuration,
+                                        onSeek = ::seekAndCenter,
+                                        onSelectClip = onSelectClip,
+                                        onOpenTransition = onOpenTransition
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
-                // ── 播放头竖线 ──
-                Playhead(
-                    position = currentPosition,
-                    pixelsPerSecond = pixelsPerSecond,
-                    modifier = Modifier.fillMaxHeight()
-                )
+                // ── ★ 固定播放头：钉死屏幕中央的白线 + 顶部手柄 ──
+                CenterPlayhead(modifier = Modifier.fillMaxHeight())
             }
         }
     }
@@ -149,7 +184,6 @@ fun TimelinePanel(
 
 /**
  * 时间轴快捷操作行 —— 左侧时间码，右侧入出点/分割/删除（剪映式）。
- * 入点出点都设好后，删除按钮变为“删区间”，点击区间文字可清除入出点。
  */
 @Composable
 private fun TimelineActionBar(
@@ -223,7 +257,7 @@ private fun TimelineActionBar(
 
 @Composable
 private fun ActionBarButton(
-    icon: ImageVector,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     enabled: Boolean,
     onClick: () -> Unit,
@@ -257,65 +291,41 @@ private fun ActionBarButton(
 }
 
 /**
- * 时间标尺 —— 总时长铺满宽度，tap/drag 用百分比计算。
+ * 时间标尺 —— 宽度 = 总时长×pps（在滚动容器内），tap 定位+居中。
+ * 刻度间隔按"实际像素间距不小于 ~64dp"自适应，保证固定缩放下标签不打架。
  */
 @Composable
 private fun TimelineRuler(
     totalDuration: Double,
     pixelsPerSecond: Float,
-    usableWidthPx: Float,
+    widthDp: androidx.compose.ui.unit.Dp,
     currentPosition: Double,
     inPoint: Double?,
     outPoint: Double?,
     onSeek: (Double) -> Unit
 ) {
     val density = LocalDensity.current
-    val rulerWidthDp = with(density) { usableWidthPx.toDp() }
 
     Box(
         modifier = Modifier
-            .width(rulerWidthDp)
+            .width(widthDp)
             .height(32.dp)
             .background(Color(0xFF222222))
-            // drag：拖动播放头
-            .pointerInput(totalDuration, pixelsPerSecond) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        val time = (offset.x / pixelsPerSecond).toDouble()
-                            .coerceIn(0.0, totalDuration)
-                        onSeek(time)
-                    },
-                    onDrag = { change, _ ->
-                        change.consume()
-                        val time = (change.position.x / pixelsPerSecond).toDouble()
-                            .coerceIn(0.0, totalDuration)
-                        onSeek(time)
-                    }
-                )
-            }
-            // tap：点击定位
-            .pointerInput(totalDuration, pixelsPerSecond) {
+            .pointerInput(pixelsPerSecond) {
                 detectTapGestures(
                     onTap = { offset ->
                         val time = (offset.x / pixelsPerSecond).toDouble()
-                            .coerceIn(0.0, totalDuration)
                         onSeek(time)
                     }
                 )
             }
     ) {
-        // 刻度
-        val interval = when {
-            totalDuration <= 10 -> 1.0    // 10s 以内：每秒一刻
-            totalDuration <= 30 -> 2.0    // 30s 以内：每2s一刻
-            totalDuration <= 60 -> 5.0    // 60s 以内：每5s一刻
-            totalDuration <= 300 -> 10.0  // 5min 以内：每10s一刻
-            else -> 30.0                   // 更长：每30s一刻
-        }
-        val numMarks = (totalDuration / interval).toInt() + 1
-        repeat(numMarks) { i ->
-            val time = i * interval
-            if (time > totalDuration) return@repeat
+        // 刻度：选最小的、且像素间距 ≥64dp 的档位
+        val minSpacingPx = with(density) { 64.dp.toPx() }
+        val candidates = listOf(0.5, 1.0, 2.0, 5.0, 10.0, 15.0, 30.0, 60.0, 120.0, 300.0)
+        val interval = candidates.firstOrNull { it * pixelsPerSecond >= minSpacingPx } ?: 300.0
+        var time = 0.0
+        while (time <= totalDuration) {
             val x = with(density) { (time * pixelsPerSecond).toFloat().toDp() }
             Text(
                 text = formatTimecode(time),
@@ -323,6 +333,7 @@ private fun TimelineRuler(
                 fontSize = 9.sp,
                 modifier = Modifier.offset(x = x)
             )
+            time += interval
         }
 
         // 入出点区间高亮（待删除区间）
@@ -338,21 +349,22 @@ private fun TimelineRuler(
             )
         }
 
-        // 当前位置标记（蓝色竖线）
-        val playheadX = with(density) { (currentPosition * pixelsPerSecond).toFloat().toDp() }
-        Box(
-            modifier = Modifier
-                .offset(x = playheadX)
-                .width(2.dp)
-                .fillMaxHeight()
-                .background(Color(0xFF2196F3))
-        )
+        // 播放头经过标尺处的小圆点提示（真线在滚动区外层固定绘制）
+        if (currentPosition in 0.0..totalDuration) {
+            val px = with(density) { (currentPosition * pixelsPerSecond).toFloat().toDp() }
+            Box(
+                modifier = Modifier
+                    .offset(x = px - 3.dp)
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF2196F3))
+            )
+        }
     }
 }
 
 /**
- * 轨道行 —— 宽度 = 总时长 * pixelsPerSecond（铺满屏幕）。
- * 空白处可拖动播放头，片段 clickable 优先选中。
+ * 轨道行 —— 宽度 = 总时长×pps。空白处点击 seek；横向拖动交由外层滚动容器处理。
  */
 @Composable
 private fun TrackRow(
@@ -365,51 +377,29 @@ private fun TrackRow(
     onOpenTransition: (String) -> Unit
 ) {
     val density = LocalDensity.current
-    val trackWidthDp = with(density) { (track.duration * pixelsPerSecond).toFloat().toDp() }
+    val trackWidthDp = with(density) { (totalDuration * pixelsPerSecond).toFloat().toDp() }
 
     Box(
         modifier = Modifier
             .width(trackWidthDp)
             .height(48.dp)
             .padding(vertical = 2.dp)
-            // ★ 轨道空白处拖动播放头
-            .pointerInput(totalDuration, pixelsPerSecond) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        val time = (offset.x / pixelsPerSecond).toDouble()
-                            .coerceIn(0.0, totalDuration)
-                        onSeek(time)
-                    },
-                    onDrag = { change, _ ->
-                        change.consume()
-                        val time = (change.position.x / pixelsPerSecond).toDouble()
-                            .coerceIn(0.0, totalDuration)
-                        onSeek(time)
-                    }
-                )
-            }
-            .pointerInput(totalDuration, pixelsPerSecond) {
+            .pointerInput(pixelsPerSecond) {
                 detectTapGestures(
                     onTap = { offset ->
                         val time = (offset.x / pixelsPerSecond).toDouble()
-                            .coerceIn(0.0, totalDuration)
                         onSeek(time)
                     }
                 )
             }
     ) {
-        // 片段区域（★ 轨道类型图标已移除，片段从最左开始，多出 28dp 显示宽度）
+        // 片段区域
         val sortedClips = track.clips.sortedBy { it.timelineStart }
         Box(
             modifier = Modifier.fillMaxHeight()
         ) {
-            // ★ 主轨显示坐标模型（剪映式）：
-            //   转场重叠布局下相邻片段在时间上互相重叠，若按真实位置绘制会互相覆盖、
-            //   边界含糊。改为「块首尾相接、接缝 = 前一片段真正结束点」：
-            //   displayWidth_i = trueEnd_i - trueEnd_{i-1}，displayStart 顺序累加。
-            //   播放头语义随之直观：bar 离开某块 ⇔ 该片段真正结束。
+            // ★ 主轨显示坐标模型（剪映式）：块首尾相接、接缝 = 前一片段真正结束点，
             //   重叠区（转场进行中）归属前一块的尾部显示。
-            //   其他轨（画中画等）无转场链，仍按真实位置绘制。
             data class DisplayRect(val clip: com.moon.videomerger.editor.data.Clip, val start: Double, val width: Double)
             val displayRects: List<DisplayRect> = if (track.type == com.moon.videomerger.editor.data.TrackType.MAIN) {
                 var x = 0.0
@@ -437,7 +427,7 @@ private fun TrackRow(
                 )
             }
 
-            // 转场指示器：接缝处（前一片段真正结束点）的圆形图标，点击打开转场面板
+            // 转场指示器：接缝处的圆形图标
             sortedClips.forEachIndexed { i, clip ->
                 if (clip.transition != com.moon.videomerger.editor.data.TransitionEffect.NONE) {
                     TransitionBadge(
@@ -464,13 +454,11 @@ private fun TransitionBadge(
     val size = 16.dp
     val centerX = with(density) { (clip.timelineEnd * pixelsPerSecond).toFloat().toDp() }
 
-    // ★ 不能用 align（非 BoxScope 内），用 offset 垂直居中：
-    // 轨道行 48dp - 上下 padding 4dp = 44dp，(44 - 16) / 2 = 14dp
     Box(
         modifier = Modifier
             .offset(x = centerX - size / 2, y = 14.dp)
             .size(size)
-            .clip(androidx.compose.foundation.shape.CircleShape)
+            .clip(CircleShape)
             .background(Color.White)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
@@ -485,9 +473,7 @@ private fun TransitionBadge(
 }
 
 /**
- * 片段块 —— 点击选中。
- * ★ 显示位置/宽度由调用方计算（主轨 = 接缝对齐显示坐标，见 TrackRow），
- *   与播放头/标尺的真实时间一一对应。
+ * 片段块 —— 点击选中。显示位置/宽度由调用方计算。
  */
 @Composable
 private fun ClipBlock(
@@ -562,24 +548,33 @@ private fun ClipBlock(
 }
 
 /**
- * 播放头竖线
+ * ★ 固定播放头 —— 钉死滚动视口正中央的竖线 + 顶部三角形手柄（剪映式）。
+ * 绘制在滚动容器上层，不随胶片滚动。
  */
 @Composable
-private fun Playhead(
-    position: Double,
-    pixelsPerSecond: Float,
-    modifier: Modifier = Modifier
-) {
-    val density = LocalDensity.current
-    val posDp = with(density) { (position * pixelsPerSecond).toFloat().toDp() }
-
+private fun CenterPlayhead(modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier
-            .offset(x = posDp)
-            .width(2.dp)
-            .fillMaxHeight()
-            .background(Color.White)
-    )
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        // 竖线
+        Box(
+            modifier = Modifier
+                .width(2.dp)
+                .fillMaxHeight()
+                .background(Color(0xFFFFFFFF).copy(alpha = 0.9f))
+        )
+        // 顶部手柄（小三角，倒置）
+        Icon(
+            imageVector = Icons.Default.PlayArrow,
+            contentDescription = null,
+            tint = Color(0xFF2196F3),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .size(14.dp)
+                .offset(y = (-2).dp)
+        )
+    }
 }
 
 /** 格式化时间码 */
