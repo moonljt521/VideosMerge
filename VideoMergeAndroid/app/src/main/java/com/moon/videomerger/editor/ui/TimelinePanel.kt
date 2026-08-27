@@ -178,7 +178,6 @@ fun TimelinePanel(
                             totalDuration = totalDuration,
                             pixelsPerSecond = pixelsPerSecond,
                             widthDp = filmWidthDp,
-                            currentPosition = currentPosition,
                             inPoint = state.inPoint,
                             outPoint = state.outPoint,
                             onSeek = ::seekAndCenter
@@ -335,7 +334,6 @@ private fun TimelineRuler(
     totalDuration: Double,
     pixelsPerSecond: Float,
     widthDp: androidx.compose.ui.unit.Dp,
-    currentPosition: Double,
     inPoint: Double?,
     outPoint: Double?,
     onSeek: (Double) -> Unit
@@ -382,18 +380,6 @@ private fun TimelineRuler(
                     .width(rangeW)
                     .fillMaxHeight()
                     .background(Color(0x55FF7043))
-            )
-        }
-
-        // 播放头经过标尺处的小圆点提示（真线在滚动区外层固定绘制）
-        if (currentPosition in 0.0..totalDuration) {
-            val px = with(density) { (currentPosition * pixelsPerSecond).toFloat().toDp() }
-            Box(
-                modifier = Modifier
-                    .offset(x = px - 3.dp)
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF2196F3))
             )
         }
     }
@@ -547,17 +533,6 @@ private fun ClipBlock(
                 contentScale = ContentScale.Crop
             )
         }
-
-        Text(
-            text = clip.mediaName.take(8),
-            color = Color.White,
-            fontSize = 9.sp,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(2.dp)
-                .background(Color(0x66000000), RoundedCornerShape(2.dp))
-                .padding(horizontal = 3.dp, vertical = 1.dp)
-        )
 
         if (clip.speed != 1.0) {
             Text(
