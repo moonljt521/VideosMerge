@@ -118,7 +118,8 @@ fun EditorScreen(
                             state = state,
                             playheadFlow = viewModel.playhead,
                             onTogglePlay = { viewModel.togglePlay() },
-                            onSeek = { viewModel.seekTo(it) }
+                            onSeek = { viewModel.seekTo(it) },
+                            onPlaybackEnded = { viewModel.pausePlayback() }
                         )
                     }
 
