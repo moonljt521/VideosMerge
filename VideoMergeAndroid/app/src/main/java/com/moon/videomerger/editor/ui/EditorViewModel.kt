@@ -52,6 +52,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** 当前导入任务（用于取消） */
     private var importJob: Job? = null
 
+    /**
+     * ★ 导出成功后已从磁盘清除草稿，这里记录当时的项目引用：
+     * 若防抖触发时的还是同一个实例（导出后未再做任何编辑），则不再写回草稿；
+     * 用户后续继续编辑会产生新实例，草稿重新生效。
+     */
+    private var exportedAndClearedProject: EditorProject? = null
+
     init {
         // 启动时清理过期临时文件（导出成品/缩略图等，历史记录有独立拷贝，可安全删除）
         viewModelScope.launch(Dispatchers.IO) {
@@ -66,7 +73,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 .debounce(800)
                 .collect { project ->
                     val hasContent = !project.mainTrack?.clips.isNullOrEmpty() || project.subtitles.isNotEmpty()
-                    if (hasContent) {
+                    if (hasContent && project !== exportedAndClearedProject) {
                         withContext(Dispatchers.IO) { DraftStore.save(appContext, project) }
                     }
                 }
@@ -1325,6 +1332,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     val saveResult = exportEngine.saveToGallery(file, state.project.name)
                     saveResult.fold(
                         onSuccess = { uri ->
+                            // ★ 成片已入相册+历史记录，本项目视为完成：
+                            //   清除草稿文件，避免下次进首页误提示「有未导出的草稿」。
+                            //   素材文件保留（当前会话仍可编辑），新建项目时会统一清理。
+                            exportedAndClearedProject = _uiState.value.project
+                            withContext(Dispatchers.IO) { DraftStore.clear(appContext) }
                             _uiState.value = _uiState.value.copy(
                                 isExporting = false,
                                 exportProgress = 1f,

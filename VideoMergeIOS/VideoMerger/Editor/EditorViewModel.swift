@@ -216,8 +216,13 @@ final class EditorViewModel: ObservableObject {
     }
 
     /// 草稿自动保存（项目变化后由 UI 层防抖调用）
+    /// ★ 导出成功后已清除草稿，记录当时的时间戳：若此后未再编辑（updatedAt 未变），
+    ///   返回首页/退后台时不再把同一份内容写回草稿；后续编辑 updatedAt 变化，草稿重新生效。
+    private var lastExportedUpdatedAt: Double? = nil
+
     func saveDraftNow() {
         let p = uiState.project
+        if p.updatedAt == lastExportedUpdatedAt { return }
         let hasContent = !(p.mainTrack?.clips.isEmpty ?? true) || !p.subtitles.isEmpty
         if hasContent {
             DispatchQueue.global(qos: .utility).async {
@@ -677,6 +682,12 @@ final class EditorViewModel: ObservableObject {
                     uiState.isExporting = false
                     switch saveResult {
                     case .success:
+                        // ★ 成片已入相册+历史记录，本项目视为完成：
+                        //   清除草稿文件，避免下次进首页误提示「有未导出的草稿」。
+                        lastExportedUpdatedAt = uiState.project.updatedAt
+                        DispatchQueue.global(qos: .utility).async {
+                            DraftStore.clear()
+                        }
                         uiState.exportProgress = 1
                         uiState.exportMessage = "导出完成！已保存到相册"
                         uiState.outputPath = file.path
