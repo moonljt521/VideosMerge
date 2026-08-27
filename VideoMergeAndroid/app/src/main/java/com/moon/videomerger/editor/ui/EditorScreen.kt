@@ -101,7 +101,8 @@ fun EditorScreen(
 
                 LaunchedEffect(maxHeight) {
                     if (previewHeightDp == 0.dp) {
-                        previewHeightDp = maxHeight * 0.45f
+                        // ★ 对标剪映：预览默认占编辑区约 62% 高度，视频尽量铺满屏幕
+                        previewHeightDp = maxHeight * 0.62f
                     }
                 }
                 val clampedPreview = previewHeightDp.coerceIn(minPreview, maxPreview)

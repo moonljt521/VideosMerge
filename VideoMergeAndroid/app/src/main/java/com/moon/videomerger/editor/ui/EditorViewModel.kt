@@ -180,6 +180,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     project = project,
                     selectedClipId = clips.firstOrNull()?.id,
                     // ★ 剪映式体验：导入完成即自动播放，避免预览区黑屏停在首帧
+                    //   （草稿恢复入口 loadDraft 不自动播，停留在上次位置）
                     isPlaying = true
                 )
             } catch (e: Exception) {
@@ -361,7 +362,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             _playhead.value = 0.0
             _uiState.value = EditorUiState(
                 project = cleaned,
-                selectedClipId = cleaned.mainTrack?.clips?.firstOrNull()?.id
+                selectedClipId = cleaned.mainTrack?.clips?.firstOrNull()?.id,
+                // ★ 草稿恢复也自动播放：草稿目前不保存播放头位置，恢复即从头播，
+                //   停在暂停态反而像黑屏卡住（用户已确认此行为）
+                isPlaying = cleaned.mainTrack?.clips?.isNotEmpty() == true
             )
         }
     }
@@ -400,10 +404,14 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 if (mainTrack == null) {
                     // 没有主轨，直接创建
                     val track = Track(type = TrackType.MAIN, clips = relayoutMainTrackClips(newClips).toMutableList())
+                    _playhead.value = 0.0
                     _uiState.value = state.copy(
                         project = state.project.copy(tracks = mutableListOf(track)),
                         // ★ 当前无选中片段时自动选中第一个，保证工具栏可用
-                        selectedClipId = state.selectedClipId ?: newClips.firstOrNull()?.id
+                        selectedClipId = state.selectedClipId ?: newClips.firstOrNull()?.id,
+                        // ★ 剪映式体验：首次导入建项目即自动播放
+                        //   （导入视频的实际入口是本函数而非 createProject，此前改错了地方）
+                        isPlaying = true
                     )
                 } else {
                     // 追加到主轨末尾（含与前一片段的转场重叠），统一重排
