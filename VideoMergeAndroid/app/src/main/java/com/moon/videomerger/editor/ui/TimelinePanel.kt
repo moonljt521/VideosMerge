@@ -19,6 +19,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -81,7 +82,11 @@ fun TimelinePanel(
 
         // ★ 固定缩放：每秒 60dp（≈10 秒可见一屏，后续可加捏合缩放）
         val pixelsPerSecond = with(density) { 60.dp.toPx() }
-        val halfViewportPx = with(density) { maxWidth.toPx() } / 2f
+        // ★ 关键：外层 Column 有 12dp 左右内边距，滚动视口实际宽度是 maxWidth-24dp。
+        //   内容首尾留白必须按「滚动视口」的一半算，否则时间↔滚动换算整体偏移 12dp，
+        //   白线对准的时间和预览会差约 0.2 秒。
+        val viewportWidthPx = with(density) { (maxWidth - horizontalPadding * 2).toPx() }
+        val halfViewportPx = viewportWidthPx / 2f
 
         val filmWidthPx = totalDuration.toFloat() * pixelsPerSecond
         val contentWidthPx = filmWidthPx + halfViewportPx * 2f
@@ -544,17 +549,6 @@ private fun ClipBlock(
                     .padding(2.dp)
             )
         }
-
-        if (isSelected) {
-            Text(
-                text = "✓",
-                color = Color.White,
-                fontSize = 12.sp,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(2.dp)
-            )
-        }
     }
 }
 
@@ -575,7 +569,7 @@ private fun CenterPlayhead(modifier: Modifier = Modifier) {
                 .fillMaxHeight()
                 .background(Color(0xFFFFFFFF).copy(alpha = 0.9f))
         )
-        // 顶部手柄（小三角，倒置）
+        // 顶部手柄（小三角指向下方）
         Icon(
             imageVector = Icons.Default.PlayArrow,
             contentDescription = null,
@@ -584,6 +578,7 @@ private fun CenterPlayhead(modifier: Modifier = Modifier) {
                 .align(Alignment.TopCenter)
                 .size(14.dp)
                 .offset(y = (-2).dp)
+                .rotate(90f)
         )
     }
 }
