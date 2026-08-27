@@ -229,23 +229,8 @@ fun PreviewPanel(
                 .padding(horizontal = 6.dp, vertical = 2.dp)
         )
 
-        // 播放/暂停按钮（覆盖在预览上）
-        if (!state.isPlaying) {
-            IconButton(
-                onClick = onTogglePlay,
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(Color(0x88000000))
-            ) {
-                Icon(
-                    Icons.Default.PlayArrow,
-                    contentDescription = "播放",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-        }
+        // ★ 剪映交互：点击预览区切换播放/暂停（外层 Box 已处理），
+        //   不再放常驻播放按钮，暂停态画面本身就是"未在播"的提示
     }
 }
 
