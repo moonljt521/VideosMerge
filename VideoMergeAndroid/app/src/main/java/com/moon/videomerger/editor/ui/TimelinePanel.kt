@@ -1,5 +1,7 @@
 package com.moon.videomerger.editor.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -88,11 +91,37 @@ fun TimelinePanel(
 
         val scrollState = rememberScrollState()
 
-        // ── 播放中自动跟滚：让当前位置始终对准中央播放头 ──
+        // ★ 程序触发的滚动标志：区分「代码居中/跟滚」与「用户手势」，
+        //   避免刮擦同步把自己发起的动画又回写成 seek 造成反馈循环
+        var programmaticScroll by remember { mutableStateOf(false) }
+
+        // ── 播放中自动跟滚：用 100ms 线性补间链式衔接，
+        //    消除 10Hz 步进跳动带来的卡顿感 ──
         LaunchedEffect(currentPosition, state.isPlaying) {
             if (state.isPlaying && !scrollState.isScrollInProgress) {
                 val target = (currentPosition.toFloat() * pixelsPerSecond).toInt()
-                scrollState.scrollTo(target)
+                programmaticScroll = true
+                try {
+                    scrollState.animateScrollTo(
+                        target,
+                        animationSpec = tween(durationMillis = 100, easing = LinearEasing)
+                    )
+                } finally {
+                    programmaticScroll = false
+                }
+            }
+        }
+
+        // ★ 拖动胶片刮擦：滚动偏移 → 播放头/预览实时同步（剪映式，非播放态下生效）
+        // ★ LaunchedEffect(Unit) 不随重组重启，必须用 rememberUpdatedState 读取最新值
+        val scrubIsPlaying by rememberUpdatedState(state.isPlaying)
+        val scrubOnSeek by rememberUpdatedState(onSeek)
+        val scrubTotal by rememberUpdatedState(totalDuration)
+        LaunchedEffect(Unit) {
+            snapshotFlow { scrollState.value }.collect { v ->
+                if (!scrubIsPlaying && !programmaticScroll && scrollState.isScrollInProgress) {
+                    scrubOnSeek((v / pixelsPerSecond.toDouble()).coerceIn(0.0, scrubTotal))
+                }
             }
         }
 
@@ -100,7 +129,12 @@ fun TimelinePanel(
         fun seekAndCenter(time: Double) {
             onSeek(time.coerceIn(0.0, totalDuration))
             scope.launch {
-                scrollState.animateScrollTo((time.toFloat() * pixelsPerSecond).toInt())
+                programmaticScroll = true
+                try {
+                    scrollState.animateScrollTo((time.toFloat() * pixelsPerSecond).toInt())
+                } finally {
+                    programmaticScroll = false
+                }
             }
         }
 

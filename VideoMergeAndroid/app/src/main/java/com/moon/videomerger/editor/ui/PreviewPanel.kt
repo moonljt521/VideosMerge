@@ -74,7 +74,8 @@ fun PreviewPanel(
     state: EditorUiState,
     playheadFlow: StateFlow<Double>,
     onTogglePlay: () -> Unit,
-    onSeek: (Double) -> Unit
+    onSeek: (Double) -> Unit,
+    onPlaybackEnded: () -> Unit = {}
 ) {
     // ★ 本地收集播放头：只有预览区域跟随播放重组
     val currentPosition by playheadFlow.collectAsState()
@@ -135,6 +136,7 @@ fun PreviewPanel(
                     clips = clips,
                     drivesPlayhead = role != LayerRole.BOTTOM,
                     onSeek = onSeek,
+                    onPlaybackEnded = onPlaybackEnded,
                     reportAspect = { videoAspect = it },
                 )
             }
@@ -262,6 +264,7 @@ private fun VideoLayer(
     clips: List<Clip>,
     drivesPlayhead: Boolean,
     onSeek: (Double) -> Unit,
+    onPlaybackEnded: () -> Unit = {},
     reportAspect: (Float?) -> Unit,
 ) {
     val context = LocalContext.current
@@ -366,10 +369,10 @@ private fun VideoLayer(
                     onSeek(nextClip.timelineStart)
                     break
                 } else {
-                    // 最后一段播完 → 循环回开头
-                    player.seekTo((clip.trimStart * 1000).toLong())
-                    onSeek(0.0)
-                    continue
+                    // ★ 最后一段播完 → 停在结尾（单遍播放，不循环），通知上层暂停
+                    onSeek(clip.timelineEnd)
+                    onPlaybackEnded()
+                    break
                 }
             }
 
