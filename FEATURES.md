@@ -1,195 +1,87 @@
-# 视频剪辑功能清单
+# 视频剪辑功能清单（状态矩阵）
 
-> **工作流**：Python 脚本验证 → Android/iOS App 移植  
-> **优先级**：P0 = 必须 / P1 = 高 / P2 = 中 / P3 = 低  
-> **状态**：✅ 已实现 · 🔧 脚本已完成 App 待移植 · ❌ 未实现
-
----
-
-## 一、已实现功能（现有基线）
-
-| # | 功能 | Python 脚本 | Android | iOS | 优先级 | 备注 |
-|---|------|:---:|:---:|:---:|:---:|------|
-| 1 | 网格拼贴合并 | ✅ `grid_merge.py` | ✅ `GridMerger.kt` | ✅ `GridMerger.swift` | — | 多视频均匀网格布局 |
-| 2 | 画中画合并 | ✅ `collage_merge.py` | ✅ `CollageMerger.kt` | ✅ `CollageMerger.swift` | — | 一主多副布局 + 人脸裁剪(Python) |
-| 3 | 照片墙合并 | ✅ `photo_wall_merge.py` | ✅ `PhotoWallMerger.kt` | ✅ `PhotoWallMerger.swift` | — | Treemap 布局 + 白边框 + 阴影 |
-| 4 | 视频快进/加速 | ✅ `speed_up_video.py` | ❌ | ❌ | — | setpts + atempo 链式 |
-| 5 | 抖音尾部 Logo 检测截断 | ✅ (内置于三个合并脚本) | 🔧 接口保留未调用 | 🔧 接口保留未调用 | — | freezedetect 滤镜 |
-| 6 | 人脸检测智能裁剪 | ✅ (内置于 collage/wall) | ❌ 使用正中裁剪 | ❌ 使用正中裁剪 | — | OpenCV Haar 级联 |
+> **工作流**：Python 脚本验证 → Android/iOS App 移植
+> 本文件是「功能级」的真实状态对照表；版本规划见 `ROADMAP.md`。
+> **状态**：✅ 已接入 UI 全链路 · 🟡 引擎具备但缺 UI 入口 · ❌ 未实现
+> 最近核对：2026-08-27（基于代码逐项盘点）
 
 ---
 
-## 二、基础剪辑（单视频操作）
+## 一、三大合并模块（首页独立流程）
 
-| # | 功能 | Python 脚本 | Android | iOS | 优先级 | 备注 |
-|---|------|:---:|:---:|:---:|:---:|------|
-| 7 | **视频时间段裁剪** | ✅ `trim_video.py` | ✅ `FilterBuilder.kt` | ❌ | **P0** | trim 滤镜 + 边界检查 |
-| 8 | **画面空间裁剪** | ✅ `crop_video.py` | ✅ `FilterBuilder.kt` | ❌ | **P0** | scale cover + crop |
-| 9 | **视频旋转/翻转** | ✅ `rotate_video.py` | ✅ `FilterBuilder.kt` + 剪辑面板 UI | ❌ | **P0** | transpose/hflip/vflip |
-| 10 | **视频缩放/改分辨率** | ✅ `scale_video.py` | ✅ `FilterBuilder.kt` | ❌ | **P1** | scale + 16 对齐（mediacodec 要求） |
-| 11 | **视频倒放** | ✅ `reverse_video.py` | ✅ `FilterBuilder.kt` + 变速面板开关 | ❌ | **P1** | reverse/areverse 滤镜 |
-| 12 | **慢动作** | ✅ `slow_motion.py` | ✅ `FilterBuilder.kt` | ❌ | **P1** | setpts + atempo 链式 |
-| 13 | **画面定格** | ✅ `freeze_frame.py` | ❌ | ❌ | **P2** | tpad 滤镜 |
-| 14 | **格式转换** | ✅ `convert_format.py` | ❌ | ❌ | **P2** | H.264/HEVC/VP9 |
+| # | 功能 | Python 脚本 | Android | iOS | 备注 |
+|---|------|:---:|:---:|:---:|------|
+| 1 | 网格拼贴合并 | ✅ `grid_merge.py` | ✅ | ✅ | 多视频均匀网格布局 |
+| 2 | 画中画合并 | ✅ `collage_merge.py` | ✅ | ✅ | 一主多副布局（人脸裁剪仅 Python 有） |
+| 3 | 照片墙合并 | ✅ `photo_wall_merge.py` | ✅ | ✅ | Treemap 布局 + 白边框 + 阴影 |
+| 4 | 抖音尾部 Logo 检测截断 | ✅ 内置 | 🔧 接口保留未调用 | 🟡 单片段有按钮，批量版无入口 | freezedetect |
 
----
+## 二、编辑器 · 基础剪辑
 
-## 三、视觉特效
+| # | 功能 | 脚本 | Android | iOS | 备注 |
+|---|------|:---:|:---:|:---:|------|
+| 5 | 时间段裁剪（含分割/区间删除） | ✅ trim_video.py | ✅ | ✅ | 入出点滑块 + 播放头分割 |
+| 6 | 旋转 / 翻转 | ✅ rotate_video.py | ✅ | ✅ | transpose/hflip/vflip |
+| 7 | 变速（快进/慢动作 0.25x~4x） | ✅ slow_motion.py + speed_up_video.py | ✅ | ✅ | setpts + atempo 链 |
+| 8 | 倒放 | ✅ reverse_video.py | ✅ | ✅ | reverse + areverse |
+| 9 | 画面空间裁剪（用户自定义区域） | ✅ crop_video.py | ❌ | ❌ | 当前 crop 仅用于画布适配 |
+| 10 | 缩放 / 改分辨率 | ✅ scale_video.py | 🟡 | 🟡 | 引擎按 canvas 输出，画布尺寸硬编码无 UI |
 
-| # | 功能 | Python 脚本 | Android | iOS | 优先级 | 备注 |
-|---|------|:---:|:---:|:---:|:---:|------|
-| 15 | **滤镜调色** | ✅ `color_filter.py` | ✅ `FilterBuilder.kt` | ❌ | **P0** | eq + huesaturation + 7 种预设 |
-| 16 | **文字水印** | ✅ `text_watermark.py` | ✅ `TextWatermarkRenderer.kt` | ❌ | **P0** | Android Canvas 生成 PNG + overlay（替代 drawtext） |
-| 17 | **图片水印** | ✅ `image_watermark.py` | 🔧 待移植 | ❌ | **P1** | overlay + 9 宫格 + 透明度 |
-| 18 | **模糊背景填充** | ✅ `blur_bg.py` | ✅ `FilterBuilder.kt` | ❌ | **P1** | split + avgblur + overlay（替代 boxblur） |
-| 19 | **转场效果** | ✅ `transition.py` | ✅ `FilterBuilder.kt` | ❌ | **P1** | xfade 链式，21 种转场效果 |
-| 20 | **电影黑边** | ✅ `letterbox.py` | ❌ | ❌ | **P2** | 需 scale+color 源实现 |
-| 21 | **胶片颗粒/噪点** | ✅ `film_grain.py` | ❌ | ❌ | **P2** | noise 滤镜 + 复古调色 |
-| 22 | **局部马赛克** | ✅ `mosaic.py` | ❌ | ❌ | **P2** | crop + scale + overlay |
-| 23 | **LUT 调色** | ✅ `lut_color.py` | ❌ | ❌ | **P3** | lut3d 滤镜 |
+## 三、编辑器 · 视觉效果
 
----
+| # | 功能 | 脚本 | Android | iOS | 备注 |
+|---|------|:---:|:---:|:---:|------|
+| 11 | 滤镜调色（8 预设 + 手动三参） | ✅ color_filter.py | ✅ | ✅ | iOS 含 CIFilter 实时预览 |
+| 12 | 文字水印 | ✅ text_watermark.py | ✅ | ✅ | 平台原生渲染 PNG + overlay |
+| 13 | 图片水印 | ✅ image_watermark.py | ✅ | ✅ | 九宫格位置 + 透明度 |
+| 14 | 模糊背景填充 | ✅ blur_bg.py | ✅ | ✅ | split + avgblur + overlay |
+| 15 | 转场 xfade（约 20 种 + 时长调节） | ✅ transition.py | ✅ | ✅ | 音频 acrossfade 同步 |
+| 16 | 去水印（局部模糊/马赛克 + 自动检测） | ✅ mosaic.py | ✅ | ✅ | 区域框选 + 时段生效 + 自动检测 |
+| 17 | 画中画多轨（视频/图片叠加） | — | ✅ | ✅ | 位置/大小/透明度/形状蒙版/描边/时间窗 |
+| 18 | 关键帧动画 v1 | — | ✅ | ✅ | 仅画中画位置 x/y；缩放/透明度待扩 |
+| 19 | 静态贴纸（emoji 库） | — | ✅ | ✅ | 复用画中画叠加；动态特效未做 |
+| 20 | 电影黑边 letterbox | ✅ letterbox.py | ❌ | ❌ | |
+| 21 | 胶片颗粒/噪点 | ✅ film_grain.py | ❌ | ❌ | |
+| 22 | LUT 调色 | ✅ lut_color.py | ❌ | ❌ | 受 FFmpegKit 精简包约束需验证 |
+| 23 | 定格 freeze | ✅ freeze_frame.py | ❌ | ❌ | tpad |
 
-## 四、音频处理
+## 四、编辑器 · 音频
 
-| # | 功能 | Python 脚本 | Android | iOS | 优先级 | 备注 |
-|---|------|:---:|:---:|:---:|:---:|------|
-| 24 | **音频提取** | ✅ `extract_audio.py` | ❌ | ❌ | **P1** | MP3/AAC/WAV 格式输出 |
-| 25 | **音频替换** | ✅ `replace_audio.py` | ❌ | ❌ | **P1** | 外部音频替换视频原音轨 |
-| 26 | **背景音乐混合** | ✅ `mix_bgm.py` | ❌ | ❌ | **P1** | BGM 循环+混合+淡入淡出 |
-| 27 | **音量调整/静音** | ✅ `volume_adjust.py` | ✅ `FilterBuilder.kt` | ❌ | **P1** | volume 滤镜 |
-| 28 | **音频淡入淡出** | ✅ `audio_fade.py` | ✅ `FilterBuilder.kt` + 音频面板 | ❌ | **P2** | afade 滤镜 |
-| 29 | **视频拼接** | ✅ `concat_video.py` | ✅ `FilterBuilder.kt` | ❌ | **P1** | concat 滤镜（同编码重编码） |
-| 30 | **人声分离/降噪** | ❌ | ❌ | ❌ | **P3** | 分离人声/背景音，需要额外模型 |
+| # | 功能 | 脚本 | Android | iOS | 备注 |
+|---|------|:---:|:---:|:---:|------|
+| 24 | 音量调整 | ✅ volume_adjust.py | ✅ | ✅ | 0~3x |
+| 25 | 音频淡入淡出 | ✅ audio_fade.py | ✅ | ✅ | afade |
+| 26 | 变声（音高调整） | — | ✅ | ✅ | asetrate + atempo 保速变调 |
+| 27 | 降噪 | — | ✅ | ✅ | afftdn |
+| 28 | 一键静音开关 | — | 🟡 | 🟡 | 音量滑到 0 可等效；Track.muted 为死代码 |
+| 29 | BGM 混合 | ✅ mix_bgm.py | 🟡 | 🟡 | AUDIO 轨类型已定义但零使用 |
+| 30 | 音频提取（导出音频文件） | ✅ extract_audio.py | ❌ | ❌ | |
+| 31 | 音频替换 | ✅ replace_audio.py | ❌ | ❌ | |
 
----
+## 五、编辑器 · 字幕
 
-## 五、导出与工具
+| # | 功能 | Android | iOS | 备注 |
+|---|------|:---:|:---:|------|
+| 32 | 手动字幕（文本 + 起止时间） | ✅ | ✅ | PNG 按时间窗烧录 |
+| 33 | 语音转字幕 | ✅ Vosk | ✅ SFSpeech | 仅识别主轨第一个片段；单行不换行 |
+| 34 | 字幕样式/花字/文字动画 | ❌ | ❌ | |
 
-| # | 功能 | Python 脚本 | Android | iOS | 优先级 | 备注 |
-|---|------|:---:|:---:|:---:|:---:|------|
-| 31 | **GIF 动图导出** | ✅ `video_to_gif.py` | ❌ | ❌ | **P1** | 调色板优化，3 级质量 |
-| 32 | **视频截图** | ✅ `screenshot.py` | ❌ | ❌ | **P1** | 单帧/多时间点/等间隔截图 |
-| 33 | **视频压缩** | ✅ `compress.py` | ❌ | ❌ | **P2** | crf+分辨率缩放+音频比特率 |
-| 34 | **片头片尾** | ✅ `intro_outro.py` | ❌ | ❌ | **P2** | 图片/视频片头片尾 + concat 拼接 |
-| 35 | **视频防抖** | ✅ `stabilize.py` | ❌ | ❌ | **P3** | vidstab 两步法 + deshake 回退 |
-| 36 | **批量处理** | ✅ `batch_process.py` | ❌ | ❌ | **P3** | 6 种操作批量处理目录视频 |
+## 六、导出与工具
 
----
+| # | 功能 | 脚本 | Android | iOS | 备注 |
+|---|------|:---:|:---:|:---:|------|
+| 35 | 导出成片（mp4/H.264 硬编码 + 存相册 + 历史） | — | ✅ | ✅ | 固定 8M 码率 |
+| 36 | GIF 动图导出 | ✅ video_to_gif.py | ❌ | ❌ | palettegen/paletteuse |
+| 37 | 视频截图 | ✅ screenshot.py | ❌ | ❌ | |
+| 38 | 压缩（可选码率/质量） | ✅ compress.py | ❌ | ❌ | |
+| 39 | 格式转换 | ✅ convert_format.py | ❌ | ❌ | |
+| 40 | 片头片尾 | ✅ intro_outro.py | ❌ | ❌ | |
+| 41 | 视频防抖 | ✅ stabilize.py | ❌ | ❌ | vidstab 两步法 |
+| 42 | 批量处理 | ✅ batch_process.py | ❌ | ❌ | 跨项目批量套用+导出 |
+| 43 | 人声分离 | ❌ | ❌ | ❌ | 需额外模型 |
 
-## 六、实施路线图
+## 七、通用基建（双端均已有）
 
-### 阶段一：P0 核心功能（脚本先行） ✅ 全部完成
+草稿自动保存/恢复（导出成功自动清除 ✅）、项目历史记录 + 相册回看、FFmpegRunner 进度解析、画布/素材持久化管理。
 
-目标：覆盖最高频的单视频剪辑需求。
-
-| 序号 | 功能 | 脚本文件名 | 核心 ffmpeg 技术 | 状态 | App 移植难度 |
-|:---:|------|------|------|:---:|:---:|
-| 7 | 视频时间段裁剪 | `trim_video.py` | `ss` + `t` / `trim` 滤镜 | ✅ 已验证 | ⭐ |
-| 8 | 画面空间裁剪 | `crop_video.py` | `crop=w:h:x:y` | ✅ 已验证 | ⭐ |
-| 9 | 视频旋转/翻转 | `rotate_video.py` | `transpose` / `hflip` / `vflip` | ✅ 已验证 | ⭐ |
-| 15 | 滤镜调色 | `color_filter.py` | `eq` / `hue` | ✅ 已验证 | ⭐⭐ |
-| 16 | 文字水印 | `text_watermark.py` | Pillow PNG + `overlay` | ✅ 已验证 | ⭐⭐ |
-
-### 阶段二：P1 高优先级功能 ✅ 脚本全部完成
-
-| 序号 | 功能 | 脚本文件名 | 核心 ffmpeg 技术 | 状态 | App 移植难度 |
-|:---:|------|------|------|:---:|:---:|
-| 4→App | 快进移植到 App | — | setpts + atempo（已有脚本） | ❌ 待移植 | ⭐⭐ |
-| 10 | 视频缩放 | `scale_video.py` | `scale` | ✅ 已验证 | ⭐ |
-| 11 | 视频倒放 | `reverse_video.py` | `reverse` | ✅ 已验证 | ⭐⭐ |
-| 12 | 慢动作 | `slow_motion.py` | `setpts=PTS*speed` | ✅ 已验证 | ⭐ |
-| 17 | 图片水印 | `image_watermark.py` | `overlay` | ✅ 已验证 | ⭐⭐ |
-| 18 | 模糊背景 | `blur_bg.py` | `boxblur` + `overlay` | ✅ 已验证 | ⭐⭐⭐ |
-| 19 | 转场效果 | `transition.py` | `xfade` | ✅ 已验证 | ⭐⭐⭐ |
-| 24 | 音频提取 | `extract_audio.py` | `-vn -c:a copy` | ✅ 已验证 | ⭐ |
-| 25 | 音频替换 | `replace_audio.py` | `-i audio -map 0:v -map 1:a` | ✅ 已验证 | ⭐ |
-| 26 | 背景音乐混合 | `mix_bgm.py` | `amix` / `volume` | ✅ 已验证 | ⭐⭐ |
-| 27 | 音量调整/静音 | `volume_adjust.py` | `volume` 滤镜 | ✅ 已验证 | ⭐ |
-| 29 | 视频拼接 | `concat_video.py` | `concat` demuxer / filter | ✅ 已验证 | ⭐⭐ |
-| 31 | GIF 导出 | `video_to_gif.py` | `fps` + `palettegen` + `paletteuse` | ✅ 已验证 | ⭐⭐ |
-| 32 | 视频截图 | `screenshot.py` | `-frames:v 1` / `fps` | ✅ 已验证 | ⭐ |
-
-### 阶段三：P2/P3 增强 ✅ 全部完成
-
-| 序号 | 功能 | 脚本文件名 | 核心 ffmpeg 技术 | 状态 | App 移植难度 |
-|:---:|------|------|------|:---:|:---:|
-| 13 | 画面定格 | `freeze_frame.py` | `tpad` stop_mode=clone | ✅ 已验证 | ⭐⭐ |
-| 14 | 格式转换 | `convert_format.py` | `-c:v` / `-c:a` | ✅ 已验证 | ⭐ |
-| 20 | 电影黑边 | `letterbox.py` | `pad` + 圆角蒙版 | ✅ 已验证 | ⭐ |
-| 21 | 胶片颗粒 | `film_grain.py` | `noise` 滤镜 | ✅ 已验证 | ⭐⭐ |
-| 22 | 局部马赛克 | `mosaic.py` | `crop` + `scale` + `overlay` | ✅ 已验证 | ⭐⭐⭐ |
-| 23 | LUT 调色 | `lut_color.py` | `lut3d` 滤镜 | ✅ 已验证 | ⭐⭐ |
-| 28 | 音频淡入淡出 | `audio_fade.py` | `afade` 滤镜 | ✅ 已验证 | ⭐ |
-| 33 | 视频压缩 | `compress.py` | `-crf` / `scale` / `-b:a` | ✅ 已验证 | ⭐ |
-| 34 | 片头片尾 | `intro_outro.py` | `concat` + `loop` + `overlay` | ✅ 已验证 | ⭐⭐⭐ |
-| 35 | 视频防抖 | `stabilize.py` | `vidstab` / `deshake` 回退 | ✅ 已验证 | ⭐⭐⭐⭐ |
-| 36 | 批量处理 | `batch_process.py` | 调度层（6 种操作） | ✅ 已验证 | ⭐⭐ |
-
----
-
-## 七、App 架构规划
-
-现有 App 以「多视频合并」为核心。新增单视频剪辑功能后，建议按如下架构演进：
-
-```
-VideoMerger App
-├── 合并模块（现有）
-│   ├── GridMerger      — 网格拼贴
-│   ├── CollageMerger   — 画中画
-│   └── PhotoWallMerger — 照片墙
-│
-├── 剪辑模块（新增）
-│   ├── TrimTool         — 时间段裁剪
-│   ├── CropTool         — 画面空间裁剪
-│   ├── RotateTool       — 旋转/翻转
-│   ├── ScaleTool        — 缩放/改分辨率
-│   ├── ReverseTool      — 倒放
-│   ├── SpeedTool        — 调速（快进+慢动作）
-│   ├── FilterTool       — 滤镜调色
-│   ├── TextWatermarkTool— 文字水印
-│   ├── ImageOverlayTool — 图片水印
-│   ├── BlurBgTool       — 模糊背景
-│   ├── TransitionTool   — 转场效果
-│   └── ...
-│
-├── 音频模块（新增）
-│   ├── AudioExtractTool — 音频提取
-│   ├── AudioReplaceTool — 音频替换
-│   ├── MixBgmTool       — 背景音乐混合
-│   ├── VolumeTool       — 音量调整
-│   └── ...
-│
-└── 导出模块（新增）
-    ├── GifExportTool   — GIF 导出
-    ├── ScreenshotTool  — 视频截图
-    ├── CompressTool    — 压缩
-    └── ...
-```
-
-### 共享基础设施
-
-| 组件 | 说明 | 现有基础 |
-|------|------|------|
-| `FFmpegRunner` | ffmpeg 异步执行 + 进度回调 | ✅ 已有 |
-| `MediaUtils` | 视频元数据探测 / 文件管理 | ✅ 已有 |
-| `VideoPlayer` | 内联 + 全屏播放器 | ✅ 已有 |
-| `VideoHistoryStore` | 本地历史记录 | ✅ 已有 |
-| `FilterBuilder` | ffmpeg 滤镜链构建器 | ✅ 已建 |
-| `TextWatermarkRenderer` | Android Canvas 生成文字 PNG | ✅ 已建 |
-| `ExportEngine` | 导出引擎 + 相册保存 | ✅ 已建 |
-| `PreviewProvider` | 实时预览缩略图 | ❌ 待建（当前 ExoPlayer 原始预览） |
-
----
-
-## 八、脚本开发规范
-
-每个 Python 脚本遵循以下规范，确保后续可平滑移植到 App：
-
-1. **统一入口**：`python3 xxx.py -i input.mp4 -o output.mp4`
-2. **参数化**：所有可调参数通过 argparse 暴露
-3. **元数据探测**：用 ffprobe 获取时长/分辨率/音频
-4. **ffmpeg 构建**：filter_complex 逻辑清晰、可读
-5. **进度输出**：stderr 解析 ffmpeg progress（App 端同样解析）
-6. **错误处理**：check=True + try/except 友好提示
-7. **文件命名**：`output_xxx.mp4`，避免覆盖原文件
+> Python 根目录另有全部脚本的独立说明；App 端移植时以各脚本 ffmpeg 参数为参考。
