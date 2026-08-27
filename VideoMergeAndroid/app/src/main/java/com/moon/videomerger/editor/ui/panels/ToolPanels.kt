@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -1250,6 +1251,163 @@ fun TransitionPanel(
                 color = Color(0xFF888888), fontSize = 11.sp,
                 modifier = Modifier.padding(start = 16.dp))
         }
+    }
+}
+
+// ═══════════════════════════════════════
+//  画布面板（比例 + 清晰度，v1.1）
+// ═══════════════════════════════════════
+
+/** 16 对齐（h264_mediacodec 宏块对齐要求） */
+private fun align16(v: Int) = ((v + 15) / 16) * 16
+
+/**
+ * 按比例 + 短边基准计算画布尺寸（16 对齐）。
+ * 「720P/1080P」指短边；横屏即高为基准，竖屏即宽为基准。
+ */
+internal fun canvasDims(ratioW: Int, ratioH: Int, shortEdge: Int): Pair<Int, Int> =
+    if (ratioW >= ratioH) {
+        align16(shortEdge) to align16(shortEdge * ratioW / ratioH)
+    } else {
+        align16(shortEdge * ratioW / ratioH) to align16(shortEdge)
+    }
+
+@Composable
+fun CanvasPanel(
+    project: com.moon.videomerger.editor.data.EditorProject,
+    onSetCanvas: (Int, Int) -> Unit,
+    onEditStart: () -> Unit,
+    onClose: () -> Unit
+) {
+    data class RatioOpt(val label: String, val w: Int, val h: Int)
+    data class QualityOpt(val label: String, val shortEdge: Int)
+
+    val ratios = listOf(RatioOpt("9:16", 9, 16), RatioOpt("1:1", 1, 1), RatioOpt("16:9", 16, 9))
+    val qualities = listOf(QualityOpt("720P", 720), QualityOpt("1080P", 1088), QualityOpt("2K", 1440))
+
+    val currentW = project.canvasWidth
+    val currentH = project.canvasHeight
+
+    // 反推当前选中的比例与清晰度；对不上（自定义/遗留值）时取最接近档位
+    val matched = qualities.firstOrNull { q ->
+        ratios.any { r -> canvasDims(r.w, r.h, q.shortEdge) == currentW to currentH }
+    }
+    val curShort = matched?.shortEdge
+        ?: qualities.minByOrNull { kotlin.math.abs(it.shortEdge - minOf(currentW, currentH)) }?.shortEdge
+        ?: 1088
+    val curRatioLabel = ratios.firstOrNull { canvasDims(it.w, it.h, curShort) == currentW to currentH }?.label
+        ?: ratios.firstOrNull { it.label == "9:16" }?.label ?: "9:16"
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF1A1A1A))
+            .verticalScroll(rememberScrollState())
+    ) {
+        PanelHeader("画布", onClose)
+
+        Text(
+            "比例",
+            color = Color(0xFF888888),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        Spacer(Modifier.height(8.dp))
+
+        // ── 比例卡片（带形状预览）──
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ratios.forEach { r ->
+                val dims = canvasDims(r.w, r.h, curShort)
+                val selected = r.label == curRatioLabel &&
+                    dims == currentW to currentH
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (selected) Color(0xFF123A5C) else Color(0xFF2A2A2A))
+                        .clickable {
+                            onEditStart()
+                            onSetCanvas(dims.first, dims.second)
+                        }
+                        .padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // 形状预览：在 56x56dp 区域内按比例缩放
+                    val maxSide = 52.dp
+                    val pw = if (r.h >= r.w) maxSide * r.w / r.h else maxSide
+                    val ph = if (r.h >= r.w) maxSide else maxSide * r.h / r.w
+                    Box(
+                        modifier = Modifier
+                            .height(56.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(pw)
+                                .height(ph)
+                                .border(
+                                    if (selected) 2.dp else 1.dp,
+                                    if (selected) Color(0xFF2196F3) else Color(0xFF888888),
+                                    RoundedCornerShape(3.dp)
+                                )
+                                .background(Color(0xFF111111))
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        r.label,
+                        color = if (selected) Color(0xFF2196F3) else Color.White,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "清晰度",
+            color = Color(0xFF888888),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        Spacer(Modifier.height(8.dp))
+
+        // ── 清晰度 chips ──
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            qualities.forEach { q ->
+                val r = ratios.firstOrNull { it.label == curRatioLabel } ?: ratios.first()
+                val dims = canvasDims(r.w, r.h, q.shortEdge)
+                FilterChip(
+                    selected = matched?.shortEdge == q.shortEdge && dims == currentW to currentH,
+                    onClick = {
+                        onEditStart()
+                        onSetCanvas(dims.first, dims.second)
+                    },
+                    label = { Text(q.label) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFF2196F3),
+                        selectedLabelColor = Color.White
+                    )
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "当前画布：${currentW}×${currentH}（预览以导出为准）",
+            color = Color(0xFF666666),
+            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        Spacer(Modifier.height(12.dp))
     }
 }
 

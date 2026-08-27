@@ -312,6 +312,21 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
+     * ★ 设置项目画布尺寸（v1.1 画布面板）。
+     * 宽高需为 16 的倍数（h264_mediacodec 硬编码 macroblock 对齐），面板侧已对齐；此处再兜底一次。
+     */
+    fun setCanvasSize(width: Int, height: Int) {
+        val w = ((width + 15) / 16) * 16
+        val h = ((height + 15) / 16) * 16
+        val p = _uiState.value.project
+        if (p.canvasWidth == w && p.canvasHeight == h) return
+        pushUndo()
+        _uiState.value = _uiState.value.copy(
+            project = p.copy(canvasWidth = w, canvasHeight = h, updatedAt = System.currentTimeMillis())
+        )
+    }
+
+    /**
      * 恢复草稿 —— 首页「继续编辑」入口调用。
      * 校验素材文件仍存在，剔除丢失的片段，避免导出阶段崩溃。
      */
