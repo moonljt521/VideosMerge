@@ -3,6 +3,7 @@ package com.moon.videomerger
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -41,6 +42,15 @@ fun AppNavigation() {
     var editorSessionId by remember { mutableStateOf(0) }
     // ★ 进入编辑器的两种模式：从选中视频新建 / 恢复已有草稿
     var resumeDraft by remember { mutableStateOf(false) }
+
+    // ★ 统一返回体系：所有非首页页面，系统返回/手势返回默认回首页。
+    //   各页面内部状态（全屏播放、历史内嵌播放等）自己注册的 BackHandler
+    //   组合顺序更靠后、优先级更高，会先于这里触发，不受影响；
+    //   新增页面无需自己注册 BackHandler，忘记写也不会退 App。
+    BackHandler(enabled = screen != Screen.Home) {
+        if (screen is Screen.Merge) selectedUris = emptyList()
+        screen = Screen.Home
+    }
 
     when (val s = screen) {
         is Screen.Home -> {
