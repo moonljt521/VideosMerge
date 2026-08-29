@@ -2,99 +2,65 @@
 
 # VideoMerger · 影剪 for iOS
 
-**iOS 端原生实现,与 [Android 端](../VideoMergeAndroid) 功能 1:1 对齐**
-
 **Native iOS implementation, feature-for-feature aligned with the [Android app](../VideoMergeAndroid)**
 
 [![iOS](https://img.shields.io/badge/iOS-16%2B-lightgrey?logo=ios)]( "")
 [![Swift](https://img.shields.io/badge/Swift-SwiftUI-orange?logo=swift)]( "")
 
+**English** · [简体中文](README.zh-CN.md)
+
 </div>
 
 ---
 
-## 简体中文
+## Features
 
-### 功能
+### 🎬 Editor
 
-**🎬 影剪编辑器**
+A CapCut-style mobile editor:
 
-- 时间轴剪辑(裁剪/分割/变速/旋转翻转)、滤镜调色实时预览、LUT
-- 画中画(多轨 + 关键帧动画)、贴纸、图片/文字水印、去水印检测与框选遮挡
-- 字幕(手动 + Vosk 离线语音转写)、音频变声/降噪、转场实时预览
-- 草稿自动保存/恢复,导出成功自动清除
+- Timeline editing: trim, split, speed (0.25x–4x), rotate/flip
+- Filters & color grading with live preview, LUT support
+- Picture-in-picture (multi-track + position keyframes), stickers, image & text watermarks
+- Watermark auto-detection + manual box masking
+- Subtitles: manual track + offline speech-to-text via Vosk (word-level timestamps, SRT burn-in)
+- Audio pitch shifting (0.5x–2x) & noise reduction (afftdn)
+- Live-previewed transitions, auto-saved drafts (cleared after successful export)
 
-**🧩 视频合并**
+### 🧩 Video Merging
 
-- 网格拼贴 / 画中画(一主多副)/ 照片墙(错落 + 边框阴影)
-- 抖音尾部静止 logo 自动截断(`freezedetect`)
-- 画布预设 1920×1080 / 1080×1920 / 1080×1080 / 4K,`libx264` 软编
+- Three layouts: **grid** / **collage** (main + subs) / **photo wall** (scattered cards with borders & shadows)
+- Auto truncation of Douyin's trailing frozen-logo segment (`freezedetect`)
+- Canvas presets 1920×1080 / 1080×1920 / 1080×1080 / 4K, `libx264` software encoding
 
-**💧 抖音去水印**
+### 💧 Douyin Watermark-free Parsing
 
-- 粘贴分享文案 → 解析无水印视频 → 预览 → 保存相册
-- 与 Android 完全同链路:短链 → 视频 ID → 移动端 feed 接口 → 多候选无水印地址下载
-- 详见 [`Douyin/DouyinParser.swift`](VideoMerger/Douyin/DouyinParser.swift) 头注释
+Paste a share text → parse the watermark-free video → preview → save to Photos.
 
-### 项目结构
+Identical chain to Android: short link → video ID → mobile feed API → multi-candidate watermark-free URLs. See the header comment in [`Douyin/DouyinParser.swift`](VideoMerger/Douyin/DouyinParser.swift) for details.
+
+## Project Layout
 
 ```
 VideoMergeIOS/
-├── Podfile                          # CocoaPods(ffmpeg-kit-ios-full-gpl)
-├── VideoMerger.xcworkspace          # 用 Xcode 打开这个
+├── Podfile                          # CocoaPods (ffmpeg-kit-ios-full-gpl)
+├── VideoMerger.xcworkspace          # open this in Xcode
 └── VideoMerger/
-    ├── VideoMergerApp.swift         # 入口 + FFmpegKit/音频会话初始化
-    ├── Home/                        # 首页(新建项目/草稿/历史)※ 位于 UI/HomeView.swift
-    ├── Editor/                      # 影剪编辑器
-    │   ├── EditorViewModel.swift    #   状态机(+Features 扩展)
-    │   ├── Engine/                  #   导出/滤镜/贴纸/画中画蒙版/水印检测/语音识别
-    │   ├── Data/DraftStore.swift    #   草稿持久化
-    │   └── UI/                      #   编辑器界面/预览/时间轴/面板
-    ├── Douyin/                      # 抖音去水印(Parser/ViewModel/View)
-    ├── Merger/                      # 三种合并算法 + MergeEngine
-    ├── Models/                      # 合并类型/元数据/历史条目
-    ├── UI/                          # 合并界面/播放器/历史/选片器
+    ├── VideoMergerApp.swift         # entry + FFmpegKit/audio-session init
+    ├── Editor/                      # the editor
+    │   ├── EditorViewModel.swift    #   state machine (+Features extensions)
+    │   ├── Engine/                  #   export / filters / stickers / PiP mask /
+    │   │                            #   watermark detection / speech recognition
+    │   ├── Data/DraftStore.swift    #   draft persistence
+    │   └── UI/                      #   editor screen / preview / timeline / panels
+    ├── Douyin/                      # Douyin parsing (Parser / ViewModel / View)
+    ├── Merger/                      # three merge algorithms + MergeEngine
+    ├── Models/                      # merge types / metadata / history entry
+    ├── UI/                          # merge screen / players / history / picker (incl. HomeView)
     └── Util/                        # MediaUtils / VideoHistoryStore
 ```
 
-### 编译
-
-前提:Xcode 15+(macOS 13+)、CocoaPods、iOS 16+ 真机或模拟器。
-
-```bash
-cd VideoMergeIOS
-pod install                  # 首次下载 ffmpeg-kit full-gpl 约 100~200MB
-open VideoMerger.xcworkspace # 注意是 .xcworkspace 不是 .xcodeproj
-```
-
-选择真机/模拟器,Run(▶)。首次运行请求相册权限。
-
-### 技术要点
-
-| 组件 | 说明 |
-|------|------|
-| Swift + SwiftUI | 声明式 UI,`@MainActor` ObservableObject 状态管理 |
-| FFmpegKit full-gpl | `ffmpeg-kit-ios-full-gpl`(社区预编译,含 x264/aac) |
-| AVFoundation | 预览播放、缩略图;Photos 框架保存相册 |
-| PHPicker + PHAssetResource | 多选视频流式写盘,避免大视频撑爆内存 |
-| Vosk | 离线中文语音识别(词级时间戳字幕) |
-
-### 注意事项
-
-1. **体积**:ffmpeg-kit full-gpl 约 80~120MB,是主要体积来源
-2. **编码**:`libx264 -preset medium -crf 20` 软编(与 Python 脚本一致),处理速度比 Android 硬编慢
-3. **相册权限**:`NSPhotoLibraryUsageDescription` / `NSPhotoLibraryAddUsageDescription` 已声明
-4. **沙盒**:草稿与历史存在 App Documents,卸载即丢失
-
-## English
-
-### Features
-
-- **🎬 Editor** — CapCut-style timeline (trim/split/speed/rotate/flip), live filter & LUT preview, picture-in-picture with keyframes, stickers, image/text watermarks, watermark detection & box masking, manual subtitles + offline Vosk speech-to-text (word-level, SRT burn-in), audio pitch shifting & noise reduction, live-previewed transitions, auto-saved drafts
-- **🧩 Merging** — grid / collage / photo-wall layouts, Douyin trailing-logo auto-truncation (`freezedetect`), canvas presets up to 4K, `libx264` encoding
-- **💧 Douyin parsing** — paste a share text, parse the watermark-free video, preview, save to Photos. Identical chain to Android: short link → video ID → mobile feed API → multi-candidate watermark-free URLs (see [`Douyin/DouyinParser.swift`](VideoMerger/Douyin/DouyinParser.swift))
-
-### Build
+## Build
 
 Requires Xcode 15+ (macOS 13+), CocoaPods, iOS 16+ device or simulator:
 
@@ -104,7 +70,9 @@ pod install                  # downloads ~100–200MB ffmpeg-kit full-gpl on fir
 open VideoMerger.xcworkspace # note: .xcworkspace, not .xcodeproj
 ```
 
-### Technical Notes
+Pick a device or simulator and hit Run (▶). The app requests photo-library access on first launch.
+
+## Technical Notes
 
 | Component | Notes |
 |-----------|-------|
@@ -114,8 +82,13 @@ open VideoMerger.xcworkspace # note: .xcworkspace, not .xcodeproj
 | PHPicker + PHAssetResource | streaming multi-select copy to temp files |
 | Vosk | offline Chinese speech recognition (word-level timestamps) |
 
-**Notes:** ffmpeg-kit adds ~80–120MB (main size driver); `libx264` software encoding is slower than Android's hardware path; drafts/history live in the app sandbox.
+**Notes:**
+
+1. **Size**: ffmpeg-kit full-gpl adds ~80–120MB — the main size driver
+2. **Encoding**: `libx264 -preset medium -crf 20` software encoding (same as the Python scripts), slower than Android's hardware path
+3. **Permissions**: `NSPhotoLibraryUsageDescription` / `NSPhotoLibraryAddUsageDescription` declared in Info.plist
+4. **Sandbox**: drafts and history live in the app's Documents directory and are lost on uninstall
 
 ---
 
-> 项目总览 Project overview: [根 README](../README.md) · [FEATURES.md](../FEATURES.md) · [ROADMAP.md](../ROADMAP.md)
+> Project overview: [root README](../README.md) · [FEATURES.md](../FEATURES.md) · [ROADMAP.md](../ROADMAP.md)
