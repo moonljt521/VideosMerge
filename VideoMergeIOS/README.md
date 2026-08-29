@@ -1,130 +1,121 @@
-# VideoMerger — iOS 视频合并 App
+<div align="center">
 
-将 Mac 上的 Python 视频合并脚本（`grid_merge.py`、`collage_merge.py`、`photo_wall_merge.py`）移植为原生 iOS 应用，对应 Android 端的 [VideoMergeAndroid](../VideoMergeAndroid)。
+# VideoMerger · 影剪 for iOS
 
-## 功能
+**iOS 端原生实现,与 [Android 端](../VideoMergeAndroid) 功能 1:1 对齐**
 
-- 从相册选择多个视频（PhotosUI/PHPicker）
-- 三种合并模式：
-  - **网格拼贴** — 均匀网格布局（对应 `grid_merge.py`）
-  - **画中画** — 一主多副布局（对应 `collage_merge.py`）
-  - **照片墙** — 大小错落 + 白边框 + 阴影（对应 `photo_wall_merge.py`）
-- 可选画布尺寸（1920×1080 / 1080×1920 / 1080×1080 / 4K）
-- 画中画模式可选主窗口位置（左/右/上/下）和占比
-- 实时进度显示 + FFmpeg 滚动日志
-- 合并完成后预览 + 长按/按钮保存到相册
-- 历史记录页（保存在 App Sandbox 中）
+**Native iOS implementation, feature-for-feature aligned with the [Android app](../VideoMergeAndroid)**
 
-## 技术栈
+[![iOS](https://img.shields.io/badge/iOS-16%2B-lightgrey?logo=ios)]( "")
+[![Swift](https://img.shields.io/badge/Swift-SwiftUI-orange?logo=swift)]( "")
 
-| 组件 | 说明 |
-|------|------|
-| **Swift** | 100% Swift |
-| **SwiftUI** | 声明式 UI |
-| **FFmpegKit** | `ffmpeg-kit-ios-full-gpl:6.0`（CocoaPods），含 ffmpeg + ffprobe + x264/aac |
-| **PhotosUI** | PHPicker 多选视频 |
-| **Photos** | 保存视频到相册 |
-| **AVKit / AVFoundation** | 视频预览、缩略图生成 |
+</div>
 
-## 项目结构
+---
+
+## 简体中文
+
+### 功能
+
+**🎬 影剪编辑器**
+
+- 时间轴剪辑(裁剪/分割/变速/旋转翻转)、滤镜调色实时预览、LUT
+- 画中画(多轨 + 关键帧动画)、贴纸、图片/文字水印、去水印检测与框选遮挡
+- 字幕(手动 + Vosk 离线语音转写)、音频变声/降噪、转场实时预览
+- 草稿自动保存/恢复,导出成功自动清除
+
+**🧩 视频合并**
+
+- 网格拼贴 / 画中画(一主多副)/ 照片墙(错落 + 边框阴影)
+- 抖音尾部静止 logo 自动截断(`freezedetect`)
+- 画布预设 1920×1080 / 1080×1920 / 1080×1080 / 4K,`libx264` 软编
+
+**💧 抖音去水印**
+
+- 粘贴分享文案 → 解析无水印视频 → 预览 → 保存相册
+- 与 Android 完全同链路:短链 → 视频 ID → 移动端 feed 接口 → 多候选无水印地址下载
+- 详见 [`Douyin/DouyinParser.swift`](VideoMerger/Douyin/DouyinParser.swift) 头注释
+
+### 项目结构
 
 ```
 VideoMergeIOS/
-├── Podfile                        # CocoaPods 依赖配置
-├── VideoMerger.xcodeproj/
+├── Podfile                          # CocoaPods(ffmpeg-kit-ios-full-gpl)
+├── VideoMerger.xcworkspace          # 用 Xcode 打开这个
 └── VideoMerger/
-    ├── VideoMergerApp.swift       # App 入口 + FFmpegKit 初始化
-    ├── Info.plist
-    ├── Assets.xcassets/
-    ├── Models/
-    │   ├── MergeTypes.swift       # 合并类型 & 选项 & 数值辅助
-    │   ├── VideoMeta.swift
-    │   ├── MergeResult.swift
-    │   └── HistoryEntry.swift
-    ├── Merger/
-    │   ├── FFmpegRunner.swift     # FFmpegKit 异步封装
-    │   ├── GridMerger.swift       # 网格合并算法 → ffmpeg 命令
-    │   ├── CollageMerger.swift    # 画中画合并算法 → ffmpeg 命令
-    │   ├── PhotoWallMerger.swift  # 照片墙合并算法 → ffmpeg 命令
-    │   └── MergeEngine.swift      # 合并引擎（协调完整流程）
-    ├── Util/
-    │   ├── MediaUtils.swift       # 视频复制、FFprobe 元数据、相册保存、logo 检测
-    │   └── VideoHistoryStore.swift
-    └── UI/
-        ├── MergeScreen.swift      # 主界面
-        ├── MergeViewModel.swift   # ViewModel + UI 状态
-        ├── VideoPlayerView.swift  # 内联 + 全屏播放器
-        └── HistoryView.swift      # 历史记录页
+    ├── VideoMergerApp.swift         # 入口 + FFmpegKit/音频会话初始化
+    ├── Home/                        # 首页(新建项目/草稿/历史)※ 位于 UI/HomeView.swift
+    ├── Editor/                      # 影剪编辑器
+    │   ├── EditorViewModel.swift    #   状态机(+Features 扩展)
+    │   ├── Engine/                  #   导出/滤镜/贴纸/画中画蒙版/水印检测/语音识别
+    │   ├── Data/DraftStore.swift    #   草稿持久化
+    │   └── UI/                      #   编辑器界面/预览/时间轴/面板
+    ├── Douyin/                      # 抖音去水印(Parser/ViewModel/View)
+    ├── Merger/                      # 三种合并算法 + MergeEngine
+    ├── Models/                      # 合并类型/元数据/历史条目
+    ├── UI/                          # 合并界面/播放器/历史/选片器
+    └── Util/                        # MediaUtils / VideoHistoryStore
 ```
 
-## 如何编译
+### 编译
 
-### 前提条件
+前提:Xcode 15+(macOS 13+)、CocoaPods、iOS 16+ 真机或模拟器。
 
-- macOS 13+
-- Xcode 15+（已安装 Swift 5.9+）
-- CocoaPods（`sudo gem install cocoapods`）
-- iOS 15+ 真机或模拟器（FFmpegKit 在模拟器上也能跑）
-
-### 步骤
-
-1. 用终端进入 `VideoMergeIOS/` 目录
-2. 安装 FFmpegKit 依赖：
-   ```bash
-   pod install
-   ```
-   首次会下载约 100~200MB 的 ffmpeg-kit-ios-full-gpl 二进制。
-3. 用 Xcode 打开 **`VideoMerger.xcworkspace`**（注意是 `.xcworkspace` 不是 `.xcodeproj`）
-4. 选择真机或模拟器，点击 Run（▶）编译运行
-5. 首次运行时 App 会请求相册访问权限
-
-> **注意**：FFmpegKit `full-gpl` 变体包含完整编解码器（x264、aac 等），App 体积约 80~120MB。  
-> FFmpegKit 在 2025 年初被官方归档，但 CocoaPods CDN 上的发布版本仍然可用。
-
-## 使用流程
-
-```
-打开 App
-  ↓
-点击「从相册选择视频」→ 系统相册多选（PHPicker）
-  ↓
-选择合并模式（网格 / 画中画 / 照片墙）
-  ↓
-可选：调整画布尺寸、主窗口位置等参数
-  ↓
-点击「开始合并」→ 进度条 + FFmpeg 日志实时显示
-  ↓
-完成！点击预览全屏播放 / 长按或点按钮保存到相册
+```bash
+cd VideoMergeIOS
+pod install                  # 首次下载 ffmpeg-kit full-gpl 约 100~200MB
+open VideoMerger.xcworkspace # 注意是 .xcworkspace 不是 .xcodeproj
 ```
 
-## 与 Python 脚本 / Android 项目的对应关系
+选择真机/模拟器,Run(▶)。首次运行请求相册权限。
 
-| Python 脚本 | Android Kotlin 类 | iOS Swift 类 | 差异 |
-|-------------|-------------------|--------------|------|
-| `grid_merge.py` | `GridMerger.kt` | `GridMerger.swift` | 同 Android：移除了 logo 截断检测的 freezedetect 实现（保留接口） |
-| `collage_merge.py` | `CollageMerger.kt` | `CollageMerger.swift` | 同 Android：移除了人脸检测，使用正中裁剪 |
-| `photo_wall_merge.py` | `PhotoWallMerger.kt` | `PhotoWallMerger.swift` | 同 Android：移除了人脸检测，使用偏上裁剪 |
-| `ffmpeg` / `ffprobe` 命令行 | `FFmpegKit` / `FFprobeKit` | `FFmpegKit` / `FFprobeKit` | iOS 同样使用 FFmpegKit |
-| 文件系统读写 | `MediaStore` API | `Photos` framework | iOS 通过 `PHPhotoLibrary` 保存到相册 |
+### 技术要点
 
-### 编码器差异
+| 组件 | 说明 |
+|------|------|
+| Swift + SwiftUI | 声明式 UI,`@MainActor` ObservableObject 状态管理 |
+| FFmpegKit full-gpl | `ffmpeg-kit-ios-full-gpl`(社区预编译,含 x264/aac) |
+| AVFoundation | 预览播放、缩略图;Photos 框架保存相册 |
+| PHPicker + PHAssetResource | 多选视频流式写盘,避免大视频撑爆内存 |
+| Vosk | 离线中文语音识别(词级时间戳字幕) |
 
-- **Android** 使用 `h264_mediacodec`（硬件编码）
-- **iOS** 使用 `libx264 -preset medium -crf 20`（软件编码，与 Python 脚本一致，跨平台兼容性好）
+### 注意事项
 
-## 注意事项
+1. **体积**:ffmpeg-kit full-gpl 约 80~120MB,是主要体积来源
+2. **编码**:`libx264 -preset medium -crf 20` 软编(与 Python 脚本一致),处理速度比 Android 硬编慢
+3. **相册权限**:`NSPhotoLibraryUsageDescription` / `NSPhotoLibraryAddUsageDescription` 已声明
+4. **沙盒**:草稿与历史存在 App Documents,卸载即丢失
 
-1. **App 体积**：FFmpegKit full-gpl 约 80~120MB，是主要体积来源
-2. **处理时间**：取决于视频数量和时长，iPhone 上通常比 Mac 慢 2~5 倍
-3. **内存**：大视频合并可能需要较多内存，建议在 iPhone XR 及以上设备运行
-4. **相册权限**：iOS 必须在 Info.plist 中声明 `NSPhotoLibraryUsageDescription` 和 `NSPhotoLibraryAddUsageDescription`
-5. **沙盒**：历史记录文件保存在 App Documents 目录中，卸载 App 会丢失
+## English
 
-## 后续可选增强
+### Features
 
-- [ ] 集成 Vision 框架的人脸检测（替代 OpenCV Haar 级联）
-- [ ] 添加 logo 尾部截断检测的实际调用（freezedetect 已实现）
-- [ ] 视频预览缩略图显示
-- [ ] 支持自定义输出分辨率
-- [ ] 支持选择编码预设（fast/medium/slow）
-- [ ] 支持横屏 UI
+- **🎬 Editor** — CapCut-style timeline (trim/split/speed/rotate/flip), live filter & LUT preview, picture-in-picture with keyframes, stickers, image/text watermarks, watermark detection & box masking, manual subtitles + offline Vosk speech-to-text (word-level, SRT burn-in), audio pitch shifting & noise reduction, live-previewed transitions, auto-saved drafts
+- **🧩 Merging** — grid / collage / photo-wall layouts, Douyin trailing-logo auto-truncation (`freezedetect`), canvas presets up to 4K, `libx264` encoding
+- **💧 Douyin parsing** — paste a share text, parse the watermark-free video, preview, save to Photos. Identical chain to Android: short link → video ID → mobile feed API → multi-candidate watermark-free URLs (see [`Douyin/DouyinParser.swift`](VideoMerger/Douyin/DouyinParser.swift))
+
+### Build
+
+Requires Xcode 15+ (macOS 13+), CocoaPods, iOS 16+ device or simulator:
+
+```bash
+cd VideoMergeIOS
+pod install                  # downloads ~100–200MB ffmpeg-kit full-gpl on first run
+open VideoMerger.xcworkspace # note: .xcworkspace, not .xcodeproj
+```
+
+### Technical Notes
+
+| Component | Notes |
+|-----------|-------|
+| Swift + SwiftUI | Declarative UI, `@MainActor` ObservableObject state |
+| FFmpegKit full-gpl | community prebuilt `ffmpeg-kit-ios-full-gpl` (x264/aac) |
+| AVFoundation / Photos | playback, thumbnails, album saving |
+| PHPicker + PHAssetResource | streaming multi-select copy to temp files |
+| Vosk | offline Chinese speech recognition (word-level timestamps) |
+
+**Notes:** ffmpeg-kit adds ~80–120MB (main size driver); `libx264` software encoding is slower than Android's hardware path; drafts/history live in the app sandbox.
+
+---
+
+> 项目总览 Project overview: [根 README](../README.md) · [FEATURES.md](../FEATURES.md) · [ROADMAP.md](../ROADMAP.md)
