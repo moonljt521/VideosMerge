@@ -16,6 +16,7 @@ struct HomeView: View {
     @State private var showDraftDialog = false
     @State private var showEditor = false
     @State private var showMerge = false
+    @State private var showDouyin = false
     @State private var mergeInitialURLs: [URL] = []
     @State private var mergeHint: String? = nil
     @State private var editorMode: EditorScreen.Mode = .draft
@@ -33,6 +34,10 @@ struct HomeView: View {
                     homeCard(icon: "square.grid.2x2.fill", iconColor: Color(hex: 0xFF4CAF50),
                              title: "视频合并", subtitle: "宫格 / 主次 / 照片墙") {
                         showMergePicker = true
+                    }
+                    homeCard(icon: "music.note", iconColor: Color(hex: 0xFF26C6DA),
+                             title: "抖音去水印", subtitle: "粘贴分享文案，解析无水印视频并保存") {
+                        showDouyin = true
                     }
                     Spacer()
                 }
@@ -86,6 +91,9 @@ struct HomeView: View {
             }
             .navigationDestination(isPresented: $showMerge) {
                 MergeScreen(initialURLs: mergeInitialURLs)
+            }
+            .navigationDestination(isPresented: $showDouyin) {
+                DouyinView()
             }
         }
         .preferredColorScheme(.dark)

@@ -13,6 +13,9 @@
 		2000000000000000000000EE /* WatermarkDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000EE /* WatermarkDetector.swift */; };
 		2000000000000000000000EF /* SpeechRecognizerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000EF /* SpeechRecognizerService.swift */; };
 		2000000000000000000000F0 /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F0 /* ImagePicker.swift */; };
+		2000000000000000000000F1 /* DouyinParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F1 /* DouyinParser.swift */; };
+		2000000000000000000000F2 /* DouyinViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F2 /* DouyinViewModel.swift */; };
+		2000000000000000000000F3 /* DouyinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F3 /* DouyinView.swift */; };
 		2000000000000000000000E1 /* EditorTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E1 /* EditorTypes.swift */; };
 		2000000000000000000000E2 /* FilterBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E2 /* FilterBuilder.swift */; };
 		2000000000000000000000E3 /* TextWatermarkRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E3 /* TextWatermarkRenderer.swift */; };
@@ -55,6 +58,9 @@
 		1000000000000000000000EE /* WatermarkDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatermarkDetector.swift; sourceTree = "<group>"; };
 		1000000000000000000000EF /* SpeechRecognizerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognizerService.swift; sourceTree = "<group>"; };
 		1000000000000000000000F0 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
+		1000000000000000000000F1 /* DouyinParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinParser.swift; sourceTree = "<group>"; };
+		1000000000000000000000F2 /* DouyinViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinViewModel.swift; sourceTree = "<group>"; };
+		1000000000000000000000F3 /* DouyinView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinView.swift; sourceTree = "<group>"; };
 		1000000000000000000000E1 /* EditorTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTypes.swift; sourceTree = "<group>"; };
 		1000000000000000000000E2 /* FilterBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBuilder.swift; sourceTree = "<group>"; };
 		1000000000000000000000E3 /* TextWatermarkRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextWatermarkRenderer.swift; sourceTree = "<group>"; };
@@ -164,6 +170,16 @@
 			path = UI;
 			sourceTree = "<group>";
 		};
+		3000000000000000000000F4 /* Douyin */ = {
+			isa = PBXGroup;
+			children = (
+				1000000000000000000000F1 /* DouyinParser.swift */,
+				1000000000000000000000F2 /* DouyinViewModel.swift */,
+				1000000000000000000000F3 /* DouyinView.swift */,
+			);
+			path = Douyin;
+			sourceTree = "<group>";
+		};
 
 		16407893A56B80E37668EEED /* Frameworks */ = {
 			isa = PBXGroup;
@@ -198,6 +214,7 @@
 			children = (
 				100000000000000000000001 /* VideoMergerApp.swift */,
 				3000000000000000000000E1 /* Editor */,
+				3000000000000000000000F4 /* Douyin */,
 				300000000000000000000003 /* Models */,
 				300000000000000000000004 /* Merger */,
 				300000000000000000000005 /* Util */,
@@ -402,6 +419,9 @@
 				2000000000000000000000E8 /* PreviewPanel.swift in Sources */,
 				2000000000000000000000E9 /* EditorPanels.swift in Sources */,
 				2000000000000000000000EA /* HomeView.swift in Sources */,
+				2000000000000000000000F1 /* DouyinParser.swift in Sources */,
+				2000000000000000000000F2 /* DouyinViewModel.swift in Sources */,
+				2000000000000000000000F3 /* DouyinView.swift in Sources */,
 				200000000000000000000001 /* VideoMergerApp.swift in Sources */,
 				200000000000000000000002 /* MergeTypes.swift in Sources */,
 				200000000000000000000003 /* VideoMeta.swift in Sources */,
