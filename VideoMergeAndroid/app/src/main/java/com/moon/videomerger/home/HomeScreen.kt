@@ -29,6 +29,7 @@ import com.moon.videomerger.editor.data.DraftStore
 fun HomeScreen(
     onNewProject: (List<Uri>) -> Unit,
     onOpenMerge: (List<Uri>) -> Unit,
+    onOpenDouyin: () -> Unit,
     onOpenHistory: () -> Unit,
     draftInfo: DraftStore.DraftInfo?,
     onResumeDraft: () -> Unit,
@@ -191,6 +192,25 @@ fun HomeScreen(
                     Spacer(Modifier.height(8.dp))
                     Text("视频合并", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     Text("宫格 / 主次 / 照片墙（至少选2个视频）", color = Color(0xFF666666), fontSize = 12.sp)
+                }
+            }
+
+            // ── 抖音去水印按钮 ──
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .height(110.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF1A1A1A))
+                    .clickable { onOpenDouyin() },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.WaterDrop, contentDescription = null, tint = Color(0xFF26C6DA), modifier = Modifier.size(44.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text("抖音去水印", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text("粘贴分享文案，解析无水印视频并保存", color = Color(0xFF666666), fontSize = 12.sp)
                 }
             }
         }
