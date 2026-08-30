@@ -38,9 +38,9 @@ object DouyinParser {
         val playUrls: List<String>
     )
 
-    /** 从分享文案中提取抖音链接（短链优先） */
+    /** 从分享文案中提取抖音链接（短链优先；短码含下划线/连字符，勿漏） */
     fun extractShareUrl(text: String): String? {
-        val short = Regex("https?://v\\.douyin\\.com/[A-Za-z0-9]+/?").find(text)?.value
+        val short = Regex("https?://v\\.douyin\\.com/[A-Za-z0-9_-]+/?").find(text)?.value
         if (short != null) return short
         return Regex("https?://[A-Za-z0-9.-]*douyin\\.com/[A-Za-z0-9._/?=&%#:-]*")
             .find(text)?.value
