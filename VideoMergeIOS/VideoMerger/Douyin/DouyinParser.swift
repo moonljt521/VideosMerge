@@ -52,9 +52,9 @@ enum DouyinParser {
         return try await fetchVideoInfo(videoID: videoID)
     }
 
-    /// 从分享文案中提取抖音链接(短链优先)
+    /// 从分享文案中提取抖音链接(短链优先;短码含下划线/连字符,勿漏)
     static func extractShareURL(from text: String) -> String? {
-        firstMatch("https://v\\.douyin\\.com/[A-Za-z0-9]+/?", in: text)
+        firstMatch("https://v\\.douyin\\.com/[A-Za-z0-9_-]+/?", in: text)
             ?? firstMatch("https?://[A-Za-z0-9.-]*douyin\\.com/[A-Za-z0-9._/?=&%#:-]*", in: text)
     }
 
