@@ -46,10 +46,20 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MergeScreen(
+    initialUris: List<Uri> = emptyList(),
     onBack: () -> Unit = {},
     viewModel: MergeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // ★ 首页“视频合并”入口带入的选片结果:进页即填充,免去二次选择。
+    //   放在早退分支之前——全屏播放/历史页切换时不会离开组合而重复触发;
+    //   仅在列表内容变化时重新执行,不会覆盖用户后续操作。
+    LaunchedEffect(initialUris) {
+        if (initialUris.isNotEmpty()) {
+            viewModel.onVideosSelected(initialUris)
+        }
+    }
 
     // 视频选择器
     val videoPickerLauncher = rememberLauncherForActivityResult(

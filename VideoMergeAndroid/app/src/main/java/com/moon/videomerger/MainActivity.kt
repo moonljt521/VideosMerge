@@ -119,6 +119,7 @@ fun AppNavigation() {
         }
         is Screen.Merge -> {
             MergeScreen(
+                initialUris = selectedUris,
                 onBack = {
                     selectedUris = emptyList()
                     screen = Screen.Home
