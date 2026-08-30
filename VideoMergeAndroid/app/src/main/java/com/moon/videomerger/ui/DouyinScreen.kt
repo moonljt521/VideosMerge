@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -139,6 +140,7 @@ private fun InputSection(
     onPaste: () -> Unit,
     onParse: () -> Unit
 ) {
+    val keyboard = LocalSoftwareKeyboardController.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp)
@@ -176,7 +178,7 @@ private fun InputSection(
                     Text(
                         "9.74 复制打开抖音，看看【...的作品】... https://v.douyin.com/xxxx/",
                         fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color(0xFF666666)
                     )
                 },
                 maxLines = 6,
@@ -194,7 +196,11 @@ private fun InputSection(
                 }
                 Spacer(Modifier.width(12.dp))
                 Button(
-                    onClick = onParse,
+                    onClick = {
+                        // 开始解析即收起软键盘,避免挡住下方进度与结果
+                        keyboard?.hide()
+                        onParse()
+                    },
                     enabled = !isProcessing
                 ) {
                     if (isProcessing) {

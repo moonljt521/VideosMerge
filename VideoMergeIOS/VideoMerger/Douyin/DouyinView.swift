@@ -12,6 +12,7 @@ import UIKit
 struct DouyinView: View {
     @StateObject private var viewModel = DouyinViewModel()
     @State private var showFullscreen = false
+    @FocusState private var inputFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -64,6 +65,7 @@ struct DouyinView: View {
 
             TextEditor(text: $viewModel.uiState.input)
                 .font(.system(size: 13))
+                .focused($inputFocused)
                 .frame(minHeight: 88)
                 .scrollContentBackground(.hidden)
                 .padding(8)
@@ -85,6 +87,8 @@ struct DouyinView: View {
                 .disabled(viewModel.uiState.isProcessing)
 
                 Button {
+                    // 开始解析即收起软键盘,避免挡住下方进度与结果
+                    inputFocused = false
                     viewModel.parseAndDownload()
                 } label: {
                     HStack(spacing: 6) {
