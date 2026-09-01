@@ -21,6 +21,9 @@ struct HomeView: View {
     @State private var mergeHint: String? = nil
     @State private var editorMode: EditorScreen.Mode = .draft
     @State private var pendingURLs: [URL] = []
+    @State private var showHistory = false
+    @State private var historyList: [HistoryEntry] = []
+    @State private var playingHistoryURL: URL? = nil
 
     var body: some View {
         NavigationStack {
@@ -77,7 +80,11 @@ struct HomeView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showMerge = true } label: {
+                    // ★ 历史图标应进历史记录页（此前误跳合并页）
+                    Button {
+                        historyList = VideoHistoryStore.loadHistory()
+                        showHistory = true
+                    } label: {
                         Image(systemName: "clock.arrow.circlepath")
                     }
                 }
@@ -94,6 +101,32 @@ struct HomeView: View {
             }
             .navigationDestination(isPresented: $showDouyin) {
                 DouyinView()
+            }
+            .navigationDestination(isPresented: $showHistory) {
+                HistoryView(
+                    history: historyList,
+                    onItemClick: { entry in playingHistoryURL = entry.fileURL },
+                    onItemDelete: { entry in
+                        VideoHistoryStore.deleteEntry(entry: entry)
+                        historyList = VideoHistoryStore.loadHistory()
+                    },
+                    onBack: { showHistory = false }
+                )
+            }
+            .fullScreenCover(isPresented: Binding(
+                get: { playingHistoryURL != nil },
+                set: { if !$0 { playingHistoryURL = nil } }
+            )) {
+                if let url = playingHistoryURL {
+                    FullscreenVideoPlayer(
+                        videoURL: url,
+                        onSaveClick: {
+                            playingHistoryURL = nil
+                            saveHistoryVideo(url)
+                        },
+                        onDismiss: { playingHistoryURL = nil }
+                    )
+                }
             }
         }
         .preferredColorScheme(.dark)
@@ -150,6 +183,19 @@ struct HomeView: View {
     private func openDraft() {
         editorMode = .draft
         showEditor = true
+    }
+
+    /// 把历史成片保存到相册（对齐 Android HistoryScreen 直接调 MediaUtils.saveToGallery）
+    private func saveHistoryVideo(_ url: URL) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let ts = Int(Date().timeIntervalSince1970 * 1000)
+                try MediaUtils.saveToGallery(fileURL: url, displayName: "影剪_\(ts).mp4")
+                DispatchQueue.main.async { mergeHint = "已保存到相册" }
+            } catch {
+                DispatchQueue.main.async { mergeHint = "保存失败: \(error.localizedDescription)" }
+            }
+        }
     }
 
     private func homeCard(icon: String, iconColor: Color, title: String,

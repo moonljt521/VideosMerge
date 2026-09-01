@@ -345,6 +345,40 @@ enum MediaUtils {
         try? FileManager.default.removeItem(at: thumbnailFileURL)
     }
 
+    /// 清理过期缓存文件（对齐 Android MediaUtils.cleanupStaleCache，进编辑器时调用）：
+    /// - editor_export_*（编辑器导出成片）：超过 24h 删除
+    /// - thumb_* / editor_history_thumb_*（缩略图）：超过 7 天删除
+    /// - merge_inputs/（合并临时输入目录）：超过 7 天删除
+    static func cleanupStaleCache() {
+        let fm = FileManager.default
+        let tmp = fm.temporaryDirectory
+        let day: TimeInterval = 24 * 3600
+        guard let items = try? fm.contentsOfDirectory(
+            at: tmp, includingPropertiesForKeys: [.contentModificationDateKey, .isDirectoryKey]) else { return }
+        let now = Date()
+        for item in items {
+            guard let vals = try? item.resourceValues(forKeys: [.contentModificationDateKey, .isDirectoryKey]),
+                  let mtime = vals.contentModificationDate else { continue }
+            let age = now.timeIntervalSince(mtime)
+            if vals.isDirectory == true {
+                if item.lastPathComponent == "merge_inputs", age > 7 * day {
+                    try? fm.removeItem(at: item)
+                }
+                continue
+            }
+            let name = item.lastPathComponent
+            let stale: Bool
+            if name.hasPrefix("editor_export_") {
+                stale = age > day
+            } else if name.hasPrefix("thumb_") || name.hasPrefix("editor_history_thumb_") {
+                stale = age > 7 * day
+            } else {
+                stale = false
+            }
+            if stale { try? fm.removeItem(at: item) }
+        }
+    }
+
     // MARK: - 私有
 
     private static func guessExtension(url: URL) -> String {

@@ -206,6 +206,27 @@ final class MergeEngine {
         }
     }
 
+    /// 把已存在的视频文件（例如历史记录里的成片）重新保存到系统相册。
+    /// 对应 Android HistoryScreen 直接调 MediaUtils.saveToGallery 的入口。
+    /// 与 saveResult 的区别：不依赖 MergeResult，也不写入历史（它本来就在历史里）。
+    func saveExistingVideoToGallery(url: URL,
+                                    completion: @escaping (Result<Void, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let timestamp = Int(Date().timeIntervalSince1970 * 1000)
+                let displayName = "影剪_\(timestamp).mp4"
+                try MediaUtils.saveToGallery(fileURL: url, displayName: displayName)
+                DispatchQueue.main.async {
+                    completion(.success(()))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
     /// 加载本地历史记录
     func loadHistory() -> [HistoryEntry] {
         VideoHistoryStore.loadHistory()

@@ -143,6 +143,24 @@ final class MergeViewModel: ObservableObject {
         }
     }
 
+    /// 把任意视频（含历史记录里的成片）保存到相册。
+    /// ★ 不能用 saveResult()：那条路径 guard mergeResult != nil，
+    ///   从历史页点开视频时 mergeResult 为 nil，会静默无反应。
+    func saveVideoToGallery(url: URL) {
+        uiState.isSaving = true
+        engine.saveExistingVideoToGallery(url: url) { [weak self] res in
+            switch res {
+            case .success:
+                self?.uiState.isSaving = false
+                self?.uiState.isSaved = true
+                self?.uiState.statusMessage = "已保存到相册"
+            case .failure(let err):
+                self?.uiState.isSaving = false
+                self?.uiState.errorMessage = "保存失败: \(err.localizedDescription)"
+            }
+        }
+    }
+
     // MARK: - 全屏播放
 
     func openFullscreen() {
