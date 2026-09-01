@@ -98,9 +98,13 @@ enum WatermarkDetector {
         guard let cg = bmp.cgImage else { return [] }
         let w = cg.width, h = cg.height
         var pixels = [UInt32](repeating: 0, count: w * h)
+        // ★ premultipliedFirst + byteOrder32Little：小端下内存字节序为 B,G,R,A，
+        //   UInt32 读出后 r=(p>>16) g=(p>>8) b=p&0xFF，与下方取色一致。
+        //   （原 premultipliedLast 在小端设备上 R/B 互换，亮度权重错位导致检测漂移）
         let ctx = CGContext(data: &pixels, width: w, height: h, bitsPerComponent: 8,
                             bytesPerRow: w * 4, space: CGColorSpaceCreateDeviceRGB(),
-                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+                            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
+                                | CGBitmapInfo.byteOrder32Little.rawValue)
         ctx?.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
         var out = [Float](repeating: 0, count: w * h)
         for i in 0..<(w * h) {
@@ -225,7 +229,7 @@ enum WatermarkDetector {
 
     // MARK: - 图像工具
 
-    private static func dilate(_ mask: [Bool], w: Int, h: Int, radius: Int) -> [Bool] {
+    static func dilate(_ mask: [Bool], w: Int, h: Int, radius: Int) -> [Bool] {
         var out = [Bool](repeating: false, count: mask.count)
         for y in 0..<h {
             for x in 0..<w where mask[y * w + x] {
@@ -243,7 +247,7 @@ enum WatermarkDetector {
         return out
     }
 
-    private static func connectedBoxes(_ mask: [Bool], w: Int, h: Int) -> [[Int]] {
+    static func connectedBoxes(_ mask: [Bool], w: Int, h: Int) -> [[Int]] {
         var visited = [Bool](repeating: false, count: mask.count)
         var boxes: [[Int]] = []
         var stack = [Int](repeating: 0, count: mask.count)

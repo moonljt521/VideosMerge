@@ -17,8 +17,10 @@ final class ExportEngine {
     private var runner: FFmpegRunner?
 
     func cancel() {
+        // ★ 不要在此处置空 runner：FFmpegRunner 的 complete 回调对 self 是 weak 引用，
+        //   提前释放会让「已取消」的完成回调丢失，await 导出的 continuation 永远无法恢复。
+        //   取消后 FFmpegKit 仍会触发 complete（ReturnCode.isCancel），由其自然收尾。
         runner?.cancel()
-        runner = nil
     }
 
     /// 导出项目为视频文件
@@ -53,10 +55,18 @@ final class ExportEngine {
                     onProgress: onProgress,
                     onLog: onLog,
                     onComplete: { result in
-                        if result.success && FileManager.default.fileExists(atPath: output.path) {
+                        // ★ 除存在性外还需校验文件非空：ffmpeg 中途失败/被取消时
+                        //   可能残留 0 字节或损坏的半成品文件
+                        let exists = FileManager.default.fileExists(atPath: output.path)
+                        let fileSize = ((try? FileManager.default.attributesOfItem(atPath: output.path))?[.size] as? Int64) ?? 0
+                        if result.success && exists && fileSize > 0 {
                             cont.resume(returning: .success(output))
                         } else {
-                            cont.resume(returning: .failure(RuntimeError("导出失败: \(result.message)")))
+                            if exists && fileSize == 0 {
+                                try? FileManager.default.removeItem(at: output)
+                            }
+                            let reason = result.success ? "输出文件为空" : result.message
+                            cont.resume(returning: .failure(RuntimeError("导出失败: \(reason)")))
                         }
                     }
                 )

@@ -14,7 +14,10 @@ enum TextWatermarkRenderer {
     static func renderToPng(text: String, fontSize: Int, colorStr: String,
                             opacity: Double, border: Bool) -> TextPngResult? {
         let color = parseColor(colorStr)
-        let font = UIFont.boldSystemFont(ofSize: CGFloat(max(fontSize, 12)))
+        // ★ 常规字重（对齐 Android Typeface.DEFAULT，原 bold 会比 Android 明显偏粗）
+        let font = UIFont.systemFont(ofSize: CGFloat(max(fontSize, 12)))
+        // 描边偏移随字号缩放（对齐 Android strokeWidth = fontSize/6，最小 2px）
+        let strokeOffset = max(CGFloat(fontSize) / 6, 2)
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: color.withAlphaComponent(CGFloat(opacity)),
@@ -29,12 +32,13 @@ enum TextWatermarkRenderer {
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: width, height: height))
         let image = renderer.image { ctx in
             if border {
-                // 黑色描边（四方向偏移绘制）
+                // 黑色描边（八方向偏移绘制，偏移量随字号缩放）
                 let strokeAttrs: [NSAttributedString.Key: Any] = [
                     .font: font,
                     .foregroundColor: UIColor.black.withAlphaComponent(CGFloat(opacity)),
                 ]
-                for (dx, dy) in [(-2, 0), (2, 0), (0, -2), (0, 2), (-1.5, -1.5), (1.5, 1.5), (-1.5, 1.5), (1.5, -1.5)] {
+                let o = strokeOffset
+                for (dx, dy) in [(-o, 0), (o, 0), (0, -o), (0, o), (-o * 0.75, -o * 0.75), (o * 0.75, o * 0.75), (-o * 0.75, o * 0.75), (o * 0.75, -o * 0.75)] {
                     (text as NSString).draw(
                         at: CGPoint(x: pad + dx, y: pad + dy),
                         withAttributes: strokeAttrs)
