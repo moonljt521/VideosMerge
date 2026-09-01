@@ -16,7 +16,7 @@ enum ToolPanel: Equatable {
     case none
     case trim, speed, filter, text
     case imageWatermark, picture, audio, subtitle, sticker
-    case watermarkRemove, blurBg, transition, export
+    case watermarkRemove, blurBg, transition, canvas, export
 }
 
 enum MessageSeverity {
@@ -77,6 +77,11 @@ final class EditorViewModel: ObservableObject {
 
     private var importTask: Task<Void, Never>? = nil
     private var exportTask: Task<Void, Never>? = nil
+
+    init() {
+        // 对齐 Android：进编辑器时清理过期缓存（24h 导出件 / 7 天缩略图与临时输入）
+        MediaUtils.cleanupStaleCache()
+    }
 
     // MARK: 素材导入
 
@@ -312,6 +317,19 @@ final class EditorViewModel: ObservableObject {
     func showPanel(_ panel: ToolPanel) { uiState.currentPanel = panel }
     func closePanel() { uiState.currentPanel = .none }
     func beginEdit() { pushUndo() }
+
+    /// ★ 设置项目画布尺寸（对齐 Android v1.1 画布面板）。
+    /// 宽高需为 16 的倍数（硬编码宏块对齐），面板侧已对齐；此处再兜底一次（向上取整）。
+    func setCanvasSize(width: Int, height: Int) {
+        let w = max(16, ((width + 15) / 16) * 16)
+        let h = max(16, ((height + 15) / 16) * 16)
+        let p = uiState.project
+        guard p.canvasWidth != w || p.canvasHeight != h else { return }
+        pushUndo()
+        uiState.project.canvasWidth = w
+        uiState.project.canvasHeight = h
+        uiState.project.updatedAt = Date().timeIntervalSince1970 * 1000
+    }
 
     // MARK: 播放控制
 
@@ -639,10 +657,14 @@ final class EditorViewModel: ObservableObject {
     // MARK: 尾部 logo 检测截断
 
     func detectTailLogo(_ clipId: String) {
+        // 对齐 Android：批量与单片段共用 isDetectingLogo，避免重入与按钮状态错乱
+        if uiState.isDetectingLogo { return }
         guard let clip = uiState.project.tracks.flatMap(\.clips).first(where: { $0.id == clipId }) else { return }
+        uiState.isDetectingLogo = true
         Task.detached {
             let cut = MediaUtils.detectLogoCut(path: clip.mediaPath)
             await MainActor.run {
+                self.uiState.isDetectingLogo = false
                 if let cut = cut, cut < clip.mediaDuration - 0.1 {
                     self.pushUndo()
                     self.updateTrim(clipId, clip.trimStart, cut)
