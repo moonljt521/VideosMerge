@@ -2,15 +2,15 @@ PODS:
   - ffmpeg-kit-ios-full-gpl (6.0)
 
 DEPENDENCIES:
-  - ffmpeg-kit-ios-full-gpl (from `https://raw.githubusercontent.com/xpcapital/ffmpeg-kit-full-gpl/main/ffmpeg-kit-ios-full-gpl.podspec`)
+  - ffmpeg-kit-ios-full-gpl (from `https://raw.githubusercontent.com/xpcapital/ffmpeg-kit-full-gpl/96ec894567e4ba670144cd29178a46997203e6de/ffmpeg-kit-ios-full-gpl.podspec`)
 
 EXTERNAL SOURCES:
   ffmpeg-kit-ios-full-gpl:
-    :podspec: https://raw.githubusercontent.com/xpcapital/ffmpeg-kit-full-gpl/main/ffmpeg-kit-ios-full-gpl.podspec
+    :podspec: https://raw.githubusercontent.com/xpcapital/ffmpeg-kit-full-gpl/96ec894567e4ba670144cd29178a46997203e6de/ffmpeg-kit-ios-full-gpl.podspec
 
 SPEC CHECKSUMS:
   ffmpeg-kit-ios-full-gpl: 9a1eefc57e9f661c3f9cbb11c7d6df0fe280f90c
 
-PODFILE CHECKSUM: 646b073d0cad566281177fef926d21442eb99236
+PODFILE CHECKSUM: e83ae68eecb43fdf11ad836340df0b02efe041e3
 
 COCOAPODS: 1.16.2
