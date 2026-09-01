@@ -86,15 +86,42 @@ struct TrimPanelView: View {
                             set: { _ in vm.beginEdit(); vm.toggleVFlip(clip.id) }))
                             .font(.system(size: 13))
                     }
-                    Button("检测片尾静止 logo 并截断") {
-                        vm.detectTailLogo(clip.id)
+                    // ── 片尾静止 logo/标语检测截断（对齐 Android：单片段 + 全部片段）──
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("片尾静止片段").font(.system(size: 13))
+                        Text("检测并去掉视频末尾静止的 logo/标语画面")
+                            .font(.system(size: 11)).foregroundColor(Color(hex: 0xFF666666))
+                        HStack(spacing: 8) {
+                            detectButton(title: "当前片段", busy: vm.uiState.isDetectingLogo) {
+                                vm.detectTailLogo(clip.id)
+                            }
+                            detectButton(title: "全部片段", busy: vm.uiState.isDetectingLogo) {
+                                vm.detectTailLogoAll()
+                            }
+                            Spacer()
+                        }
                     }
-                    .font(.system(size: 13))
                 }
             } else {
                 panelLabel("请先选中片段")
             }
         }
+    }
+
+    /// 片尾检测按钮：检测中显示转圈并禁用，避免重复触发
+    private func detectButton(title: String, busy: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+        } label: {
+            HStack(spacing: 6) {
+                if busy { ProgressView().scaleEffect(0.6) }
+                Text(busy ? "检测中..." : title).font(.system(size: 12))
+            }
+            .padding(.horizontal, 12).padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color(hex: 0xFF2196F3)))
+            .foregroundColor(.white)
+        }
+        .disabled(busy)
     }
 }
 
@@ -340,14 +367,34 @@ struct WatermarkRemovePanelView: View {
     var body: some View {
         PanelShell(title: "去水印", onClose: onClose) {
             if let clip = clip {
-                Text("框选画面中的水印位置（预览红框标识），导出时对该区域做模糊/马赛克覆盖。")
+                Text("框选画面中的水印位置（预览红框标识），导出时对该区域做模糊/马赛克覆盖。\n" +
+                     "自动检测识别静态水印（如抖音 logo/昵称），检测不到可手动添加。")
                     .font(.system(size: 11)).foregroundColor(Color(hex: 0xFF888888))
 
-                HStack {
+                HStack(spacing: 12) {
+                    Button {
+                        vm.autoDetectWatermarks(clip.id)
+                    } label: {
+                        HStack(spacing: 6) {
+                            if vm.uiState.isDetectingWatermark { ProgressView().scaleEffect(0.6) }
+                            Text(vm.uiState.isDetectingWatermark ? "检测中..." : "自动检测水印")
+                                .font(.system(size: 13))
+                        }
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color(hex: 0xFF2196F3)))
+                        .foregroundColor(.white)
+                    }
+                    .disabled(vm.uiState.isDetectingWatermark)
+
                     Button { vm.beginEdit(); vm.addWatermarkRegion(clip.id) } label: {
                         Text("手动添加区域").font(.system(size: 13))
                     }
                     .buttonStyle(.borderedProminent)
+                }
+
+                HStack(spacing: 8) {
+                    Text("常用水印位置：")
+                        .font(.system(size: 11)).foregroundColor(Color(hex: 0xFF888888))
                     ForEach(["tl", "tr", "bl", "br"], id: \.self) { corner in
                         Text(corner == "tl" ? "左上" : corner == "tr" ? "右上" : corner == "bl" ? "左下" : "右下")
                             .font(.system(size: 12)).foregroundColor(Color(hex: 0xFF2196F3))
@@ -728,5 +775,120 @@ struct BlurBgPanelView: View {
                 panelLabel("请先选中片段")
             }
         }
+    }
+}
+
+// MARK: - 画布面板（对齐 Android v1.1 CanvasPanel）
+
+struct CanvasPanelView: View {
+    @ObservedObject var vm: EditorViewModel
+    let onClose: () -> Void
+
+    private struct RatioOpt { let label: String; let w: Int; let h: Int }
+    private let ratios = [RatioOpt(label: "9:16", w: 9, h: 16),
+                          RatioOpt(label: "1:1", w: 1, h: 1),
+                          RatioOpt(label: "16:9", w: 16, h: 9)]
+    private struct QualityOpt { let label: String; let shortEdge: Int }
+    private let qualities = [QualityOpt(label: "720P", shortEdge: 720),
+                             QualityOpt(label: "1080P", shortEdge: 1088),
+                             QualityOpt(label: "2K", shortEdge: 1440)]
+
+    private var currentW: Int { vm.uiState.project.canvasWidth }
+    private var currentH: Int { vm.uiState.project.canvasHeight }
+
+    private func alignUp16(_ v: Int) -> Int { max(16, ((v + 15) / 16) * 16) }
+
+    /// 短边对齐到清晰度档位，长边按比例换算，两端 16 对齐
+    private func canvasDims(_ rw: Int, _ rh: Int, _ shortEdge: Int) -> (Int, Int) {
+        if rw >= rh {
+            return (alignUp16(shortEdge), alignUp16(shortEdge * rw / rh))
+        } else {
+            return (alignUp16(shortEdge * rw / rh), alignUp16(shortEdge))
+        }
+    }
+
+    // 反推当前选中的比例与清晰度；对不上（自定义/遗留值）时取最接近档位
+    private var matchedShortEdge: Int? {
+        qualities.first { q in
+            ratios.contains { canvasDims($0.w, $0.h, q.shortEdge) == (currentW, currentH) }
+        }?.shortEdge
+    }
+
+    private var curShort: Int {
+        matchedShortEdge
+            ?? qualities.min { abs($0.shortEdge - min(currentW, currentH)) < abs($1.shortEdge - min(currentW, currentH)) }?.shortEdge
+            ?? 1088
+    }
+
+    private var curRatioLabel: String {
+        ratios.first { canvasDims($0.w, $0.h, curShort) == (currentW, currentH) }?.label ?? "9:16"
+    }
+
+    var body: some View {
+        PanelShell(title: "画布", onClose: onClose) {
+            panelLabel("比例")
+            HStack(spacing: 12) {
+                ForEach(ratios, id: \.label) { r in
+                    ratioCard(r)
+                }
+            }
+            panelLabel("清晰度")
+            HStack(spacing: 8) {
+                ForEach(qualities, id: \.label) { q in
+                    qualityChip(q)
+                }
+            }
+            Text("当前画布：\(currentW)×\(currentH)（预览以导出为准）")
+                .font(.system(size: 11)).foregroundColor(Color(hex: 0xFF666666))
+        }
+    }
+
+    private func ratioCard(_ r: RatioOpt) -> some View {
+        let dims = canvasDims(r.w, r.h, curShort)
+        let selected = r.label == curRatioLabel && dims == (currentW, currentH)
+        let maxSide: CGFloat = 52
+        let pw: CGFloat = r.h >= r.w ? maxSide * CGFloat(r.w) / CGFloat(r.h) : maxSide
+        let ph: CGFloat = r.h >= r.w ? maxSide : maxSide * CGFloat(r.h) / CGFloat(r.w)
+        return Button {
+            vm.beginEdit()
+            vm.setCanvasSize(width: dims.0, height: dims.1)
+        } label: {
+            VStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color(hex: 0xFF111111))
+                    .frame(width: pw, height: ph)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 3)
+                            .stroke(selected ? Color(hex: 0xFF2196F3) : Color(hex: 0xFF888888),
+                                    lineWidth: selected ? 2 : 1)
+                    )
+                    .frame(height: 56)
+                Text(r.label)
+                    .font(.system(size: 13))
+                    .foregroundColor(selected ? Color(hex: 0xFF2196F3) : .white)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(RoundedRectangle(cornerRadius: 10)
+                .fill(selected ? Color(hex: 0xFF123A5C) : Color(hex: 0xFF2A2A2A)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func qualityChip(_ q: QualityOpt) -> some View {
+        let r = ratios.first { $0.label == curRatioLabel } ?? ratios[0]
+        let dims = canvasDims(r.w, r.h, q.shortEdge)
+        let selected = matchedShortEdge == q.shortEdge && dims == (currentW, currentH)
+        return Button {
+            vm.beginEdit()
+            vm.setCanvasSize(width: dims.0, height: dims.1)
+        } label: {
+            Text(q.label)
+                .font(.system(size: 13))
+                .foregroundColor(selected ? .white : Color(hex: 0xFFCCCCCC))
+                .padding(.horizontal, 16).padding(.vertical, 8)
+                .background(Capsule().fill(selected ? Color(hex: 0xFF2196F3) : Color(hex: 0xFF2A2A2A)))
+        }
+        .buttonStyle(.plain)
     }
 }

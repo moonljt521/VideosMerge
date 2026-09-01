@@ -269,6 +269,8 @@ struct EditorScreen: View {
                                     onPickImage: { showWmImagePicker = true })
         case .blurBg:
             BlurBgPanelView(clip: clip, vm: viewModel, onClose: { viewModel.closePanel() })
+        case .canvas:
+            CanvasPanelView(vm: viewModel, onClose: { viewModel.closePanel() })
         case .export:
             ExportPanelView(state: viewModel.uiState, vm: viewModel, onClose: { viewModel.closePanel() })
         default:
@@ -606,6 +608,7 @@ struct ToolbarPanel: View {
         if canTransition {
             base.append(.init(name: "转场", icon: "arrow.left.arrow.right", panel: .transition, enabled: hasSelectedClip))
         }
+        base.append(.init(name: "画布", icon: "aspectratio", panel: .canvas, enabled: true))
         base.append(.init(name: "导出", icon: "square.and.arrow.down", panel: .export, enabled: true))
         return base
     }

@@ -165,6 +165,17 @@ extension EditorViewModel {
         }
     }
 
+    /// 修改指定画中画关键帧的位置（对齐 Android updatePipKeyframe）
+    func updatePipKeyframe(_ clipId: String, _ index: Int, x: Double, y: Double) {
+        updateClip(clipId) { clip in
+            guard clip.pipKeyframes.indices.contains(index) else { return clip }
+            var c = clip
+            c.pipKeyframes[index].x = min(max(x, 0), 1)
+            c.pipKeyframes[index].y = min(max(y, 0), 1)
+            return c
+        }
+    }
+
     // MARK: 图片水印
 
     func setImageWatermark(_ clipId: String, data: Data) {
