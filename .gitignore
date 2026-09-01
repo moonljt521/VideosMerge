@@ -49,3 +49,9 @@ VideoMergeAndroid/captures/
 *.flv
 *.ts
 *.gif
+
+# ===== 本地工作区数据 =====
+.workbuddy/
+
+# ===== 图标制作临时备份 =====
+icon_backup/
