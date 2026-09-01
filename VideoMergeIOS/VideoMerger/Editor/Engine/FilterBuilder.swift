@@ -153,6 +153,9 @@ final class FilterBuilder {
             let d = min(clip.audioFadeOut, maxFade)
             f.append("afade=t=out:st=\(fmt(max(dur - d, 0))):d=\(fmt(d))")
         }
+        // 重采样 + 声道统一（aac 编码器要求固定采样率；acrossfade 要求各输入格式一致）
+        f.append("aresample=44100")
+        f.append("aformat=channel_layouts=stereo")
         return f.isEmpty ? nil : f.joined(separator: ",")
     }
 
@@ -495,12 +498,6 @@ final class FilterBuilder {
                 }
             }
             videoLabels.append("[v\(i)]")
-
-            if let png = textPngs[i] {
-                textPngInputIdx[i] = nextInputIdx
-                nextInputIdx += 1
-                _ = png
-            }
         }
 
         // 文字水印 overlay（画布坐标系）

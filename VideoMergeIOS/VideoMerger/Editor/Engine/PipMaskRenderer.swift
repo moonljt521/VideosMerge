@@ -25,17 +25,21 @@ enum PipMaskRenderer {
         guard width > 0, height > 0 else { return nil }
         let size = CGSize(width: width, height: height)
         let renderer = UIGraphicsImageRenderer(size: size)
-        let image = renderer.image { ctx in
-            let cg = ctx.cgContext
-            let rect = CGRect(origin: .zero, size: size)
+        let image = renderer.image { _ in
+            // 描边居中于形状边缘，向内缩进半个描边宽度避免被画布裁掉（对齐 Android）
+            let inset = stroke ? CGFloat(strokeWidth) / 2 : 0
+            let w = CGFloat(width), h = CGFloat(height)
             let path: UIBezierPath
             switch shape {
             case .circle:
-                path = UIBezierPath(ovalIn: rect)
+                // ★ 内切正圆：直径取宽高中的较小者，而不是椭圆
+                let d = min(w, h) - inset * 2
+                path = UIBezierPath(ovalIn: CGRect(x: (w - d) / 2, y: (h - d) / 2, width: d, height: d))
             case .rounded:
-                path = UIBezierPath(roundedRect: rect, cornerRadius: radius)
+                path = UIBezierPath(roundedRect: CGRect(x: inset, y: inset, width: w - inset * 2, height: h - inset * 2),
+                                    cornerRadius: radius)
             default:
-                path = UIBezierPath(rect: rect)
+                path = UIBezierPath(rect: CGRect(x: inset, y: inset, width: w - inset * 2, height: h - inset * 2))
             }
             if stroke {
                 UIColor.white.setStroke()
@@ -45,7 +49,6 @@ enum PipMaskRenderer {
                 UIColor.white.setFill()
                 path.fill()
             }
-            _ = cg
         }
         guard let data = image.pngData() else { return nil }
         let url = FileManager.default.temporaryDirectory
