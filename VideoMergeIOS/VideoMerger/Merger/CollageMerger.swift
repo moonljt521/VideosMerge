@@ -46,7 +46,7 @@ final class CollageMerger {
         cmd += "-filter_complex \"\(filterComplex)\" "
         cmd += "-map \"[vout]\" "
         cmd += "-t \(maxDur.fmt()) "
-        cmd += "-c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p "
+        cmd += "-c:v h264_videotoolbox -b:v 8M -pix_fmt yuv420p " // ★ 硬件编码（对齐 Android mediacodec 与编辑器 videotoolbox）
         if hasAudio {
             cmd += "-map \"[aout]\" -c:a aac -b:a 192k "
         }

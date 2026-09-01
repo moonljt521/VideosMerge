@@ -141,8 +141,9 @@ struct MergeScreen: View {
                     FullscreenVideoPlayer(
                         videoURL: url,
                         onSaveClick: {
+                            // ★ 从历史页打开时 mergeResult 为 nil，不能走 saveResult()
                             viewModel.closeFullscreen()
-                            viewModel.saveResult()
+                            viewModel.saveVideoToGallery(url: url)
                         },
                         onDismiss: { viewModel.closeFullscreen() }
                     )
