@@ -1,20 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    影剪 adaptive icon foreground:「双影三角」
-    白色圆角播放三角 = 视频播放;青色残影右下错位 = 「影」(影子)+ 双层视频合并。
-    整体落在自适应图标 66dp 安全区内。
+    影剪 adaptive icon foreground:「剪刀即播放键」
+    乍看是向右的白色播放三角，细看是一把闭合的剪刀：
+    三角 = 刀刃，左侧深色圆点 = 剪刀枢轴，青色双圆环 = 剪刀指环（也代表两路视频源）。
+    内容按原 200 设计稿等比缩放并以视觉中心对齐，整体落在自适应图标 66dp 安全区内。
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 青色残影(右下错位) -->
-    <group android:translateX="5" android:translateY="6">
-        <path android:fillColor="#FF26C6DA"
-            android:pathData="M36,39 L36,65 Q36,70 40.5,67.9 L69.5,54.1 Q74,52 69.5,49.9 L40.5,36.1 Q36,34 36,39 Z"/>
-    </group>
-    <!-- 白色主三角 -->
-    <path android:fillColor="#FFFFFFFF"
-        android:pathData="M36,39 L36,65 Q36,70 40.5,67.9 L69.5,54.1 Q74,52 69.5,49.9 L40.5,36.1 Q36,34 36,39 Z"/>
+    <!-- 青色双指环（剪刀柄 / 双视频源） -->
+    <path android:pathData="M36.72,46.44 m4.32,0 a4.32,4.32 0 1,1 -8.64,0 a4.32,4.32 0 1,1 8.64,0"
+        android:strokeColor="#FF26C6DA" android:strokeWidth="3.6" android:fillColor="#00000000"/>
+    <path android:pathData="M36.72,61.56 m4.32,0 a4.32,4.32 0 1,1 -8.64,0 a4.32,4.32 0 1,1 8.64,0"
+        android:strokeColor="#FF26C6DA" android:strokeWidth="3.6" android:fillColor="#00000000"/>
+    <!-- 白色三角 = 刀刃 = 播放键 -->
+    <path android:pathData="M41.76,45.72 L41.76,62.28 L75.6,54 Z"
+        android:fillColor="#FFFFFFFF" android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.6" android:strokeLineJoin="round"/>
+    <!-- 深色枢轴圆点 -->
+    <path android:fillColor="#FF0B1622"
+        android:pathData="M45.36,54 m1.8,0 a1.8,1.8 0 1,1 -3.6,0 a1.8,1.8 0 1,1 3.6,0"/>
 </vector>
