@@ -89,6 +89,43 @@ Pick a device or simulator and hit Run (▶). The app requests photo-library acc
 3. **Permissions**: `NSPhotoLibraryUsageDescription` / `NSPhotoLibraryAddUsageDescription` declared in Info.plist
 4. **Sandbox**: drafts and history live in the app's Documents directory and are lost on uninstall
 
+## Troubleshooting
+
+### `No such module 'ffmpegkit'`
+
+**Cause: you opened `VideoMerger.xcodeproj` instead of `VideoMerger.xcworkspace`.**
+
+CocoaPods puts ffmpegkit's xcframeworks in the separate `Pods` sub-project. Only the
+`.xcworkspace` references both `VideoMerger.xcodeproj` and `Pods/Pods.xcodeproj`, so only it
+builds the pods first. Opening the bare `.xcodeproj` never builds Pods, and Swift can't find
+the `ffmpegkit` module.
+
+Fix: quit Xcode → `open VideoMerger.xcworkspace` → Run.
+
+If it still fails:
+
+```bash
+# 1. Pods fully installed? (xcframework must exist)
+ls Pods/ffmpeg-kit-ios-full-gpl/Frameworks/ffmpegkit.xcframework
+
+# 2. Reinstall from scratch
+pod deintegrate && rm -rf Pods Podfile.lock && pod install
+
+# 3. Clear the build cache (after editing Podfile / switching Xcode)
+rm -rf ~/Library/Developer/Xcode/DerivedData/VideoMerger-*
+```
+
+After install, `Pods/Pods.xcodeproj` must exist and
+`VideoMerger.xcworkspace/contents.xcworkspacedata` must reference both projects.
+
+### Building from the command line
+
+```bash
+xcodebuild -workspace VideoMerger.xcworkspace -scheme VideoMerger \
+  -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build
+```
+
 ---
 
 > Project overview: [root README](../README.md) · [FEATURES.md](../FEATURES.md) · [ROADMAP.md](../ROADMAP.md)

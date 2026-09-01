@@ -86,6 +86,42 @@ open VideoMerger.xcworkspace # 注意是 .xcworkspace 不是 .xcodeproj
 3. **相册权限**:`NSPhotoLibraryUsageDescription` / `NSPhotoLibraryAddUsageDescription` 已在 Info.plist 声明
 4. **沙盒**:草稿与历史存在 App Documents,卸载即丢失
 
+## 常见问题
+
+### `No such module 'ffmpegkit'`
+
+**原因:打开的是 `VideoMerger.xcodeproj`,而不是 `VideoMerger.xcworkspace`。**
+
+CocoaPods 把 ffmpegkit 的 xcframework 放在 `Pods` 子工程里。只有 `.xcworkspace` 同时包含
+`VideoMerger.xcodeproj` 和 `Pods/Pods.xcodeproj`,构建时才会先把 Pods 编出来;
+直接开 `.xcodeproj` 时 Pods 从未被构建,Swift 自然找不到 `ffmpegkit` 模块。
+
+解决:关闭 Xcode → `open VideoMerger.xcworkspace` → 再 Run。
+
+若仍报错,按顺序排查:
+
+```bash
+# 1. 确认 Pods 已完整安装(xcframework 存在)
+ls Pods/ffmpeg-kit-ios-full-gpl/Frameworks/ffmpegkit.xcframework
+
+# 2. 重新安装并校验
+pod deintegrate && rm -rf Pods Podfile.lock && pod install
+
+# 3. 清缓存(改过 Podfile / 换过 Xcode 后常见)
+rm -rf ~/Library/Developer/Xcode/DerivedData/VideoMerger-*
+```
+
+安装后 `Pods/Pods.xcodeproj` 必须存在,且 `VideoMerger.xcworkspace/contents.xcworkspacedata`
+应同时引用 `VideoMerger.xcodeproj` 与 `Pods/Pods.xcodeproj`。
+
+### 命令行构建
+
+```bash
+xcodebuild -workspace VideoMerger.xcworkspace -scheme VideoMerger \
+  -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build
+```
+
 ---
 
 > 项目总览: [根 README](../README.md) · [FEATURES.md](../FEATURES.md) · [ROADMAP.md](../ROADMAP.md)
