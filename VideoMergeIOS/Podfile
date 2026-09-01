@@ -26,7 +26,18 @@ use_frameworks!
 
 target 'VideoMerger' do
   # FFmpegKit iOS - full-gpl 变体（含 x264/aac）
-  # 直接从 GitHub 加载预编译 podspec，不依赖 cocoapods CDN 仓库
+  # 直接从 GitHub 加载预编译 podspec，不依赖 cocoapods CDN 仓库。
+  # ★ 锁定到具体 commit（96ec894，2025-04-29，podspec 唯一一次提交），
+  #   避免上游 main 分支变动导致 pod install / 构建失败。
+  #   上游如发布新版本，先人工确认再手动更新此 SHA。
   pod 'ffmpeg-kit-ios-full-gpl',
-      :podspec => 'https://raw.githubusercontent.com/xpcapital/ffmpeg-kit-full-gpl/main/ffmpeg-kit-ios-full-gpl.podspec'
+      :podspec => 'https://raw.githubusercontent.com/xpcapital/ffmpeg-kit-full-gpl/96ec894567e4ba670144cd29178a46997203e6de/ffmpeg-kit-ios-full-gpl.podspec'
+end
+
+# 单元测试 target：只继承 search_paths（宿主 App 已链接 ffmpegkit），
+# 让测试代码可以 import ffmpegkit 编译通过，而无需重复链接全部动态库
+target 'VideoMergerTests' do
+  inherit! :search_paths
+  pod 'ffmpeg-kit-ios-full-gpl',
+      :podspec => 'https://raw.githubusercontent.com/xpcapital/ffmpeg-kit-full-gpl/96ec894567e4ba670144cd29178a46997203e6de/ffmpeg-kit-ios-full-gpl.podspec'
 end
