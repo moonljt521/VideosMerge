@@ -1,6 +1,7 @@
 package com.moon.videomerger.ui
 
 import android.view.ViewGroup
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -20,9 +21,38 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+
+/**
+ * 把播放绑定到 Activity 生命周期：App 退后台时暂停，回前台时恢复
+ * （仅当退后台前处于播放状态；用户手动暂停过的不会自动恢复）。
+ */
+@Composable
+private fun ExoPlayer.bindToLifecycle(activity: ComponentActivity?) {
+    DisposableEffect(activity) {
+        val observer = activity?.let { act ->
+            object : DefaultLifecycleObserver {
+                private var wasPlaying = false
+
+                override fun onStop(owner: LifecycleOwner) {
+                    wasPlaying = playWhenReady
+                    pause()
+                }
+
+                override fun onStart(owner: LifecycleOwner) {
+                    if (wasPlaying) playWhenReady = true
+                }
+            }.also { act.lifecycle.addObserver(it) }
+        }
+        onDispose {
+            if (observer != null && activity != null) activity.lifecycle.removeObserver(observer)
+        }
+    }
+}
 
 /**
  * 内联视频播放器（小窗口预览）。
@@ -44,6 +74,7 @@ fun InlineVideoPlayer(
             repeatMode = ExoPlayer.REPEAT_MODE_ALL
         }
     }
+    exoPlayer.bindToLifecycle(context as? ComponentActivity)
 
     DisposableEffect(videoPath) {
         onDispose { exoPlayer.release() }
@@ -108,6 +139,7 @@ fun FullscreenVideoPlayer(
             repeatMode = ExoPlayer.REPEAT_MODE_ALL
         }
     }
+    exoPlayer.bindToLifecycle(context as? ComponentActivity)
 
     DisposableEffect(videoPath) {
         onDispose { exoPlayer.release() }
