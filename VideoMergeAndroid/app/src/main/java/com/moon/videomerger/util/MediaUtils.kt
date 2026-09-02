@@ -152,6 +152,39 @@ object MediaUtils {
     }
 
     /**
+     * 将 GIF 文件保存到系统相册（Pictures/VideoMerger/）。
+     * GIF 属于图片，走 MediaStore.Images 而非 Video。
+     * 返回相册中文件的 URI。
+     */
+    fun saveGifToGallery(context: Context, file: File, displayName: String): Uri? {
+        val resolver = context.contentResolver
+        val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, displayName)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/gif")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/VideoMerger")
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            }
+        }
+
+        val uri = resolver.insert(collection, values) ?: return null
+        resolver.openOutputStream(uri)?.use { output ->
+            file.inputStream().use { input ->
+                input.copyTo(output)
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            values.clear()
+            values.put(MediaStore.Images.Media.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+        }
+
+        return uri
+    }
+
+    /**
      * 从 content URI 加载视频缩略图（第一帧）。
      */
     fun loadThumbnailFromUri(context: Context, uri: Uri): Bitmap? {

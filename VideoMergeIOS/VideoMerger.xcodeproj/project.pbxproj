@@ -49,6 +49,10 @@
 		2000000000000000000000F1 /* DouyinParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F1 /* DouyinParser.swift */; };
 		2000000000000000000000F2 /* DouyinViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F2 /* DouyinViewModel.swift */; };
 		2000000000000000000000F3 /* DouyinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F3 /* DouyinView.swift */; };
+		2000000000000000000000D1 /* GifCommandBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D1 /* GifCommandBuilder.swift */; };
+		2000000000000000000000D2 /* GifViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D2 /* GifViewModel.swift */; };
+		2000000000000000000000D3 /* GifView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D3 /* GifView.swift */; };
+		8C2D3E4F5A6B708192A3B4C5 /* GifCommandBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F60718293A4B5 /* GifCommandBuilderTests.swift */; };
 		3A7550F98C2351C3D795AB4D /* SpeechGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 305C328CA268B1B7CD6E9E48 /* SpeechGroupingTests.swift */; };
 		4D4A46C72932BDD9A3755935 /* CanvasSizeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6D4CBA65F5B957571082053 /* CanvasSizeTests.swift */; };
 		57E3F6831FCD83FA1DBFCA61 /* Pods_VideoMerger.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 07A93845A7C16B3783C4CFC4 /* Pods_VideoMerger.framework */; };
@@ -116,6 +120,9 @@
 		1000000000000000000000F1 /* DouyinParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinParser.swift; sourceTree = "<group>"; };
 		1000000000000000000000F2 /* DouyinViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinViewModel.swift; sourceTree = "<group>"; };
 		1000000000000000000000F3 /* DouyinView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinView.swift; sourceTree = "<group>"; };
+		1000000000000000000000D1 /* GifCommandBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifCommandBuilder.swift; sourceTree = "<group>"; };
+		1000000000000000000000D2 /* GifViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifViewModel.swift; sourceTree = "<group>"; };
+		1000000000000000000000D3 /* GifView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifView.swift; sourceTree = "<group>"; };
 		1149D2E692C566C45D52EB01 /* Pods-VideoMergerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VideoMergerTests.debug.xcconfig"; path = "Target Support Files/Pods-VideoMergerTests/Pods-VideoMergerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		305C328CA268B1B7CD6E9E48 /* SpeechGroupingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpeechGroupingTests.swift; path = VideoMergerTests/SpeechGroupingTests.swift; sourceTree = "<group>"; };
 		3ECC7E505CDB2F7C182F76E4 /* Pods_VideoMergerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_VideoMergerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -124,6 +131,7 @@
 		5A74B135D3FF02F9F8E37A1D /* VideoMergerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VideoMergerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		619C97E11E8A037D944C3D8F /* Pods-VideoMergerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VideoMergerTests.release.xcconfig"; path = "Target Support Files/Pods-VideoMergerTests/Pods-VideoMergerTests.release.xcconfig"; sourceTree = "<group>"; };
 		84221DE24FBCBE84D35DA4B0 /* ExportCommandWatermarkTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExportCommandWatermarkTests.swift; path = VideoMergerTests/ExportCommandWatermarkTests.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F60718293A4B5 /* GifCommandBuilderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GifCommandBuilderTests.swift; path = VideoMergerTests/GifCommandBuilderTests.swift; sourceTree = "<group>"; };
 		8636FDE1A21012354A90CFCD /* Pods-VideoMerger.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VideoMerger.release.xcconfig"; path = "Target Support Files/Pods-VideoMerger/Pods-VideoMerger.release.xcconfig"; sourceTree = "<group>"; };
 		875C7C832DFFB96E8D3973FE /* ShiftOverlaysTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShiftOverlaysTests.swift; path = VideoMergerTests/ShiftOverlaysTests.swift; sourceTree = "<group>"; };
 		9644DAC7517BFD9F1C641DEF /* WatermarkDetectorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WatermarkDetectorTests.swift; path = VideoMergerTests/WatermarkDetectorTests.swift; sourceTree = "<group>"; };
@@ -205,6 +213,7 @@
 				100000000000000000000001 /* VideoMergerApp.swift */,
 				3000000000000000000000E1 /* Editor */,
 				3000000000000000000000F4 /* Douyin */,
+				3000000000000000000000D1 /* Gif */,
 				300000000000000000000003 /* Models */,
 				300000000000000000000004 /* Merger */,
 				300000000000000000000005 /* Util */,
@@ -345,6 +354,16 @@
 			path = Douyin;
 			sourceTree = "<group>";
 		};
+		3000000000000000000000D1 /* Gif */ = {
+			isa = PBXGroup;
+			children = (
+				1000000000000000000000D1 /* GifCommandBuilder.swift */,
+				1000000000000000000000D2 /* GifViewModel.swift */,
+				1000000000000000000000D3 /* GifView.swift */,
+			);
+			path = Gif;
+			sourceTree = "<group>";
+		};
 		78FA037BB2C14FC44B006507 /* VideoMergerTests */ = {
 			isa = PBXGroup;
 			children = (
@@ -356,6 +375,7 @@
 				52D80CBB1404DADA585BF243 /* DraftSerializationTests.swift */,
 				84221DE24FBCBE84D35DA4B0 /* ExportCommandWatermarkTests.swift */,
 				9D4536A1F4462B5E1FF2CB37 /* TimelineLayoutTests.swift */,
+				7A1B2C3D4E5F60718293A4B5 /* GifCommandBuilderTests.swift */,
 			);
 			name = VideoMergerTests;
 			sourceTree = SOURCE_ROOT;
@@ -548,6 +568,7 @@
 				622F8BCF57661D5844A15A97 /* DraftSerializationTests.swift in Sources */,
 				00AAE57BB4731FE158031B2B /* ExportCommandWatermarkTests.swift in Sources */,
 				63468427957B2248900D5A35 /* TimelineLayoutTests.swift in Sources */,
+				8C2D3E4F5A6B708192A3B4C5 /* GifCommandBuilderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -574,6 +595,9 @@
 				2000000000000000000000F1 /* DouyinParser.swift in Sources */,
 				2000000000000000000000F2 /* DouyinViewModel.swift in Sources */,
 				2000000000000000000000F3 /* DouyinView.swift in Sources */,
+				2000000000000000000000D1 /* GifCommandBuilder.swift in Sources */,
+				2000000000000000000000D2 /* GifViewModel.swift in Sources */,
+				2000000000000000000000D3 /* GifView.swift in Sources */,
 				200000000000000000000001 /* VideoMergerApp.swift in Sources */,
 				200000000000000000000002 /* MergeTypes.swift in Sources */,
 				200000000000000000000003 /* VideoMeta.swift in Sources */,

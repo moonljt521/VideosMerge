@@ -17,6 +17,7 @@ import com.moon.videomerger.editor.ui.EditorViewModel
 import com.moon.videomerger.home.HomeScreen
 import com.moon.videomerger.home.HistoryScreen
 import com.moon.videomerger.ui.DouyinScreen
+import com.moon.videomerger.ui.GifScreen
 import com.moon.videomerger.ui.MergeScreen
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -73,6 +74,9 @@ fun AppNavigation() {
                 },
                 onOpenDouyin = {
                     screen = Screen.Douyin
+                },
+                onOpenGif = {
+                    screen = Screen.Gif
                 },
                 onOpenHistory = {
                     screen = Screen.History
@@ -133,6 +137,13 @@ fun AppNavigation() {
                 }
             )
         }
+        is Screen.Gif -> {
+            GifScreen(
+                onBack = {
+                    screen = Screen.Home
+                }
+            )
+        }
     }
 }
 
@@ -141,6 +152,7 @@ sealed class Screen {
     object Editor : Screen()
     object Merge : Screen()
     object Douyin : Screen()
+    object Gif : Screen()
     object History : Screen()
 }
 
