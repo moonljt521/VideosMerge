@@ -17,6 +17,7 @@ struct HomeView: View {
     @State private var showEditor = false
     @State private var showMerge = false
     @State private var showDouyin = false
+    @State private var showGif = false
     @State private var mergeInitialURLs: [URL] = []
     @State private var mergeHint: String? = nil
     @State private var editorMode: EditorScreen.Mode = .draft
@@ -41,6 +42,10 @@ struct HomeView: View {
                     homeCard(icon: "music.note", iconColor: Color(hex: 0xFF26C6DA),
                              title: "抖音去水印", subtitle: "粘贴分享文案，解析无水印视频并保存") {
                         showDouyin = true
+                    }
+                    homeCard(icon: "photo.stack", iconColor: Color(hex: 0xFFFFA726),
+                             title: "视频转GIF", subtitle: "选择视频，一键转为 GIF 动图并保存") {
+                        showGif = true
                     }
                     Spacer()
                 }
@@ -101,6 +106,9 @@ struct HomeView: View {
             }
             .navigationDestination(isPresented: $showDouyin) {
                 DouyinView()
+            }
+            .navigationDestination(isPresented: $showGif) {
+                GifView()
             }
             .navigationDestination(isPresented: $showHistory) {
                 HistoryView(

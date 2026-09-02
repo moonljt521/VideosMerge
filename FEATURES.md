@@ -71,7 +71,7 @@
 | # | 功能 | 脚本 | Android | iOS | 备注 |
 |---|------|:---:|:---:|:---:|------|
 | 35 | 导出成片（mp4/H.264 硬编码 + 存相册 + 历史） | — | ✅ | ✅ | 固定 8M 码率 |
-| 36 | GIF 动图导出 | ✅ video_to_gif.py | ❌ | ❌ | palettegen/paletteuse |
+| 36 | GIF 动图导出 | ✅ video_to_gif.py | ✅ 首页入口 | ✅ 首页入口 | palettegen/paletteuse，可选宽度/帧率/质量/循环 |
 | 37 | 视频截图 | ✅ screenshot.py | ❌ | ❌ | |
 | 38 | 压缩（可选码率/质量） | ✅ compress.py | ❌ | ❌ | |
 | 39 | 格式转换 | ✅ convert_format.py | ❌ | ❌ | |

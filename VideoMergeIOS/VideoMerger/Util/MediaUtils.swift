@@ -245,6 +245,41 @@ enum MediaUtils {
         return createdAssetIdentifier ?? ""
     }
 
+    /// 将 GIF 文件保存到系统相册（图片）。
+    /// GIF 属于图片，资源类型用 .photo 而非 .video。
+    /// 返回 PHAsset 的 localIdentifier。
+    @discardableResult
+    static func saveGifToGallery(fileURL: URL, displayName: String) throws -> String {
+        var createdAssetIdentifier: String?
+        var saveError: Error?
+
+        let semaphore = DispatchSemaphore(value: 0)
+
+        PHPhotoLibrary.shared().performChanges {
+            let request = PHAssetCreationRequest.forAsset()
+            request.addResource(with: .photo, fileURL: fileURL, options: nil)
+            request.creationDate = Date()
+        } completionHandler: { success, error in
+            if success {
+                // 取最新保存的图片 asset
+                let opts = PHFetchOptions()
+                opts.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+                opts.fetchLimit = 1
+                let fetch = PHAsset.fetchAssets(with: .image, options: opts)
+                if fetch.count > 0 {
+                    createdAssetIdentifier = fetch.firstObject?.localIdentifier
+                }
+            } else {
+                saveError = error
+            }
+            semaphore.signal()
+        }
+        semaphore.wait()
+
+        if let err = saveError { throw err }
+        return createdAssetIdentifier ?? ""
+    }
+
     // MARK: - 缩略图
 
     /// 从文件路径加载视频缩略图（第一帧）

@@ -30,6 +30,7 @@ fun HomeScreen(
     onNewProject: (List<Uri>) -> Unit,
     onOpenMerge: (List<Uri>) -> Unit,
     onOpenDouyin: () -> Unit,
+    onOpenGif: () -> Unit,
     onOpenHistory: () -> Unit,
     draftInfo: DraftStore.DraftInfo?,
     onResumeDraft: () -> Unit,
@@ -211,6 +212,25 @@ fun HomeScreen(
                     Spacer(Modifier.height(8.dp))
                     Text("抖音去水印", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     Text("粘贴分享文案，解析无水印视频并保存", color = Color(0xFF666666), fontSize = 12.sp)
+                }
+            }
+
+            // ── 视频转GIF按钮 ──
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .height(110.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF1A1A1A))
+                    .clickable { onOpenGif() },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.Gif, contentDescription = null, tint = Color(0xFFFFA726), modifier = Modifier.size(44.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text("视频转GIF", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text("选择视频，一键转为 GIF 动图并保存", color = Color(0xFF666666), fontSize = 12.sp)
                 }
             }
         }
