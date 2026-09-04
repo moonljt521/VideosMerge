@@ -120,7 +120,9 @@ final class EditorViewModel: ObservableObject {
                 project.updatedAt = Date().timeIntervalSince1970 * 1000
                 undoStack.removeAll(); redoStack.removeAll()
                 playhead = 0
-                uiState = EditorUiState(project: project, selectedClipId: clips.first?.id)
+                // ★ 对齐 Android：导入完成即自动播放，避免预览区黑屏停在首帧
+                uiState = EditorUiState(project: project, selectedClipId: clips.first?.id,
+                                        isPlaying: !clips.isEmpty)
             } catch is CancellationError {
                 uiState.isImporting = false
             } catch {
@@ -154,6 +156,8 @@ final class EditorViewModel: ObservableObject {
                     uiState.project.mainTrack = mainTrack
                 } else {
                     uiState.project.tracks.append(Track(type: .main, clips: relayoutMainTrackClips(newClips)))
+                    // ★ 对齐 Android：首次导入建主轨即自动播放；追加到已有主轨时保持当前播放态
+                    uiState.isPlaying = true
                 }
                 if uiState.selectedClipId == nil { uiState.selectedClipId = newClips.first?.id }
             } catch is CancellationError {
@@ -209,7 +213,9 @@ final class EditorViewModel: ObservableObject {
             }
             undoStack.removeAll(); redoStack.removeAll()
             playhead = 0
-            uiState = EditorUiState(project: loaded, selectedClipId: loaded.mainTrack?.clips.first?.id)
+            // ★ 对齐 Android：草稿恢复也自动播放（草稿不保存播放头，从头播；停在暂停态像黑屏卡住）
+            uiState = EditorUiState(project: loaded, selectedClipId: loaded.mainTrack?.clips.first?.id,
+                                    isPlaying: !(loaded.mainTrack?.clips.isEmpty ?? true))
         }
     }
 

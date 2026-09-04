@@ -8,6 +8,7 @@
 
 import SwiftUI
 import PhotosUI
+import UIKit
 
 struct EditorScreen: View {
     enum Mode {
@@ -39,7 +40,8 @@ struct EditorScreen: View {
                             state: viewModel.uiState,
                             playhead: viewModel.playhead,
                             onTogglePlay: { viewModel.togglePlay() },
-                            onSeek: { viewModel.seekTo($0) }
+                            onSeek: { viewModel.seekTo($0) },
+                            onPlaybackEnded: { viewModel.pausePlayback() }
                         )
                         .frame(height: previewHeight)
 
@@ -61,7 +63,12 @@ struct EditorScreen: View {
                                     } else if let sel = viewModel.uiState.selectedClipId {
                                         viewModel.deleteClip(sel)
                                     }
-                                }
+                                },
+                                onOpenTransition: { clipId in
+                                    viewModel.selectClip(clipId)
+                                    viewModel.showPanel(.transition)
+                                },
+                                onPauseForScrub: { viewModel.pausePlayback() }
                             )
 
                             if viewModel.uiState.currentPanel == .none {
@@ -170,6 +177,8 @@ struct EditorScreen: View {
             }
         }
     }
+
+    // MARK: 草稿自动保存
 
     private func scheduleDraftSave() {
         draftSaveTask?.cancel()
@@ -335,6 +344,19 @@ struct FloatingMessage: View {
     }
 }
 
+// MARK: - 缩略图内存缓存（对齐 Android Coil 内存缓存；刮擦高频重建胶片时避免反复读盘解码）
+
+private enum ThumbnailCache {
+    static let images = NSCache<NSString, UIImage>()
+
+    static func image(atPath path: String) -> UIImage? {
+        if let hit = images.object(forKey: path as NSString) { return hit }
+        guard let img = UIImage(contentsOfFile: path) else { return nil }
+        images.setObject(img, forKey: path as NSString)
+        return img
+    }
+}
+
 // MARK: - 时间轴
 
 struct TimelinePanel: View {
@@ -347,6 +369,8 @@ struct TimelinePanel: View {
     let onClearRange: () -> Void
     let onSplitAtPlayhead: () -> Void
     let onDelete: () -> Void
+    let onOpenTransition: ((String) -> Void)?
+    let onPauseForScrub: () -> Void
 
     init(state: EditorUiState, playhead: Double,
          onSelectClip: @escaping (String?) -> Void,
@@ -355,7 +379,9 @@ struct TimelinePanel: View {
          onSetOutPoint: @escaping () -> Void,
          onClearRange: @escaping () -> Void,
          onSplitAtPlayhead: @escaping () -> Void,
-         onDelete: @escaping () -> Void) {
+         onDelete: @escaping () -> Void,
+         onOpenTransition: ((String) -> Void)? = nil,
+         onPauseForScrub: @escaping () -> Void = {}) {
         self.state = state
         self.playhead = playhead
         self.onSelectClip = onSelectClip
@@ -365,13 +391,17 @@ struct TimelinePanel: View {
         self.onClearRange = onClearRange
         self.onSplitAtPlayhead = onSplitAtPlayhead
         self.onDelete = onDelete
+        self.onOpenTransition = onOpenTransition
+        self.onPauseForScrub = onPauseForScrub
     }
+
+    /// 固定缩放：每秒 60pt（对齐 Android TimelinePanel pps=60dp，约一屏 10 秒）
+    private let pps: CGFloat = 60
 
     var body: some View {
         VStack(spacing: 0) {
             actionBar
-            ruler
-            tracks
+            filmArea
         }
         .background(Color(hex: 0xFF1A1A1A))
     }
@@ -416,90 +446,142 @@ struct TimelinePanel: View {
         .onTapGesture { if enabled { action() } }
     }
 
-    // MARK: 标尺
+    // MARK: 胶片区（剪映式：播放头固定中央，胶片横向滚动）
 
-    private var ruler: some View {
+    private var filmArea: some View {
         GeometryReader { geo in
-            let width = geo.size.width
-            let pps = width / totalDuration
-            ZStack(alignment: .topLeading) {
-                Rectangle().fill(Color(hex: 0xFF222222))
-                // 刻度
-                let interval = totalDuration <= 10 ? 1.0 : totalDuration <= 30 ? 2.0
-                    : totalDuration <= 60 ? 5.0 : totalDuration <= 300 ? 10.0 : 30.0
-                ForEach(0..<Int(totalDuration / interval) + 1, id: \.self) { i in
-                    let t = Double(i) * interval
-                    if t <= totalDuration {
-                        Text(timecode(t))
-                            .font(.system(size: 9))
-                            .foregroundColor(Color(hex: 0xFF888888))
-                            .offset(x: t * pps + 2, y: 2)
+            let viewportWidth = max(geo.size.width, 1)
+            let trackH = CGFloat(state.project.tracks.count * 48 + 8)
+            let rulerH: CGFloat = 32
+            let viewportHeight = trackH + rulerH
+            let filmWidth = CGFloat(totalDuration) * pps
+            // ★ 胶片内容指纹：不依赖播放头。只有结构变化（片段增删改/选中/入出点/尺寸）才
+            //   重建宿主内容，避免刮擦 30Hz + 播放推进 10Hz 时整棵胶片树每帧重渲染拖垮主线程
+            //   （真机上渲染慢，每帧全量重建会灌满主线程：预览被饿死、点按被丢弃）
+            let tracksKey = state.project.tracks.map { track in
+                "\(track.id)|" + track.clips.map { clip in
+                    "\(clip.id),\(clip.timelineStart),\(clip.timelineDuration),\(clip.trimStart),\(clip.trimEnd),\(clip.speed),\(clip.transition),\(clip.pipEnabled)"
+                }.joined(separator: ";")
+            }.joined(separator: "#")
+            let filmKey = "\(tracksKey)|\(state.selectedClipId ?? "-")|\(state.inPoint ?? -1)|\(state.outPoint ?? -1)|\(filmWidth)|\(viewportWidth)|\(viewportHeight)"
+            ZStack {
+                TimelineScrollHost(
+                    pps: pps,
+                    totalDuration: totalDuration,
+                    viewportWidth: viewportWidth,
+                    viewportHeight: viewportHeight,
+                    playhead: playhead,
+                    isPlaying: state.isPlaying,
+                    filmKey: filmKey,
+                    onScrub: onSeekAction,
+                    onPauseForScrub: onPauseForScrub
+                ) {
+                    HStack(spacing: 0) {
+                        Color.clear.frame(width: viewportWidth / 2, height: viewportHeight)
+                        VStack(spacing: 0) {
+                            rulerContent(width: filmWidth)
+                            tracksContent(width: filmWidth)
+                        }
+                        .frame(width: filmWidth, height: viewportHeight, alignment: .topLeading)
+                        Color.clear.frame(width: viewportWidth / 2, height: viewportHeight)
                     }
                 }
-                // 区间高亮
-                if let i = state.inPoint, let o = state.outPoint, o > i {
-                    Rectangle().fill(Color(hex: 0x55FF7043))
-                        .frame(width: (o - i) * pps)
-                        .offset(x: i * pps)
-                }
-                // 播放头
-                Rectangle().fill(Color(hex: 0xFF2196F3)).frame(width: 2)
-                    .offset(x: playhead * pps)
+                .frame(width: viewportWidth, height: viewportHeight)
+                // ★ 固定播放头：钉死滚动视口正中央（对齐 Android CenterPlayhead）
+                CenterPlayhead()
+                    .frame(width: viewportWidth, height: viewportHeight)
+                    .allowsHitTesting(false)
             }
-            .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 0).onChanged { g in
-                onSeekAction(min(max(Double(g.location.x / pps), 0), totalDuration))
-            })
+            .frame(width: viewportWidth, height: viewportHeight)
         }
-        .frame(height: 30)
+        .frame(height: CGFloat(state.project.tracks.count * 48 + 8) + 32)
         .padding(.horizontal, 12)
+        .padding(.bottom, 4)
     }
 
-    // MARK: 轨道
+    // MARK: 标尺（宽度 = 总时长×pps，在滚动容器内；tap 定位，滚动宿主自动居中）
 
-    private var tracks: some View {
-        GeometryReader { geo in
-            let width = geo.size.width
-            let pps = (width - 24) / totalDuration
-            ZStack(alignment: .topLeading) {
-                // 多轨：主轨（接缝显示模型）+ 画中画等自由定位轨（真实位置）
-                ForEach(Array(state.project.tracks.enumerated()), id: \.element.id) { rowIdx, track in
-                    let sorted = track.clips.sorted { $0.timelineStart < $1.timelineStart }
-                    let rects: [(clip: Clip, start: Double, width: Double)] =
-                        track.type == .main ? displayRects(sorted)
-                        : sorted.map { ($0, $0.timelineStart, $0.timelineDuration) }
-                    ForEach(Array(rects.enumerated()), id: \.element.clip.id) { _, rect in
-                        ClipBlockView(
-                            clip: rect.clip,
-                            x: rect.start * pps, width: max(rect.width * pps, 20),
-                            isSelected: rect.clip.id == state.selectedClipId,
-                            onTap: {
-                                onSelectClip(rect.clip.id == state.selectedClipId ? nil : rect.clip.id)
+    private func rulerContent(width filmWidth: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            Rectangle().fill(Color(hex: 0xFF222222))
+            // 刻度：像素间距 ≥64pt 自适应（对齐 Android TimelineRuler）
+            let interval = rulerInterval()
+            ForEach(0..<Int(totalDuration / interval) + 1, id: \.self) { i in
+                let t = Double(i) * interval
+                if t <= totalDuration + 1e-9 {
+                    Text(timecode(t))
+                        .font(.system(size: 9))
+                        .foregroundColor(Color(hex: 0xFF888888))
+                        .offset(x: CGFloat(t) * pps + 2, y: 2)
+                }
+            }
+            // 区间高亮
+            if let i = state.inPoint, let o = state.outPoint, o > i {
+                Rectangle().fill(Color(hex: 0x55FF7043))
+                    .frame(width: CGFloat(o - i) * pps)
+                    .offset(x: CGFloat(i) * pps)
+            }
+        }
+        .frame(width: filmWidth, height: 32)
+        .contentShape(Rectangle())
+        // ★ 用 SpatialTapGesture 只处理点按定位，不抢夺横向拖动手势；
+        //   拖动刮擦交由外层 UIScrollView（TimelineScrollHost）处理，对齐 Android horizontalScroll
+        .gesture(SpatialTapGesture().onEnded { value in
+            onSeekAction(min(max(Double(value.location.x / pps), 0), totalDuration))
+        })
+    }
+
+    /// 与 Android 一致的标尺档位：最小的、且像素间距 ≥64pt 的档位
+    private func rulerInterval() -> Double {
+        let candidates = [0.5, 1.0, 2.0, 5.0, 10.0, 15.0, 30.0, 60.0, 120.0, 300.0]
+        return candidates.first { $0 * Double(pps) >= 64 } ?? 300.0
+    }
+
+    // MARK: 轨道（宽度 = 总时长×pps；空白处 tap seek，拖动交由滚动宿主横向滚动）
+
+    private func tracksContent(width filmWidth: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            // 空白处点按定位（垫在最底层，片段块在上层优先命中，避免点片段时误触发 seek）
+            Color.clear
+                .frame(width: filmWidth, height: CGFloat(state.project.tracks.count * 48 + 8))
+                .contentShape(Rectangle())
+                .gesture(SpatialTapGesture().onEnded { value in
+                    onSeekAction(min(max(Double(value.location.x / pps), 0), totalDuration))
+                })
+            // 多轨：主轨（接缝显示模型）+ 画中画等自由定位轨（真实位置）
+            ForEach(Array(state.project.tracks.enumerated()), id: \.element.id) { rowIdx, track in
+                let sorted = track.clips.sorted { $0.timelineStart < $1.timelineStart }
+                let rects: [(clip: Clip, start: Double, width: Double)] =
+                    track.type == .main ? displayRects(sorted)
+                    : sorted.map { ($0, $0.timelineStart, $0.timelineDuration) }
+                ForEach(Array(rects.enumerated()), id: \.element.clip.id) { _, rect in
+                    ClipBlockView(
+                        clip: rect.clip,
+                        x: rect.start * Double(pps), width: max(rect.width * Double(pps), 20),
+                        isSelected: rect.clip.id == state.selectedClipId,
+                        onTap: {
+                            onSelectClip(rect.clip.id == state.selectedClipId ? nil : rect.clip.id)
+                        })
+                    .offset(x: CGFloat(rect.start) * pps, y: CGFloat(rowIdx * 48) + 4)
+                }
+                if track.type == .main {
+                    ForEach(Array(sorted.enumerated()), id: \.element.id) { _, clip in
+                        if clip.transition != .none {
+                            TransitionBadgeView(onTap: {
+                                if let handler = onOpenTransition {
+                                    handler(clip.id)
+                                } else {
+                                    onSelectClip(clip.id)
+                                }
                             })
-                        .offset(x: 24 + rect.start * pps, y: CGFloat(rowIdx * 48) + 4)
-                    }
-                    if track.type == .main {
-                        ForEach(Array(sorted.enumerated()), id: \.element.id) { _, clip in
-                            if clip.transition != .none {
-                                TransitionBadgeView()
-                                    .offset(x: 24 + clip.timelineEnd * pps - 8,
-                                            y: CGFloat(rowIdx * 48) + 20)
-                            }
+                            .offset(x: CGFloat(clip.timelineEnd) * pps - 8,
+                                    y: CGFloat(rowIdx * 48) + 20)
                         }
                     }
                 }
-                // 播放头
-                Rectangle().fill(Color.white).frame(width: 2)
-                    .offset(x: playhead * pps)
             }
-            .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 0).onChanged { g in
-                onSeekAction(min(max(Double((g.location.x - 24) / pps), 0), totalDuration))
-            })
         }
-        .frame(height: CGFloat(state.project.tracks.count * 48 + 8))
-        .padding(.horizontal, 12)
-        .padding(.bottom, 4)
+        .frame(width: filmWidth, height: CGFloat(state.project.tracks.count * 48 + 8))
     }
 
     /// 主轨显示矩形：块首尾相接，接缝=前一片段真正结束点（与 Android 显示模型一致）
@@ -523,6 +605,193 @@ struct TimelinePanel: View {
     }
 }
 
+// MARK: - 固定播放头（钉死滚动视口正中央的竖线 + 顶部手柄，对齐 Android CenterPlayhead）
+
+private struct CenterPlayhead: View {
+    var body: some View {
+        ZStack {
+            HStack {
+                Spacer(minLength: 0)
+                Rectangle()
+                    .fill(Color.white.opacity(0.9))
+                    .frame(width: 2)
+                Spacer(minLength: 0)
+            }
+            VStack(spacing: 0) {
+                HStack {
+                    Spacer(minLength: 0)
+                    Image(systemName: "arrowtriangle.down.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(hex: 0xFF2196F3))
+                    Spacer(minLength: 0)
+                }
+                .offset(y: -2)
+                Spacer(minLength: 0)
+            }
+        }
+    }
+}
+
+// MARK: - 中央滚动宿主（UIScrollView：胶片滚动 ↔ 播放头/预览同步，对齐 Android 滚动模型）
+//
+// 内容宽度 = 胶片宽 + 视口宽（左右各半个视口留白），使 t=0 与 t=结尾都能精确居中。
+// contentOffset.x(t) = t × pps；播放头固定在视口中央。
+// - 播放中：playhead 变化 → 直接跟滚（10Hz 步进，实测足够顺滑）。
+// - 暂停态拖动 → onScrub(offset/pps) 回写播放头；tap 定位 → playhead 变化 → 动画居中。
+// - 播放中拖动 → 先 onPauseForScrub 暂停（剪映式手感），再按暂停态刮擦，保证拖到哪预览跟到哪。
+
+private struct TimelineScrollHost: UIViewRepresentable {
+    let pps: CGFloat
+    let totalDuration: Double
+    let viewportWidth: CGFloat
+    let viewportHeight: CGFloat
+    let playhead: Double
+    let isPlaying: Bool
+    let filmKey: String
+    let onScrub: (Double) -> Void
+    let onPauseForScrub: () -> Void
+    let film: AnyView
+
+    init<Content: View>(pps: CGFloat, totalDuration: Double, viewportWidth: CGFloat,
+                        viewportHeight: CGFloat, playhead: Double, isPlaying: Bool,
+                        filmKey: String,
+                        onScrub: @escaping (Double) -> Void,
+                        onPauseForScrub: @escaping () -> Void = {},
+                        @ViewBuilder content: () -> Content) {
+        self.pps = pps
+        self.totalDuration = totalDuration
+        self.viewportWidth = viewportWidth
+        self.viewportHeight = viewportHeight
+        self.playhead = playhead
+        self.isPlaying = isPlaying
+        self.filmKey = filmKey
+        self.onScrub = onScrub
+        self.onPauseForScrub = onPauseForScrub
+        self.film = AnyView(content())
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIView(context: Context) -> UIScrollView {
+        let sv = UIScrollView()
+        sv.showsHorizontalScrollIndicator = false
+        sv.showsVerticalScrollIndicator = false
+        sv.alwaysBounceHorizontal = true
+        sv.alwaysBounceVertical = false
+        sv.delegate = context.coordinator
+        context.coordinator.scrollView = sv
+        let hc = UIHostingController(rootView: film)
+        hc.view.backgroundColor = .clear
+        context.coordinator.hostingController = hc
+        sv.addSubview(hc.view)
+        return sv
+    }
+
+    func updateUIView(_ sv: UIScrollView, context: Context) {
+        let c = context.coordinator
+        c.pps = pps
+        c.totalDuration = totalDuration
+        c.isPlaying = isPlaying
+        c.onScrub = onScrub
+        c.onPauseForScrub = onPauseForScrub
+
+        // ★ 只有胶片结构变化才重建宿主内容（见 filmArea 的 filmKey 注释）
+        if c.lastFilmKey != filmKey {
+            c.lastFilmKey = filmKey
+            c.hostingController?.rootView = film
+            c.hostingController?.view.setNeedsLayout()
+
+            let filmWidth = CGFloat(totalDuration) * pps
+            let contentWidth = filmWidth + viewportWidth
+            let contentHeight = viewportHeight
+            if sv.contentSize != CGSize(width: contentWidth, height: contentHeight) {
+                sv.contentSize = CGSize(width: contentWidth, height: contentHeight)
+            }
+            c.hostingController?.view.frame = CGRect(x: 0, y: 0, width: contentWidth, height: contentHeight)
+        }
+
+        let clamped = min(max(playhead, 0), totalDuration)
+        let target = CGFloat(clamped) * pps
+        // 用户手势进行中不抢夺控制权，避免刮擦抖动
+        if sv.isDragging || sv.isDecelerating || sv.isTracking {
+            return
+        }
+        guard abs(sv.contentOffset.x - target) > 0.5 else { return }
+        if isPlaying {
+            c.programmatic = true
+            sv.setContentOffset(CGPoint(x: target, y: 0), animated: false)
+            c.programmatic = false
+        } else {
+            c.programmatic = true
+            sv.setContentOffset(CGPoint(x: target, y: 0), animated: true)
+        }
+    }
+
+    final class Coordinator: NSObject, UIScrollViewDelegate {
+        var pps: CGFloat = 60
+        var totalDuration: Double = 1
+        var isPlaying = false
+        var onScrub: (Double) -> Void = { _ in }
+        var onPauseForScrub: () -> Void = {}
+        var programmatic = false
+        weak var scrollView: UIScrollView?
+        var hostingController: UIHostingController<AnyView>?
+        var lastFilmKey: String?
+        // ★ 刮擦节流：滚动事件 60~120Hz，直接全量回写会让主线程重建整个编辑器+精准 seek，
+        //   互相取消导致画面冻住、手势/点按跟着卡。压到 ~30Hz，松手时补一次尾帧保证精确落点。
+        var lastScrubFlush: Double = 0
+        var pendingScrubT: Double? = nil
+
+        func scrollViewDidScroll(_ sv: UIScrollView) {
+            if programmatic { return }
+            if isPlaying { return }
+            if sv.isDragging || sv.isDecelerating || sv.isTracking {
+                let t = min(max(Double(sv.contentOffset.x / pps), 0), totalDuration)
+                let now = CFAbsoluteTimeGetCurrent()
+                if now - lastScrubFlush >= 1.0 / 30.0 {
+                    lastScrubFlush = now
+                    pendingScrubT = nil
+                    onScrub(t)
+                } else {
+                    pendingScrubT = t
+                }
+            }
+        }
+
+        func scrollViewDidEndDragging(_ sv: UIScrollView, willDecelerate decelerate: Bool) {
+            if !decelerate { flushPendingScrub() }
+        }
+
+        func scrollViewDidEndDecelerating(_ sv: UIScrollView) {
+            flushPendingScrub()
+        }
+
+        private func flushPendingScrub() {
+            if let t = pendingScrubT {
+                pendingScrubT = nil
+                lastScrubFlush = CFAbsoluteTimeGetCurrent()
+                if !isPlaying { onScrub(t) }
+            }
+        }
+
+        func scrollViewWillBeginDragging(_ sv: UIScrollView) {
+            // 用户接管：取消进行中的程序滚动，避免 programmatic 标志卡死导致后续刮擦失效
+            programmatic = false
+            // ★ 播放中上手拖胶片 → 先暂停再刮擦（剪映式手感），否则拖动与预览不联动
+            if isPlaying {
+                isPlaying = false
+                onPauseForScrub()
+            }
+        }
+
+        func scrollViewDidEndScrollingAnimation(_ sv: UIScrollView) {
+            programmatic = false
+        }
+    }
+}
+
 struct ClipBlockView: View {
     let clip: Clip
     let x: Double
@@ -532,7 +801,8 @@ struct ClipBlockView: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            if let path = clip.thumbnailPath, let img = UIImage(contentsOfFile: path) {
+            // ★ 缩略图走内存缓存：刮擦时每 tick 都重建胶片，直接读盘解码会把主线程拖垮
+            if let path = clip.thumbnailPath, let img = ThumbnailCache.image(atPath: path) {
                 Image(uiImage: img).resizable().scaledToFill()
             } else {
                 Color(hex: 0xFF3D3D3D)
@@ -564,12 +834,15 @@ struct ClipBlockView: View {
 }
 
 struct TransitionBadgeView: View {
+    var onTap: (() -> Void)? = nil
     var body: some View {
         ZStack {
             Circle().fill(Color.white).frame(width: 16, height: 16)
             Image(systemName: "arrow.left.arrow.right")
                 .font(.system(size: 9, weight: .bold)).foregroundColor(Color(hex: 0xFF1A1A1A))
         }
+        .contentShape(Circle())
+        .onTapGesture { onTap?() }
     }
 }
 
