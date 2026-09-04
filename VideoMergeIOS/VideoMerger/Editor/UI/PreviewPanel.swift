@@ -9,11 +9,26 @@
 import SwiftUI
 import AVFoundation
 
+// MARK: - 预览面板
+
 struct PreviewPanel: View {
     let state: EditorUiState
     let playhead: Double
     let onTogglePlay: () -> Void
     let onSeek: (Double) -> Void
+    /// 播完最后一段的回调（对齐 Android onPlaybackEnded → 上层暂停，单遍不循环）
+    let onPlaybackEnded: () -> Void
+
+    init(state: EditorUiState, playhead: Double,
+         onTogglePlay: @escaping () -> Void,
+         onSeek: @escaping (Double) -> Void,
+         onPlaybackEnded: @escaping () -> Void = {}) {
+        self.state = state
+        self.playhead = playhead
+        self.onTogglePlay = onTogglePlay
+        self.onSeek = onSeek
+        self.onPlaybackEnded = onPlaybackEnded
+    }
 
     var body: some View {
         let clips = state.project.sortedMainClips
@@ -25,7 +40,8 @@ struct PreviewPanel: View {
         } else {
             PreviewContent(
                 state: state, clips: clips, playhead: playhead,
-                onTogglePlay: onTogglePlay, onSeek: onSeek)
+                onTogglePlay: onTogglePlay, onSeek: onSeek,
+                onPlaybackEnded: onPlaybackEnded)
         }
     }
 }
@@ -36,6 +52,7 @@ private struct PreviewContent: View {
     let playhead: Double
     let onTogglePlay: () -> Void
     let onSeek: (Double) -> Void
+    let onPlaybackEnded: () -> Void
 
     var body: some View {
         let zone = findTransitionZone(clips, playhead)
@@ -46,22 +63,25 @@ private struct PreviewContent: View {
         ZStack {
             Color.black
 
-            // 视频层（key 语义：同一片段跨模式保留播放器实例）
+            // 视频层（对齐 Android key(clip.id)：同一片段跨模式保留播放器实例，切片段时重建）
             if let zone = zone {
                 VideoLayerView(
                     clip: zone.prev, role: .bottom, progress: zone.progress(playhead),
                     isPlaying: state.isPlaying, playhead: playhead, clips: clips,
-                    drivesPlayhead: false, onSeek: onSeek)
+                    drivesPlayhead: false, onSeek: onSeek, onPlaybackEnded: onPlaybackEnded)
+                .id(zone.prev.id)
                 VideoLayerView(
                     clip: zone.next, role: .top, progress: zone.progress(playhead),
                     transitionEffect: zone.prev.transition,
                     isPlaying: state.isPlaying, playhead: playhead, clips: clips,
-                    drivesPlayhead: true, onSeek: onSeek)
+                    drivesPlayhead: true, onSeek: onSeek, onPlaybackEnded: onPlaybackEnded)
+                .id(zone.next.id)
             } else {
                 VideoLayerView(
                     clip: primary, role: .solo, progress: 1,
                     isPlaying: state.isPlaying, playhead: playhead, clips: clips,
-                    drivesPlayhead: true, onSeek: onSeek)
+                    drivesPlayhead: true, onSeek: onSeek, onPlaybackEnded: onPlaybackEnded)
+                .id(primary.id)
             }
 
             // 淡入白/黑遮罩
@@ -122,15 +142,15 @@ private struct PreviewContent: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 .padding(.top, 6).padding(.trailing, 8)
 
-            // 播放按钮（暂停态显示）
+            // 暂停指示（纯展示、不可点：点按由外层统一处理；
+            //   若用 Button 会与外层 onTapGesture 双重触发，toggle 两次等于没点）
             if !state.isPlaying {
-                Button(action: onTogglePlay) {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(.white)
-                        .frame(width: 60, height: 60)
-                        .background(Circle().fill(Color.black.opacity(0.55)))
-                }
+                Image(systemName: "play.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(.white)
+                    .frame(width: 60, height: 60)
+                    .background(Circle().fill(Color.black.opacity(0.55)))
+                    .allowsHitTesting(false)
             }
         }
         .contentShape(Rectangle())
@@ -160,10 +180,39 @@ private struct VideoLayerView: View {
     let clips: [Clip]
     let drivesPlayhead: Bool
     let onSeek: (Double) -> Void
+    /// 最后一段播完的回调（对齐 Android onPlaybackEnded → 上层暂停）
+    let onPlaybackEnded: () -> Void
+
+    init(clip: Clip, role: LayerRole, progress: Double,
+         transitionEffect: TransitionEffect? = nil,
+         isPlaying: Bool, playhead: Double, clips: [Clip],
+         drivesPlayhead: Bool,
+         onSeek: @escaping (Double) -> Void,
+         onPlaybackEnded: @escaping () -> Void = {}) {
+        self.clip = clip
+        self.role = role
+        self.progress = progress
+        self.transitionEffect = transitionEffect
+        self.isPlaying = isPlaying
+        self.playhead = playhead
+        self.clips = clips
+        self.drivesPlayhead = drivesPlayhead
+        self.onSeek = onSeek
+        self.onPlaybackEnded = onPlaybackEnded
+    }
 
     @State private var player: AVPlayer? = nil
     @State private var timeObserver: Any? = nil
+    @State private var boundaryToken: NSObjectProtocol? = nil
     @State private var lastSeekedPos: Double = 0
+    /// 暂停态刮擦的尾帧补齐 work（拖动停顿后精准落最后一次位置）
+    @State private var pendingScrubSeek: DispatchWorkItem? = nil
+    /// 上一次限流直发 seek 的时间（限流窗口 ~80ms，保证拖动中预览持续跟手）
+    @State private var lastSeekIssueAt: CFTimeInterval = 0
+    /// ★ 易变输入的镜像：SwiftUI 合并下发变更时，事件闭包里直接读 let 属性可能拿到旧值，
+    ///   一律在各 onChange 首行用新值刷新镜像，后续逻辑只读镜像/显式传参。
+    @State private var latestPlayhead: Double = 0
+    @State private var latestPlaying = false
 
     // 调色参数（预设+手动，与 FilterBuilder/Android 预览一致）
     private var filterBrightness: Float {
@@ -207,8 +256,14 @@ private struct VideoLayerView: View {
                 p.volume = role == .bottom ? Float(1 - progress) : (role == .top ? Float(progress) : 1)
                 player = p
                 lastSeekedPos = playhead
-                addBoundaryObserver(p)
-                addPeriodicObserver(p)
+                latestPlayhead = playhead
+                latestPlaying = isPlaying
+                startDriver(p, driverPlaying: isPlaying, driverClip: clip, driverClips: clips)
+                // ★ 对齐 Android playWhenReady=isPlaying：导入/草稿恢复时 isPlaying 已为 true，
+                //   onChange 不会因初始值触发，这里创建即起播（bottom 转场层保持暂停，与 onChange 守卫一致）
+                if isPlaying && (drivesPlayhead || role != .bottom) {
+                    p.play()
+                }
             }
         }
         .onChange(of: filterBrightness) { _ in applyFilters() }
@@ -217,13 +272,47 @@ private struct VideoLayerView: View {
         .onChange(of: filterHue) { _ in applyFilters() }
         .onChange(of: blurSigma) { _ in applyFilters() }
         .onDisappear {
-            if let t = timeObserver { player?.removeTimeObserver(t) }
+            pendingScrubSeek?.cancel()
+            pendingScrubSeek = nil
+            stopDriver()
             player?.pause()
             player = nil
         }
         .onChange(of: isPlaying) { playing in
+            latestPlaying = playing
             guard drivesPlayhead || role != .bottom else { return }
-            if playing { player?.play() } else { player?.pause() }
+            if playing {
+                pendingScrubSeek?.cancel()
+                pendingScrubSeek = nil
+                if let pl = player {
+                    startDriver(pl, driverPlaying: playing, driverClip: clip, driverClips: clips)
+                }
+                // ★ 起播对齐推迟到下一 runloop：本轮合并更新（含播完重播的 playhead 回 0）
+                //   全部落定后再读镜像 seek。AVPlayer 停在 item 尾端时 play() 是空操作，
+                //   不先离开尾端就会 timelines 回 0、画面冻尾帧、看起来像点不动。
+                DispatchQueue.main.async {
+                    guard self.latestPlaying else { return } // 极速又点停了就别复活
+                    self.syncPlayer(to: self.latestPlayhead)
+                    self.player?.play()
+                }
+            } else {
+                player?.pause()
+                // ★ 驱动闭包按本次新值重注册（对齐 Android LaunchedEffect(isPlaying, …) 重启语义）
+                if let pl = player {
+                    startDriver(pl, driverPlaying: playing, driverClip: clip, driverClips: clips)
+                }
+            }
+        }
+        // ★ 片段/轨道变化（裁剪/变速/增删）同样重注册，保证出点与下一段索引是最新的
+        .onChange(of: clip) { newClip in
+            if let pl = player {
+                startDriver(pl, driverPlaying: latestPlaying, driverClip: newClip, driverClips: clips)
+            }
+        }
+        .onChange(of: clips) { newClips in
+            if let pl = player {
+                startDriver(pl, driverPlaying: latestPlaying, driverClip: clip, driverClips: newClips)
+            }
         }
         .onChange(of: progress) { p in
             // 转场音量交叉衰减
@@ -231,54 +320,102 @@ private struct VideoLayerView: View {
             if role == .top { player?.volume = Float(min(p, 1)) }
         }
         .onChange(of: playhead) { pos in
-            // 暂停态：拖动时间轴重新定位
-            guard !isPlaying, pos != lastSeekedPos else { return }
-            lastSeekedPos = pos
-            let src = min(max(sourceTime(clip, pos), clip.trimStart), endOf(clip))
-            if let cur = player?.currentTime().seconds, abs(cur - src) > 0.1 {
-                player?.seek(to: CMTime(seconds: src, preferredTimescale: 600),
-                             toleranceBefore: .zero, toleranceAfter: .zero)
-            }
+            // 镜像先行（与 isPlaying 合并变更时顺序不定，后面的起播对齐只认镜像）
+            latestPlayhead = pos
+            // 暂停态：拖动时间轴重新定位（限流直发 + 尾帧补齐）
+            schedulePausedSeek(to: pos)
         }
     }
 
-    /// 片段播完 → 跳下一片段或循环
-    private func addBoundaryObserver(_ p: AVPlayer) {
-        let end = endOf(clip)
-        NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime, object: p.currentItem, queue: .main
-        ) { _ in
-            guard drivesPlayhead else { return }
-            let idx = clips.firstIndex { $0.id == clip.id } ?? -1
-            if idx >= 0, idx < clips.count - 1 {
-                onSeek(clips[idx + 1].timelineStart)
-            } else {
-                p.seek(to: CMTime(seconds: clip.trimStart, preferredTimescale: 600))
-                onSeek(0)
+    /// 暂停态刮擦 seek：限流直发 + 停顿后尾帧精准补齐。
+    /// AVPlayer 精准 seek 单次几十毫秒，逐帧全发会互相排队、画面冻结（Android ExoPlayer 无此问题，
+    /// 所以 Android 每帧直发即可）；但纯尾帧合并又会让拖动全程预览不动。
+    /// 折中：事件间隔超过 ~80ms 就直发（拖动中预览以 ~12Hz 跟手），事件停顿 ~90ms 后补一次精准尾帧。
+    private func schedulePausedSeek(to pos: Double) {
+        guard !latestPlaying, pos != lastSeekedPos else { return }
+        lastSeekedPos = pos
+        let now = CFAbsoluteTimeGetCurrent()
+        if now - lastSeekIssueAt > 0.08 {
+            lastSeekIssueAt = now
+            pendingScrubSeek?.cancel()
+            pendingScrubSeek = nil
+            issuePausedSeek(to: pos)
+        } else {
+            pendingScrubSeek?.cancel()
+            let work = DispatchWorkItem {
+                lastSeekIssueAt = CFAbsoluteTimeGetCurrent()
+                issuePausedSeek(to: pos)
             }
+            pendingScrubSeek = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.09, execute: work)
         }
     }
 
-    /// 播放推进：播放器位置 → 时间轴位置（~10Hz）
-    private func addPeriodicObserver(_ p: AVPlayer) {
+    private func issuePausedSeek(to pos: Double) {
+        guard let pl = player else { return }
+        let cur = pl.currentTime().seconds
+        let src = min(max(sourceTime(clip, pos), clip.trimStart), endOf(clip))
+        if abs(cur - src) > 0.03 {
+            pl.seek(to: CMTime(seconds: src, preferredTimescale: 600),
+                    toleranceBefore: .zero, toleranceAfter: .zero)
+        }
+    }
+
+    /// 把播放器对齐到指定时间轴位置（显式传值；差值>0.1s 才 seek，避免高频抖动）
+    private func syncPlayer(to timelinePos: Double) {
+        let src = min(max(sourceTime(clip, timelinePos), clip.trimStart), endOf(clip))
+        if let cur = player?.currentTime().seconds, abs(cur - src) > 0.1,
+           let pl = player {
+            pl.seek(to: CMTime(seconds: src, preferredTimescale: 600),
+                    toleranceBefore: .zero, toleranceAfter: .zero)
+        }
+    }
+
+    /// 启动播放驱动（10Hz 播放器位置 → 播放头 + 播完换段/收尾）。
+    /// 易变输入全部显式传参快照（对齐 Android `LaunchedEffect(isPlaying, drivesPlayhead, clip.id)` 重启语义），
+    /// 驱动闭包只捕获这些快照——事件闭包里直接读 let 属性可能拿到合并更新前的旧值。
+    private func startDriver(_ p: AVPlayer, driverPlaying: Bool, driverClip: Clip, driverClips: [Clip]) {
+        stopDriver()
         timeObserver = p.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.1, preferredTimescale: 600), queue: .main
-        ) { time in
-            guard drivesPlayhead, isPlaying else { return }
+        ) { [driverPlaying, driverClip, driverClips, drivesPlayhead, onSeek, onPlaybackEnded] time in
+            // p.rate 实时读播放器：暂停瞬间的在途 tick 不再把播放头多推 0.1s
+            guard drivesPlayhead, driverPlaying, p.rate != 0 else { return }
             let pos = time.seconds
-            if clip.trimEnd > 0 && pos >= clip.trimEnd - 0.03 {
-                let idx = clips.firstIndex { $0.id == clip.id } ?? -1
-                if idx >= 0, idx < clips.count - 1 {
-                    onSeek(clips[idx + 1].timelineStart)
+            if driverClip.trimEnd > 0 && pos >= driverClip.trimEnd - 0.03 {
+                let idx = driverClips.firstIndex { $0.id == driverClip.id } ?? -1
+                if idx >= 0, idx < driverClips.count - 1 {
+                    // 硬边界直接跳下一段起点
+                    onSeek(driverClips[idx + 1].timelineStart)
                 } else {
-                    p.seek(to: CMTime(seconds: clip.trimStart, preferredTimescale: 600))
-                    onSeek(0)
+                    // ★ 对齐 Android：最后一段播完 → 停在结尾（单遍不循环），通知上层暂停
+                    onSeek(driverClip.timelineEnd)
+                    onPlaybackEnded()
                 }
                 return
             }
-            let tl = min(max(clip.timelinePosOf(pos), clip.timelineStart), clip.timelineEnd)
+            let tl = min(max(driverClip.timelinePosOf(pos), driverClip.timelineStart), driverClip.timelineEnd)
             onSeek(tl)
         }
+        // 自然播到文件尾的兜底（正常走上面的 trimEnd 预判，这个只在竞态时触发，同语义）
+        boundaryToken = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime, object: p.currentItem, queue: .main
+        ) { [driverClip, driverClips, drivesPlayhead, onSeek, onPlaybackEnded] _ in
+            guard drivesPlayhead else { return }
+            let idx = driverClips.firstIndex { $0.id == driverClip.id } ?? -1
+            if idx >= 0, idx < driverClips.count - 1 {
+                onSeek(driverClips[idx + 1].timelineStart)
+            } else {
+                onSeek(driverClip.timelineEnd)
+                onPlaybackEnded()
+            }
+        }
+    }
+
+    /// 拆除播放驱动（重注册前与视图消失时调用，避免泄漏的旧观察者用过期快照回写播放头）
+    private func stopDriver() {
+        if let t = timeObserver { player?.removeTimeObserver(t); timeObserver = nil }
+        if let token = boundaryToken { NotificationCenter.default.removeObserver(token); boundaryToken = nil }
     }
 }
 
@@ -298,7 +435,11 @@ private struct PlayerContainerView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: PlayerUIView, context: Context) {
-        uiView.playerLayer.player = player
+        // ★ 同一实例不重复设置：高频重组下反复 set player 会打断 paused-seek 的 preroll，
+        //   画面永远落不了帧（Android 侧 PlayerView 只在实例变化时 setPlayer）
+        if uiView.playerLayer.player !== player {
+            uiView.playerLayer.player = player
+        }
     }
 }
 
