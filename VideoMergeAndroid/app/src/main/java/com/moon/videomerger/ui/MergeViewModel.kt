@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 /**
  * UI 状态
@@ -60,8 +61,24 @@ class MergeViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun onMergeTypeSelected(type: MergeType) {
-        _uiState.value = _uiState.value.copy(mergeType = type)
+        val state = _uiState.value
+        // 照片墙是随机布局：首次进入时固定一个种子，预览与导出才会是同一版式
+        val options = if (type == MergeType.PHOTO_WALL && state.options.photoWallSeed == null) {
+            state.options.copy(photoWallSeed = newPhotoWallSeed())
+        } else {
+            state.options
+        }
+        _uiState.value = state.copy(mergeType = type, options = options)
     }
+
+    /** 照片墙「换一批」：换种子即换版式，预览与导出同步。 */
+    fun shufflePhotoWall() {
+        _uiState.value = _uiState.value.copy(
+            options = _uiState.value.options.copy(photoWallSeed = newPhotoWallSeed())
+        )
+    }
+
+    private fun newPhotoWallSeed(): Int = Random.nextInt(1, Int.MAX_VALUE)
 
     fun updateOptions(options: MergeOptions) {
         _uiState.value = _uiState.value.copy(options = options)

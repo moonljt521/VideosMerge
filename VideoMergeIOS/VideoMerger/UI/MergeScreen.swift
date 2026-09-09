@@ -55,6 +55,17 @@ struct MergeScreen: View {
                         onOptionsChanged: { viewModel.updateOptions($0) }
                     )
 
+                    // 3.5 布局预览（合并前即可看到最终排布）
+                    // 已有合并结果时让位给真正的视频预览，避免两个预览区重复。
+                    if viewModel.uiState.mergeResult == nil {
+                        MergeLayoutPreviewSection(
+                            urls: viewModel.uiState.selectedVideoURLs,
+                            mergeType: viewModel.uiState.mergeType,
+                            options: viewModel.uiState.options,
+                            onShuffle: { viewModel.shufflePhotoWall() }
+                        )
+                    }
+
                     // 4. 合并按钮
                     Button {
                         viewModel.startMerge()
@@ -310,6 +321,185 @@ private struct MergeTypeCard: View {
             .cornerRadius(12)
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - 3.5 布局预览
+
+/// 合并前的静态布局预览：直接复用 MergeLayout 计算出的矩形，
+/// 把每个视频首帧缩略图按最终位置/大小摆好，所见即所得。
+private struct MergeLayoutPreviewSection: View {
+    let urls: [URL]
+    let mergeType: MergeType
+    let options: MergeOptions
+    let onShuffle: () -> Void
+
+    @State private var aspects: [Double] = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "square.grid.2x2")
+                    .foregroundColor(.accentColor)
+                Text("布局预览")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                Spacer()
+                if mergeType == .photoWall && urls.count >= 2 {
+                    Button(action: onShuffle) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "shuffle")
+                            Text("换一批").font(.system(size: 12))
+                        }
+                    }
+                }
+            }
+
+            Text(previewSubtitle)
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+
+            if urls.count < 2 {
+                Text("选择至少 2 个视频后，这里会显示合并布局预览")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 110)
+                    .background(Color(.systemBackground))
+                    .cornerRadius(10)
+            } else {
+                LayoutCanvasView(layout: previewLayout, isPhotoWall: mergeType == .photoWall)
+            }
+        }
+        .padding(16)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(16)
+        .task(id: urls) {
+            await loadAspects()
+        }
+    }
+
+    private var previewLayout: PreviewLayout {
+        buildPreviewLayout(urls: urls, mergeType: mergeType, options: options, aspects: aspects)
+    }
+
+    private var previewSubtitle: String {
+        guard urls.count >= 2 else { return "合并前先选好视频，预览会实时跟随参数变化" }
+        let note: String
+        switch mergeType {
+        case .grid:      note = " · 按主导比例自适应"
+        case .collage:   note = " · 主窗口占比可调"
+        case .photoWall: note = " · 随机布局可换一批"
+        }
+        return "\(mergeType.displayName) · 输出 \(previewLayout.outW)×\(previewLayout.outH) · \(urls.count) 个视频\(note)"
+    }
+
+    /// 网格布局需要各视频宽高比；在后台读取，避免阻塞滚动。
+    private func loadAspects() async {
+        guard urls.count >= 2 else {
+            aspects = []
+            return
+        }
+        let snapshot = urls
+        let loaded = await Task.detached(priority: .utility) { () -> [Double] in
+            snapshot.map { MediaUtils.getVideoAspect(url: $0) ?? (16.0 / 9.0) }
+        }.value
+        aspects = loaded
+    }
+}
+
+private struct PreviewCell {
+    let url: URL
+    let rect: LayoutRect
+    let rotation: Double
+}
+
+private struct PreviewLayout {
+    let outW: Int
+    let outH: Int
+    let cells: [PreviewCell]
+}
+
+private struct LayoutCanvasView: View {
+    let layout: PreviewLayout
+    let isPhotoWall: Bool
+
+    var body: some View {
+        GeometryReader { geo in
+            let scale = min(
+                geo.size.width / CGFloat(max(layout.outW, 1)),
+                geo.size.height / CGFloat(max(layout.outH, 1))
+            )
+            let canvasW = CGFloat(layout.outW) * scale
+            let canvasH = CGFloat(layout.outH) * scale
+
+            ZStack(alignment: .topLeading) {
+                ForEach(Array(layout.cells.enumerated()), id: \.offset) { _, cell in
+                    VideoThumbnailView(url: cell.url)
+                        .frame(width: CGFloat(cell.rect.w) * scale,
+                               height: CGFloat(cell.rect.h) * scale)
+                        .clipped()
+                        .overlay(
+                            Rectangle()
+                                .stroke(isPhotoWall ? Color.white : Color.clear, lineWidth: 1.5)
+                        )
+                        .rotationEffect(.degrees(cell.rotation))
+                        .offset(x: CGFloat(cell.rect.x) * scale,
+                                y: CGFloat(cell.rect.y) * scale)
+                }
+            }
+            .frame(width: canvasW, height: canvasH, alignment: .topLeading)
+            .background(isPhotoWall ? Color(red: 40/255, green: 40/255, blue: 45/255) : Color.black)
+            .cornerRadius(8)
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
+        .aspectRatio(CGFloat(max(layout.outW, 1)) / CGFloat(max(layout.outH, 1)), contentMode: .fit)
+        .frame(maxWidth: .infinity)
+        .frame(maxHeight: 360)
+    }
+}
+
+private func buildPreviewLayout(urls: [URL], mergeType: MergeType,
+                                options: MergeOptions, aspects: [Double]) -> PreviewLayout {
+    guard !urls.isEmpty else { return PreviewLayout(outW: 1, outH: 1, cells: []) }
+
+    switch mergeType {
+    case .grid:
+        let safeAspects = aspects.isEmpty ? Array(repeating: 16.0 / 9.0, count: urls.count) : aspects
+        let spec = MergeLayout.gridSpec(n: urls.count, aspects: safeAspects,
+                                        gridCellSize: options.gridCellSize)
+        let rects = spec.rects()
+        let cells: [PreviewCell] = urls.indices.compactMap { i in
+            guard i < rects.count else { return nil }
+            return PreviewCell(url: urls[i], rect: rects[i], rotation: 0)
+        }
+        return PreviewLayout(outW: spec.outW, outH: spec.outH, cells: cells)
+
+    case .collage:
+        let layout = MergeLayout.collageLayout(
+            n: urls.count,
+            canvasW: options.canvasWidth.toAligned16,
+            canvasH: options.canvasHeight.toAligned16,
+            mainRatio: options.collageMainRatio,
+            orient: options.collageOrient.rawValue,
+            gap: options.gap,
+            mainIdx: options.collageMainIndex
+        )
+        let rects = layout.rects()
+        let cells = urls.indices.map { PreviewCell(url: urls[$0], rect: rects[$0], rotation: 0) }
+        return PreviewLayout(outW: layout.outW, outH: layout.outH, cells: cells)
+
+    case .photoWall:
+        let wall = MergeLayout.photoWallLayout(
+            n: urls.count,
+            canvasW: options.canvasWidth.toAligned16,
+            canvasH: options.canvasHeight.toAligned16,
+            seed: options.photoWallSeed
+        )
+        let cells = urls.indices.map {
+            PreviewCell(url: urls[$0], rect: wall.rects[$0], rotation: wall.rotations[$0])
+        }
+        return PreviewLayout(outW: wall.outW, outH: wall.outH, cells: cells)
     }
 }
 
