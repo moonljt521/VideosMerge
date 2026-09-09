@@ -19,17 +19,19 @@ final class CollageMerger {
                       cutTimes: [Double?]) -> String {
         let n = inputPaths.count
         let mainIdx = max(0, min(options.collageMainIndex, n - 1))
-        let gap = options.gap.toEven
 
         let canvasW = options.canvasWidth.toAligned16
         let canvasH = options.canvasHeight.toAligned16
 
-        let (sizes, positions) = calcMainSub(
+        // 与 UI 预览共用 MergeLayout，保证所见即所得
+        let layout = MergeLayout.collageLayout(
             n: n, canvasW: canvasW, canvasH: canvasH,
             mainRatio: options.collageMainRatio,
             orient: options.collageOrient.rawValue,
-            subCols: nil, gap: gap, mainIdx: mainIdx
+            gap: options.gap, mainIdx: mainIdx
         )
+        let sizes = layout.sizes
+        let positions = layout.positions
 
         let maxDur = durations.max() ?? 0.0
         let audioMask = metas.map { $0.hasAudio }
@@ -52,114 +54,6 @@ final class CollageMerger {
         }
         cmd += "\"\(outputPath)\""
         return cmd
-    }
-
-    // MARK: - 布局算法
-
-    /// 把 total（偶数）切成 parts 个偶数块，精确铺满，块间留 gap
-    private func evenDivide(total: Int, parts: Int, gap: Int) -> [Int] {
-        let t = total - total % 2
-        let g = gap - gap % 2
-        var avail = t - (parts - 1) * g
-        if avail < parts * 2 { avail = parts * 2 }
-        var base = (avail / parts) / 2 * 2
-        if base < 2 { base = 2 }
-        var sizes = Array(repeating: base, count: parts)
-        var rem = avail - sizes.reduce(0, +)
-        var i = parts - 1
-        while rem >= 2 && i >= 0 {
-            sizes[i] += 2
-            rem -= 2
-            i -= 1
-        }
-        return sizes
-    }
-
-    /// 一主多副布局，严格无空隙
-    private func calcMainSub(n: Int, canvasW: Int, canvasH: Int, mainRatio: Double,
-                             orient: String, subCols: Int?, gap: Int, mainIdx: Int)
-                            -> (sizes: [(Int, Int)], positions: [(Int, Int)]) {
-        let cw = canvasW.toEven
-        let ch = canvasH.toEven
-        let gp = gap.toEven
-        let subs = n - 1
-
-        var sizes: [(Int, Int)] = Array(repeating: (0, 0), count: n)
-        var positions: [(Int, Int)] = Array(repeating: (0, 0), count: n)
-
-        if subs == 0 {
-            sizes[0] = (cw, ch)
-            positions[0] = (0, 0)
-            return (sizes, positions)
-        }
-
-        let subIndices = (0..<n).filter { $0 != mainIdx }
-
-        switch orient {
-        case "left", "right":
-            let mainW = Int((Double(cw) * mainRatio).rounded()).toEven
-            let subW = cw - mainW
-
-            let sc = subCols ?? (subs >= 6 ? 2 : 1)
-            let subRows = Int(ceil(Double(subs) / Double(sc)))
-            let rowHs = evenDivide(total: ch, parts: subRows, gap: gp)
-
-            let mainX = orient == "left" ? 0 : subW
-            sizes[mainIdx] = (mainW, ch)
-            positions[mainIdx] = (mainX, 0)
-
-            var si = 0
-            var y = 0
-            for r in 0..<subRows {
-                let remaining = subs - si
-                let colsThis = min(sc, remaining)
-                let colWs = evenDivide(total: subW, parts: colsThis, gap: gp)
-                var x = orient == "left" ? mainW : 0
-                for c in 0..<colsThis {
-                    let w = colWs[c]
-                    let h = rowHs[r]
-                    let idx = subIndices[si]
-                    sizes[idx] = (w, h)
-                    positions[idx] = (x, y)
-                    x += w + gp
-                    si += 1
-                }
-                y += rowHs[r] + gp
-            }
-
-        default: // top / bottom
-            let mainH = Int((Double(ch) * mainRatio).rounded()).toEven
-            let subH = ch - mainH
-
-            let sr = subCols ?? (subs >= 6 ? 2 : 1)
-            let subColsAuto = Int(ceil(Double(subs) / Double(sr)))
-            let colWs = evenDivide(total: cw, parts: subColsAuto, gap: gp)
-
-            let mainY = orient == "top" ? 0 : subH
-            sizes[mainIdx] = (cw, mainH)
-            positions[mainIdx] = (0, mainY)
-
-            var si = 0
-            var x = 0
-            for c in 0..<subColsAuto {
-                let remaining = subs - si
-                let rowsThis = min(sr, remaining)
-                let rowHs = evenDivide(total: subH, parts: rowsThis, gap: gp)
-                var y = orient == "top" ? mainH : 0
-                for r in 0..<rowsThis {
-                    let w = colWs[c]
-                    let h = rowHs[r]
-                    let idx = subIndices[si]
-                    sizes[idx] = (w, h)
-                    positions[idx] = (x, y)
-                    y += h + gp
-                    si += 1
-                }
-                x += colWs[c] + gp
-            }
-        }
-
-        return (sizes, positions)
     }
 
     // MARK: - filter

@@ -4,9 +4,6 @@ import com.moon.videomerger.util.VideoMeta
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.roundToInt
-import kotlin.math.sqrt
-import kotlin.random.Random
 
 /**
  * 照片墙模式合并器 —— 大大小小、错落有致，加白边框和阴影。
@@ -18,8 +15,6 @@ class PhotoWallMerger {
     companion object {
         private const val BORDER_PX = 8
         private const val SHADOW_PX = 12
-        private const val ROTATION_MAX = 3.5
-        private const val PADDING_GAP = 18
         // 背景色 (BGR -> RGB) = (40,40,45) -> 0x28282d
         private const val BG_R = 0x28
         private const val BG_G = 0x28
@@ -38,12 +33,10 @@ class PhotoWallMerger {
         val canvasW = options.canvasWidth.toAligned16()
         val canvasH = options.canvasHeight.toAligned16()
 
-        val rng = options.photoWallSeed?.let { Random(it) } ?: Random.Default
-
-        // 1. treemap 布局
-        val layout = treemapLayout(canvasW, canvasH, n, rng)
-        val jitteredLayout = addWallJitter(layout, canvasW, canvasH, rng)
-        val rotations = (0 until n).map { roundTo1dp(rng.nextDouble(-ROTATION_MAX, ROTATION_MAX)) }
+        // 1. treemap 布局 + 抖动 + 旋转（与 UI 预览共用 MergeLayout，保证所见即所得）
+        val wall = MergeLayout.photoWallLayout(n, canvasW, canvasH, options.photoWallSeed)
+        val jitteredLayout = wall.rects
+        val rotations = wall.rotations
 
         // 2. 计算每个视频的裁剪中心（偏上裁剪，模拟人脸居上）
         val cropCenters = (0 until n).map { i ->
@@ -79,102 +72,6 @@ class PhotoWallMerger {
         return cmd.toString()
     }
 
-    // ---------- treemap 布局 ----------
-
-    private data class Rect(val x: Int, val y: Int, val w: Int, val h: Int)
-
-    private fun treemapLayout(canvasW: Int, canvasH: Int, n: Int, rng: Random): List<Rect> {
-        // 权重：前 1/3 大块，其余小块
-        val weights = (0 until n).map { i ->
-            if (i < max(1, n / 3)) rng.nextDouble(1.8, 3.0)
-            else rng.nextDouble(0.8, 1.5)
-        }
-        val totalWeight = weights.sum()
-        val totalArea = canvasW.toDouble() * canvasH
-        val areas = weights.map { totalArea * it / totalWeight }
-
-        val result = MutableList<Rect?>(n) { null }
-        val shuffledIndices = (0 until n).toMutableList().also { it.shuffle(rng) }
-
-        fun slice(indices: List<Int>, x: Int, y: Int, w: Int, h: Int, horizontal: Boolean) {
-            if (indices.isEmpty()) return
-            if (indices.size == 1) {
-                val idx = indices[0]
-                var pw = max(w - 2 * PADDING_GAP, 100)
-                var ph = max(h - 2 * PADDING_GAP, 100)
-                pw = pw.toEven()
-                ph = ph.toEven()
-                val px = (x + (w - pw) / 2 + rng.nextDouble(-3.0, 3.0)).toInt()
-                val py = (y + (h - ph) / 2 + rng.nextDouble(-3.0, 3.0)).toInt()
-                result[idx] = Rect(px, py, pw, ph)
-                return
-            }
-
-            val subWeights = indices.map { weights[it] }
-            val subTotal = subWeights.sum()
-
-            // 找接近一半的切分点
-            var acc = 0.0
-            var split = 1
-            for (k in 0 until subWeights.size - 1) {
-                acc += subWeights[k]
-                if (acc >= subTotal / 2) {
-                    split = k + 1
-                    break
-                }
-            }
-
-            val leftIndices = indices.subList(0, split)
-            val rightIndices = indices.subList(split, indices.size)
-            val leftRatio = leftIndices.sumOf { weights[it] } / subTotal
-
-            // 防止递归过深
-            if (w < 2 * PADDING_GAP + 150 || h < 2 * PADDING_GAP + 150) {
-                val cols = max(1, sqrt(indices.size.toDouble()).toInt())
-                val rows = (indices.size + cols - 1) / cols
-                var cellW = max(50, (w - (cols - 1) * PADDING_GAP) / cols)
-                var cellH = max(50, (h - (rows - 1) * PADDING_GAP) / rows)
-                cellW = cellW.toEven()
-                cellH = cellH.toEven()
-                for ((idxI, idx) in indices.withIndex()) {
-                    val c = idxI % cols
-                    val r = idxI / cols
-                    val px = x + c * (cellW + PADDING_GAP)
-                    val py = y + r * (cellH + PADDING_GAP)
-                    result[idx] = Rect(px, py, cellW, cellH)
-                }
-                return
-            }
-
-            if (horizontal) {
-                val lw = max(1, (w * leftRatio).toInt())
-                slice(leftIndices, x, y, lw, h, !horizontal)
-                slice(rightIndices, x + lw, y, w - lw, h, !horizontal)
-            } else {
-                val lh = max(1, (h * leftRatio).toInt())
-                slice(leftIndices, x, y, w, lh, !horizontal)
-                slice(rightIndices, x, y + lh, w, h - lh, !horizontal)
-            }
-        }
-
-        slice(shuffledIndices, 0, 0, canvasW, canvasH, horizontal = true)
-        return result.map { it!! }
-    }
-
-    private fun addWallJitter(layout: List<Rect>, canvasW: Int, canvasH: Int, rng: Random): List<Rect> {
-        return layout.map { (x, y, w, h) ->
-            val dx = rng.nextInt(-6, 7)
-            val dy = rng.nextInt(-6, 7)
-            Rect(
-                max(0, min(canvasW - w, x + dx)),
-                max(0, min(canvasH - h, y + dy)),
-                w, h
-            )
-        }
-    }
-
-    private fun roundTo1dp(v: Double): Double = (v * 10).roundToInt() / 10.0
-
     // ---------- 裁剪中心 ----------
 
     private fun computeSafeCropCenter(vw: Int, vh: Int, cellW: Int, cellH: Int): Pair<Double, Double> {
@@ -206,7 +103,7 @@ class PhotoWallMerger {
 
     private fun buildWallFilter(
         n: Int,
-        layout: List<Rect>,
+        layout: List<LayoutRect>,
         rotations: List<Double>,
         cropCenters: List<Pair<Double, Double>>,
         metas: List<VideoMeta>,

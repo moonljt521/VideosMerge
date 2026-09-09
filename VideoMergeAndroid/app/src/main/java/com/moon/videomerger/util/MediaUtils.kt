@@ -200,6 +200,31 @@ object MediaUtils {
     }
 
     /**
+     * 从 content URI 读取视频宽高比（宽/高，已考虑旋转元数据）。
+     * 仅用于合并布局预览（网格需要「主导宽高比」），不复制文件。
+     */
+    fun getVideoAspectFromUri(context: Context, uri: Uri): Double? {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(context, uri)
+            val w = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull()
+            val h = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull()
+            val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+            if (w == null || h == null || w <= 0 || h <= 0) {
+                null
+            } else if (rotation == 90 || rotation == 270) {
+                h.toDouble() / w
+            } else {
+                w.toDouble() / h
+            }
+        } catch (e: Exception) {
+            null
+        } finally {
+            try { retriever.release() } catch (_: Exception) {}
+        }
+    }
+
+    /**
      * 从文件路径加载视频缩略图（第一帧）。
      */
     fun loadThumbnailFromFile(path: String): Bitmap? {

@@ -1,8 +1,6 @@
 package com.moon.videomerger.merger
 
 import com.moon.videomerger.util.VideoMeta
-import kotlin.math.ceil
-import kotlin.math.roundToInt
 
 /**
  * Collage 模式合并器 —— 一个主窗口 + 若干副窗口，严格无空隙铺满画布。
@@ -22,16 +20,17 @@ class CollageMerger {
     ): String {
         val n = inputPaths.size
         val mainIdx = options.collageMainIndex.coerceIn(0, n - 1)
-        val gap = options.gap.toEven()
 
         val canvasW = options.canvasWidth.toAligned16()
         val canvasH = options.canvasHeight.toAligned16()
 
-        val (layoutPair, _) = calcMainSub(
+        // 与 UI 预览共用 MergeLayout，保证所见即所得
+        val layout = MergeLayout.collageLayout(
             n, canvasW, canvasH, options.collageMainRatio,
-            options.collageOrient, null, gap, mainIdx
+            options.collageOrient, options.gap, mainIdx
         )
-        val (sizes, positions) = layoutPair
+        val sizes = layout.sizes
+        val positions = layout.positions
 
         val maxDur = durations.maxOrNull() ?: 0.0
         val audioMask = metas.map { it.hasAudio }
@@ -58,123 +57,6 @@ class CollageMerger {
         return cmd.toString()
     }
 
-    // ---------- 布局算法 ----------
-
-    /**
-     * 把 total（偶数）切成 parts 个偶数块，精确铺满，块间留 gap。
-     */
-    private fun evenDivide(total: Int, parts: Int, gap: Int): List<Int> {
-        var t = total - total % 2
-        var g = gap - gap % 2
-        var avail = t - (parts - 1) * g
-        if (avail < parts * 2) avail = parts * 2
-        var base = (avail / parts) / 2 * 2
-        if (base < 2) base = 2
-        val sizes = MutableList(parts) { base }
-        var rem = avail - sizes.sum()
-        var i = parts - 1
-        while (rem >= 2 && i >= 0) {
-            sizes[i] += 2
-            rem -= 2
-            i--
-        }
-        return sizes
-    }
-
-    /**
-     * 一主多副布局，严格无空隙。
-     * 返回 sizes[(w,h)], positions[(x,y)], out_w, out_h
-     */
-    private fun calcMainSub(
-        n: Int, canvasW: Int, canvasH: Int, mainRatio: Double,
-        orient: String, subCols: Int?, gap: Int, mainIdx: Int
-    ): Pair<Pair<List<Pair<Int, Int>>, List<Pair<Int, Int>>>, Pair<Int, Int>> {
-        val cw = canvasW.toEven()
-        val ch = canvasH.toEven()
-        val gp = gap.toEven()
-        val subs = n - 1
-
-        val sizes = MutableList<Pair<Int, Int>>(n) { 0 to 0 }
-        val positions = MutableList<Pair<Int, Int>>(n) { 0 to 0 }
-
-        if (subs == 0) {
-            sizes[0] = cw to ch
-            positions[0] = 0 to 0
-            return (sizes to positions) to (cw to ch)
-        }
-
-        val subIndices = (0 until n).filter { it != mainIdx }
-
-        when (orient) {
-            "left", "right" -> {
-                var mainW = (cw * mainRatio).roundToInt().toEven()
-                val subW = cw - mainW
-
-                val sc = subCols ?: if (subs >= 6) 2 else 1
-                val subRows = ceil(subs.toDouble() / sc).toInt()
-                val rowHs = evenDivide(ch, subRows, gp)
-
-                val mainX = if (orient == "left") 0 else subW
-                sizes[mainIdx] = mainW to ch
-                positions[mainIdx] = mainX to 0
-
-                var si = 0
-                var y = 0
-                for (r in 0 until subRows) {
-                    val remaining = subs - si
-                    val colsThis = minOf(sc, remaining)
-                    val colWs = evenDivide(subW, colsThis, gp)
-                    val xBase = if (orient == "left") mainW else 0
-                    var x = xBase
-                    for (c in 0 until colsThis) {
-                        val w = colWs[c]
-                        val h = rowHs[r]
-                        val idx = subIndices[si]
-                        sizes[idx] = w to h
-                        positions[idx] = x to y
-                        x += w + gp
-                        si++
-                    }
-                    y += rowHs[r] + gp
-                }
-            }
-
-            else -> { // top / bottom
-                var mainH = (ch * mainRatio).roundToInt().toEven()
-                val subH = ch - mainH
-
-                val sr = subCols ?: if (subs >= 6) 2 else 1
-                val subColsAuto = ceil(subs.toDouble() / sr).toInt()
-                val colWs = evenDivide(cw, subColsAuto, gp)
-
-                val mainY = if (orient == "top") 0 else subH
-                sizes[mainIdx] = cw to mainH
-                positions[mainIdx] = 0 to mainY
-
-                var si = 0
-                var x = 0
-                for (c in 0 until subColsAuto) {
-                    val remaining = subs - si
-                    val rowsThis = minOf(sr, remaining)
-                    val rowHs = evenDivide(subH, rowsThis, gp)
-                    val yBase = if (orient == "top") mainH else 0
-                    var y = yBase
-                    for (r in 0 until rowsThis) {
-                        val w = colWs[c]
-                        val h = rowHs[r]
-                        val idx = subIndices[si]
-                        sizes[idx] = w to h
-                        positions[idx] = x to y
-                        y += h + gp
-                        si++
-                    }
-                    x += colWs[c] + gp
-                }
-            }
-        }
-
-        return (sizes to positions) to (cw to ch)
-    }
 
     // ---------- filter 构建 ----------
 

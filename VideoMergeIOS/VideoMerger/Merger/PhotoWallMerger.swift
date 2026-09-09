@@ -15,18 +15,10 @@ final class PhotoWallMerger {
 
     private let BORDER_PX = 8
     private let SHADOW_PX = 12
-    private let ROTATION_MAX = 3.5
-    private let PADDING_GAP = 18
     // 背景色 (BGR -> RGB) = (40,40,45) -> 0x28282d
     private let BG_R = 0x28
     private let BG_G = 0x28
     private let BG_B = 0x2d
-
-    // MARK: - 数据结构
-
-    private struct Rect {
-        let x: Int, y: Int, w: Int, h: Int
-    }
 
     // MARK: - 公开 API
 
@@ -40,12 +32,12 @@ final class PhotoWallMerger {
         let canvasW = options.canvasWidth.toAligned16
         let canvasH = options.canvasHeight.toAligned16
 
-        let rng = SeededRandom(seed: options.photoWallSeed)
-
-        // 1. treemap 布局
-        let layout = treemapLayout(canvasW: canvasW, canvasH: canvasH, n: n, rng: rng)
-        let jittered = addWallJitter(layout: layout, canvasW: canvasW, canvasH: canvasH, rng: rng)
-        let rotations = (0..<n).map { _ in roundTo1dp(rng.nextDouble(-ROTATION_MAX, ROTATION_MAX)) }
+        // 1. treemap 布局 + 抖动 + 旋转（与 UI 预览共用 MergeLayout，保证所见即所得）
+        let wall = MergeLayout.photoWallLayout(
+            n: n, canvasW: canvasW, canvasH: canvasH, seed: options.photoWallSeed
+        )
+        let jittered = wall.rects
+        let rotations = wall.rotations
 
         // 2. 计算每个视频的裁剪中心
         var cropCenters: [(Double, Double)] = []
@@ -79,106 +71,6 @@ final class PhotoWallMerger {
         return cmd
     }
 
-    // MARK: - treemap 布局
-
-    private func treemapLayout(canvasW: Int, canvasH: Int, n: Int, rng: SeededRandom) -> [Rect] {
-        // 权重：前 1/3 大块，其余小块
-        var weights: [Double] = []
-        let bigCount = max(1, n / 3)
-        for i in 0..<n {
-            if i < bigCount {
-                weights.append(rng.nextDouble(1.8, 3.0))
-            } else {
-                weights.append(rng.nextDouble(0.8, 1.5))
-            }
-        }
-        let totalWeight = weights.reduce(0, +)
-
-        var result: [Rect?] = Array(repeating: nil, count: n)
-        var shuffledIndices = Array(0..<n)
-        shuffledIndices.shuffle(using: rng)
-
-        func slice(indices: [Int], x: Int, y: Int, w: Int, h: Int, horizontal: Bool) {
-            if indices.isEmpty { return }
-            if indices.count == 1 {
-                let idx = indices[0]
-                var pw = max(w - 2 * PADDING_GAP, 100)
-                var ph = max(h - 2 * PADDING_GAP, 100)
-                pw = pw.toEven
-                ph = ph.toEven
-                let px = Int(Double(x) + Double(w - pw) / 2.0 + rng.nextDouble(-3.0, 3.0))
-                let py = Int(Double(y) + Double(h - ph) / 2.0 + rng.nextDouble(-3.0, 3.0))
-                result[idx] = Rect(x: px, y: py, w: pw, h: ph)
-                return
-            }
-
-            let subWeights = indices.map { weights[$0] }
-            let subTotal = subWeights.reduce(0, +)
-
-            // 找接近一半的切分点
-            var acc = 0.0
-            var split = 1
-            for k in 0..<(subWeights.count - 1) {
-                acc += subWeights[k]
-                if acc >= subTotal / 2 {
-                    split = k + 1
-                    break
-                }
-            }
-
-            let leftIndices = Array(indices[0..<split])
-            let rightIndices = Array(indices[split..<indices.count])
-            let leftRatio = leftIndices.map { weights[$0] }.reduce(0, +) / subTotal
-
-            // 防止递归过深
-            if w < 2 * PADDING_GAP + 150 || h < 2 * PADDING_GAP + 150 {
-                let cols = max(1, Int(Double(indices.count).squareRoot()))
-                let rows = (indices.count + cols - 1) / cols
-                var cellW = max(50, (w - (cols - 1) * PADDING_GAP) / cols)
-                var cellH = max(50, (h - (rows - 1) * PADDING_GAP) / rows)
-                cellW = cellW.toEven
-                cellH = cellH.toEven
-                for (idxI, idx) in indices.enumerated() {
-                    let c = idxI % cols
-                    let r = idxI / cols
-                    let px = x + c * (cellW + PADDING_GAP)
-                    let py = y + r * (cellH + PADDING_GAP)
-                    result[idx] = Rect(x: px, y: py, w: cellW, h: cellH)
-                }
-                return
-            }
-
-            if horizontal {
-                let lw = max(1, Int(Double(w) * leftRatio))
-                slice(indices: leftIndices, x: x, y: y, w: lw, h: h, horizontal: !horizontal)
-                slice(indices: rightIndices, x: x + lw, y: y, w: w - lw, h: h, horizontal: !horizontal)
-            } else {
-                let lh = max(1, Int(Double(h) * leftRatio))
-                slice(indices: leftIndices, x: x, y: y, w: w, h: lh, horizontal: !horizontal)
-                slice(indices: rightIndices, x: x, y: y + lh, w: w, h: h - lh, horizontal: !horizontal)
-            }
-        }
-
-        slice(indices: shuffledIndices, x: 0, y: 0, w: canvasW, h: canvasH, horizontal: true)
-        return result.map { $0! }
-    }
-
-    private func addWallJitter(layout: [Rect], canvasW: Int, canvasH: Int, rng: SeededRandom) -> [Rect] {
-        return layout.map { r in
-            let dx = rng.nextInt(-6, 6)
-            let dy = rng.nextInt(-6, 6)
-            return Rect(
-                x: max(0, min(canvasW - r.w, r.x + dx)),
-                y: max(0, min(canvasH - r.h, r.y + dy)),
-                w: r.w, h: r.h
-            )
-        }
-    }
-
-    private func roundTo1dp(_ v: Double) -> Double {
-        (v * 10).rounded() / 10.0
-    }
-
     // MARK: - 裁剪中心
 
     private func computeSafeCropCenter(vw: Int, vh: Int, cellW: Int, cellH: Int) -> (Double, Double) {
@@ -208,7 +100,7 @@ final class PhotoWallMerger {
     // MARK: - filter 构建
 
     private func buildWallFilter(n: Int,
-                                 layout: [Rect],
+                                 layout: [LayoutRect],
                                  rotations: [Double],
                                  cropCenters: [(Double, Double)],
                                  metas: [VideoMeta],

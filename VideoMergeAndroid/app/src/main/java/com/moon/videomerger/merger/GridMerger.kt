@@ -1,8 +1,6 @@
 package com.moon.videomerger.merger
 
 import com.moon.videomerger.util.VideoMeta
-import kotlin.math.ceil
-import kotlin.math.sqrt
 
 /**
  * Grid 模式合并器 —— 将多个视频排列成均匀网格。
@@ -30,15 +28,17 @@ class GridMerger {
         cutTimes: List<Double?> = emptyList()
     ): String {
         val n = inputPaths.size
-        val (rows, cols) = calcGrid(n)
 
-        // 1. 计算单元格尺寸（保证偶数）
-        val aspect = dominantAspect(metas.map { it.width.toDouble() / it.height.toDouble() })
-        var (cellW, cellH) = cellSizeFromAspect(aspect, options.gridCellSize)
-        cellW = cellW.toAligned16()
-        cellH = cellH.toAligned16()
-        val outW = cellW * cols
-        val outH = cellH * rows
+        // 1. 计算网格与单元格尺寸（与 UI 预览共用 MergeLayout，保证所见即所得）
+        val spec = MergeLayout.gridSpec(
+            n,
+            metas.map { it.width.toDouble() / it.height.toDouble() },
+            options.gridCellSize
+        )
+        val rows = spec.rows
+        val cols = spec.cols
+        val cellW = spec.cellW
+        val cellH = spec.cellH
 
         val maxDur = durations.maxOrNull() ?: 0.0
         val audioMask = metas.map { it.hasAudio }
@@ -62,25 +62,6 @@ class GridMerger {
         }
 
         return cmd.toString()
-    }
-
-    private fun calcGrid(n: Int): Pair<Int, Int> {
-        val cols = ceil(sqrt(n.toDouble())).toInt()
-        val rows = ceil(n.toDouble() / cols).toInt()
-        return rows to cols
-    }
-
-    private fun dominantAspect(ratios: List<Double>): Double {
-        val counts = ratios.groupingBy { "%.3f".format(it) }.eachCount()
-        return counts.maxByOrNull { it.value }?.key?.toDouble() ?: ratios[0]
-    }
-
-    private fun cellSizeFromAspect(aspect: Double, target: Int): Pair<Int, Int> {
-        return if (aspect >= 1) {
-            target to (target / aspect).toInt()
-        } else {
-            (target * aspect).toInt() to target
-        }
     }
 
     private fun buildFilterComplex(

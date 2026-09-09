@@ -301,6 +301,17 @@ enum MediaUtils {
         }
     }
 
+    /// 读取视频宽高比（已应用 preferredTransform）。仅用于合并布局预览，不复制文件。
+    static func getVideoAspect(url: URL) -> Double? {
+        let asset = AVAsset(url: url)
+        guard let track = asset.tracks(withMediaType: .video).first else { return nil }
+        let size = track.naturalSize.applying(track.preferredTransform)
+        let w = abs(size.width)
+        let h = abs(size.height)
+        guard w > 0, h > 0 else { return nil }
+        return Double(w / h)
+    }
+
     /// 加载 JPEG/PNG 图片文件
     static func loadImageFromFile(path: String) -> UIImage? {
         UIImage(contentsOfFile: path)

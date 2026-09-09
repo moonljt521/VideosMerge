@@ -54,6 +54,19 @@ final class MergeViewModel: ObservableObject {
 
     func onMergeTypeSelected(_ type: MergeType) {
         uiState.mergeType = type
+        // 照片墙是随机布局：首次进入时固定一个种子，预览与导出才会是同一版式
+        if type == .photoWall && uiState.options.photoWallSeed == nil {
+            uiState.options.photoWallSeed = newPhotoWallSeed()
+        }
+    }
+
+    /// 照片墙「换一批」：换种子即换版式，预览与导出同步。
+    func shufflePhotoWall() {
+        uiState.options.photoWallSeed = newPhotoWallSeed()
+    }
+
+    private func newPhotoWallSeed() -> Int {
+        Int.random(in: 1..<Int.max)
     }
 
     func updateOptions(_ options: MergeOptions) {

@@ -19,16 +19,17 @@ final class GridMerger {
                       options: MergeOptions,
                       cutTimes: [Double?]) -> String {
         let n = inputPaths.count
-        let (rows, cols) = calcGrid(n)
 
-        // 1. 单元格尺寸（保证 16 对齐）
-        let aspect = dominantAspect(ratios: metas.map { Double($0.width) / Double($0.height) })
-        var (cellW, cellH) = cellSizeFromAspect(aspect: aspect, target: options.gridCellSize)
-        cellW = cellW.toAligned16
-        cellH = cellH.toAligned16
-        let outW = cellW * cols
-        let outH = cellH * rows
-        _ = outW; _ = outH
+        // 1. 网格与单元格尺寸（与 UI 预览共用 MergeLayout，保证所见即所得）
+        let spec = MergeLayout.gridSpec(
+            n: n,
+            aspects: metas.map { Double($0.width) / Double($0.height) },
+            gridCellSize: options.gridCellSize
+        )
+        let rows = spec.rows
+        let cols = spec.cols
+        let cellW = spec.cellW
+        let cellH = spec.cellH
 
         let maxDur = durations.max() ?? 0.0
         let audioMask = metas.map { $0.hasAudio }
@@ -49,35 +50,6 @@ final class GridMerger {
         }
         cmd += "\"\(outputPath)\""
         return cmd
-    }
-
-    // MARK: - 网格
-
-    private func calcGrid(_ n: Int) -> (rows: Int, cols: Int) {
-        let cols = Int(ceil(sqrt(Double(n))))
-        let rows = Int(ceil(Double(n) / Double(cols)))
-        return (rows, cols)
-    }
-
-    private func dominantAspect(ratios: [Double]) -> Double {
-        var counts: [String: Int] = [:]
-        for r in ratios {
-            let key = String(format: "%.3f", r)
-            counts[key, default: 0] += 1
-        }
-        if let topKey = counts.max(by: { $0.value < $1.value })?.key,
-           let v = Double(topKey) {
-            return v
-        }
-        return ratios[0]
-    }
-
-    private func cellSizeFromAspect(aspect: Double, target: Int) -> (Int, Int) {
-        if aspect >= 1 {
-            return (target, Int(Double(target) / aspect))
-        } else {
-            return (Int(Double(target) * aspect), target)
-        }
     }
 
     // MARK: - filter

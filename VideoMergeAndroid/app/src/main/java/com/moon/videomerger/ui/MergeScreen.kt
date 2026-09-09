@@ -156,6 +156,19 @@ fun MergeScreen(
                 onOptionsChanged = { viewModel.updateOptions(it) }
             )
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ── 3.5 布局预览（合并前即可看到最终排布） ──
+            // 已有合并结果时让位给真正的视频预览，避免两个预览区重复。
+            if (uiState.mergeResult == null) {
+                MergeLayoutPreviewSection(
+                    videoUris = uiState.selectedVideos,
+                    mergeType = uiState.mergeType,
+                    options = uiState.options,
+                    onShuffle = { viewModel.shufflePhotoWall() }
+                )
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // ── 4. 合并按钮 ──
