@@ -66,7 +66,8 @@ fun MergeScreen(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
-            viewModel.onVideosSelected(uris)
+            // ★ 追加而非替换：预览卡「+」是增量添加入口
+            viewModel.addVideos(uris)
         }
     }
 
@@ -133,11 +134,33 @@ fun MergeScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ── 1. 选择视频 + 缩略图 ──
-            VideoSelectionSection(
-                videoUris = uiState.selectedVideos,
-                onPickClick = { videoPickerLauncher.launch("video/*") }
-            )
+            // ── 1. 主视图：合并结果（有结果时）/ 布局预览（无结果时）──
+            // 预览顶到首位，选完视频不用下滑即可看到排布；缩略图与添加入口并入预览卡。
+            val result = uiState.mergeResult
+            if (result != null) {
+                PreviewSection(
+                    videoPath = result.outputFile.absolutePath,
+                    mergeType = result.mergeType,
+                    width = result.width,
+                    height = result.height,
+                    duration = result.duration,
+                    isSaved = uiState.isSaved,
+                    isSaving = uiState.isSaving,
+                    onTap = { viewModel.openFullscreen() },
+                    onLongPress = { viewModel.saveResult() },
+                    onSaveClick = { viewModel.saveResult() },
+                    onClear = { viewModel.clearResult() }
+                )
+            } else {
+                MergeLayoutPreviewSection(
+                    videoUris = uiState.selectedVideos,
+                    mergeType = uiState.mergeType,
+                    options = uiState.options,
+                    onShuffle = { viewModel.shufflePhotoWall() },
+                    onRemove = { viewModel.removeVideo(it) },
+                    onPickClick = { videoPickerLauncher.launch("video/*") }
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -155,19 +178,6 @@ fun MergeScreen(
                 options = uiState.options,
                 onOptionsChanged = { viewModel.updateOptions(it) }
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ── 3.5 布局预览（合并前即可看到最终排布） ──
-            // 已有合并结果时让位给真正的视频预览，避免两个预览区重复。
-            if (uiState.mergeResult == null) {
-                MergeLayoutPreviewSection(
-                    videoUris = uiState.selectedVideos,
-                    mergeType = uiState.mergeType,
-                    options = uiState.options,
-                    onShuffle = { viewModel.shufflePhotoWall() }
-                )
-            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -198,24 +208,7 @@ fun MergeScreen(
                 )
             }
 
-            // ── 6. 预览合并结果 ──
-            uiState.mergeResult?.let { result ->
-                PreviewSection(
-                    videoPath = result.outputFile.absolutePath,
-                    mergeType = result.mergeType,
-                    width = result.width,
-                    height = result.height,
-                    duration = result.duration,
-                    isSaved = uiState.isSaved,
-                    isSaving = uiState.isSaving,
-                    onTap = { viewModel.openFullscreen() },
-                    onLongPress = { viewModel.saveResult() },
-                    onSaveClick = { viewModel.saveResult() },
-                    onClear = { viewModel.clearResult() }
-                )
-            }
-
-            // ── 7. 错误 ──
+            // ── 6. 错误 ──
             uiState.errorMessage?.let { msg ->
                 ErrorSection(message = msg) { viewModel.dismissError() }
             }
@@ -282,71 +275,6 @@ fun VideoThumbnailFromFile(
             contentAlignment = Alignment.Center
         ) {
             Icon(Icons.Default.VideoFile, contentDescription = null, tint = Color.Gray)
-        }
-    }
-}
-
-// ──────────────────────────────────────────────────────────
-// 1. 视频选择区域
-// ──────────────────────────────────────────────────────────
-
-@Composable
-private fun VideoSelectionSection(
-    videoUris: List<Uri>,
-    onPickClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                Icons.Default.VideoLibrary,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "已选择 ${videoUris.size} 个视频",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(Modifier.height(12.dp))
-
-            // 缩略图列表
-            if (videoUris.isNotEmpty()) {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(videoUris) { uri ->
-                        Box(
-                            modifier = Modifier
-                                .size(width = 100.dp, height = 160.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                        ) {
-                            VideoThumbnailFromUri(
-                                uri = uri,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-            }
-
-            OutlinedButton(
-                onClick = onPickClick,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.AddCircle, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("从相册选择视频")
-            }
         }
     }
 }

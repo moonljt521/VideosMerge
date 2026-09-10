@@ -3,9 +3,15 @@ package com.moon.videomerger.ui
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.*
@@ -55,6 +61,8 @@ fun MergeLayoutPreviewSection(
     mergeType: MergeType,
     options: MergeOptions,
     onShuffle: () -> Unit,
+    onRemove: (Int) -> Unit,
+    onPickClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -110,25 +118,121 @@ fun MergeLayoutPreviewSection(
             )
             Spacer(Modifier.height(12.dp))
 
-            if (videoUris.size < 2) {
+            if (videoUris.isEmpty()) {
+                // 空态：占位区直接给主入口，选片不用再去别处找按钮
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(110.dp)
+                        .height(150.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        "选择至少 2 个视频后，这里会显示合并布局预览",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Button(onClick = onPickClick) {
+                            Icon(Icons.Default.AddCircle, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("从相册选择视频")
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "选好视频后这里实时显示合并布局",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else if (videoUris.size < 2) {
+                // 只有 1 个：给出明确的「还差 1 个」引导
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            "已选 1 个，再选 1 个视频即可查看布局预览",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedButton(onClick = onPickClick) {
+                            Icon(Icons.Default.AddCircle, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("继续添加")
+                        }
+                    }
                 }
             } else {
                 LayoutCanvas(
                     layout = layout,
                     isPhotoWall = mergeType == MergeType.PHOTO_WALL
+                )
+            }
+
+            // 已选视频缩略图条（紧凑版，末尾「+」继续添加）
+            if (videoUris.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    itemsIndexed(videoUris) { index, uri ->
+                        Box(
+                            modifier = Modifier
+                                .size(width = 56.dp, height = 100.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                        ) {
+                            VideoThumbnailFromUri(
+                                uri = uri,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            // 右上角「−」移除按钮
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(3.dp)
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.55f))
+                                    .clickable { onRemove(index) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "−",
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    lineHeight = 13.sp
+                                )
+                            }
+                        }
+                    }
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 56.dp, height = 100.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable(onClick = onPickClick),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.AddCircle,
+                                contentDescription = "继续添加视频",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "已选 ${videoUris.size} 个视频 · 点 + 添加 · 点 − 移除",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

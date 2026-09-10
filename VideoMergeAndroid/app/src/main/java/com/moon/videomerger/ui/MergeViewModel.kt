@@ -60,6 +60,41 @@ class MergeViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
+    /**
+     * 追加视频（预览卡缩略图条末尾的「+」按钮）。
+     * 按 Uri 字符串去重，避免重复选择同一视频；输入变化后旧结果作废。
+     */
+    fun addVideos(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        val existing = _uiState.value.selectedVideos.map { it.toString() }.toSet()
+        val fresh = uris.filter { it.toString() !in existing }
+        if (fresh.isEmpty()) return
+        _uiState.value = _uiState.value.copy(
+            selectedVideos = _uiState.value.selectedVideos + fresh,
+            errorMessage = null,
+            mergeResult = null,
+            isSaved = false,
+            logLines = ""
+        )
+    }
+
+    /**
+     * 移除单个已选视频（缩略图条右上角「−」按钮）。
+     * 输入变化后旧结果作废；列表清空时顺带清掉错误提示。
+     */
+    fun removeVideo(index: Int) {
+        val list = _uiState.value.selectedVideos.toMutableList()
+        if (index !in list.indices) return
+        list.removeAt(index)
+        _uiState.value = _uiState.value.copy(
+            selectedVideos = list,
+            errorMessage = if (list.isEmpty()) null else _uiState.value.errorMessage,
+            mergeResult = null,
+            isSaved = false,
+            logLines = ""
+        )
+    }
+
     fun onMergeTypeSelected(type: MergeType) {
         val state = _uiState.value
         // 照片墙是随机布局：首次进入时固定一个种子，预览与导出才会是同一版式
