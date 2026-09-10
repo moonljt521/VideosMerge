@@ -75,6 +75,14 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+        jniLibs {
+            // ★ ffmpeg-kit-full 6.0.3 附带的 libc++_shared.so 是 4KB 对齐（p_align=0x1000），
+            //   不满足 Google Play 16KB 页大小要求（Android 15+ 设备）。8.1.7 虽已对齐但
+            //   xfade 转场真机崩溃，故保留 6.0.3 并用 pickFirst 让 jniLibs 里的 NDK r28
+            //   16KB 对齐版胜出（libc++_shared 向后兼容，官方支持方向）。
+            //   注意不能用 excludes——会把项目 jniLibs 的那份也排掉，libffmpegkit 运行时会闪退。
+            pickFirsts += "**/libc++_shared.so"
+        }
     }
 }
 
@@ -116,7 +124,9 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.6.0")
 
     // Vosk — 离线语音识别（语音转字幕）
-    implementation("com.alphacephei:vosk-android:0.3.47")
+    // ★ 0.3.75：arm64-v8a/x86_64 的 libvosk.so 已按 16KB 页对齐构建（Google Play 要求）；
+    //   0.3.47 是 4KB 对齐，会被 AS 的 16KB 兼容检查标记。API（org.vosk.Model/Recognizer）不变
+    implementation("com.alphacephei:vosk-android:0.3.75")
 
     // kotlinx-serialization —— 项目草稿持久化
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
