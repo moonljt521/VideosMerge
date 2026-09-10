@@ -24,11 +24,28 @@ struct MergeScreen: View {
                 VStack(spacing: 16) {
                     Spacer().frame(height: 4)
 
-                    // 1. 选择视频
-                    VideoSelectionSection(
-                        urls: viewModel.uiState.selectedVideoURLs,
-                        onPickClick: { showPicker = true }
-                    )
+                    // 1. 主视图：合并结果（有结果时）/ 布局预览（无结果时）
+                    // 预览顶到首位，选完视频不用下滑即可看到排布；缩略图与添加入口并入预览卡。
+                    if let result = viewModel.uiState.mergeResult {
+                        PreviewSection(
+                            result: result,
+                            isSaved: viewModel.uiState.isSaved,
+                            isSaving: viewModel.uiState.isSaving,
+                            onTap: { viewModel.openFullscreen() },
+                            onLongPress: { viewModel.saveResult() },
+                            onSaveClick: { viewModel.saveResult() },
+                            onClear: { viewModel.clearResult() }
+                        )
+                    } else {
+                        MergeLayoutPreviewSection(
+                            urls: viewModel.uiState.selectedVideoURLs,
+                            mergeType: viewModel.uiState.mergeType,
+                            options: viewModel.uiState.options,
+                            onShuffle: { viewModel.shufflePhotoWall() },
+                            onRemove: { viewModel.removeVideo(at: $0) },
+                            onPickClick: { showPicker = true }
+                        )
+                    }
 
                     // 加载视频中的提示（避免用户以为卡住）
                     if isLoadingVideos {
@@ -54,17 +71,6 @@ struct MergeScreen: View {
                         options: viewModel.uiState.options,
                         onOptionsChanged: { viewModel.updateOptions($0) }
                     )
-
-                    // 3.5 布局预览（合并前即可看到最终排布）
-                    // 已有合并结果时让位给真正的视频预览，避免两个预览区重复。
-                    if viewModel.uiState.mergeResult == nil {
-                        MergeLayoutPreviewSection(
-                            urls: viewModel.uiState.selectedVideoURLs,
-                            mergeType: viewModel.uiState.mergeType,
-                            options: viewModel.uiState.options,
-                            onShuffle: { viewModel.shufflePhotoWall() }
-                        )
-                    }
 
                     // 4. 合并按钮
                     Button {
@@ -92,20 +98,7 @@ struct MergeScreen: View {
                         )
                     }
 
-                    // 6. 预览
-                    if let result = viewModel.uiState.mergeResult {
-                        PreviewSection(
-                            result: result,
-                            isSaved: viewModel.uiState.isSaved,
-                            isSaving: viewModel.uiState.isSaving,
-                            onTap: { viewModel.openFullscreen() },
-                            onLongPress: { viewModel.saveResult() },
-                            onSaveClick: { viewModel.saveResult() },
-                            onClear: { viewModel.clearResult() }
-                        )
-                    }
-
-                    // 7. 错误
+                    // 6. 错误
                     if let msg = viewModel.uiState.errorMessage {
                         ErrorSection(message: msg) { viewModel.dismissError() }
                     }
@@ -175,7 +168,8 @@ struct MergeScreen: View {
                         await MainActor.run {
                             isLoadingVideos = false
                             if !urls.isEmpty {
-                                viewModel.onVideosSelected(urls)
+                                // ★ 追加而非替换：预览卡「+」是增量添加入口
+                                viewModel.addVideos(urls)
                             } else {
                                 viewModel.uiState.errorMessage = "视频加载失败，请重新选择"
                             }
@@ -187,52 +181,7 @@ struct MergeScreen: View {
     }
 }
 
-// MARK: - 1. 视频选择
-
-private struct VideoSelectionSection: View {
-    let urls: [URL]
-    let onPickClick: () -> Void
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "video.stack")
-                .font(.system(size: 44))
-                .foregroundColor(.accentColor)
-            Text("已选择 \(urls.count) 个视频")
-                .font(.headline)
-
-            if !urls.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(urls.indices, id: \.self) { i in
-                            VideoThumbnailView(url: urls[i])
-                                .frame(width: 100, height: 160)
-                                .clipped()
-                                .cornerRadius(8)
-                        }
-                    }
-                }
-            }
-
-            Button(action: onPickClick) {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                    Text("从相册选择视频")
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.accentColor, lineWidth: 1)
-                )
-            }
-            .foregroundColor(.accentColor)
-        }
-        .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
-    }
-}
+// MARK: - 视频缩略图
 
 private struct VideoThumbnailView: View {
     let url: URL
@@ -333,6 +282,8 @@ private struct MergeLayoutPreviewSection: View {
     let mergeType: MergeType
     let options: MergeOptions
     let onShuffle: () -> Void
+    let onRemove: (Int) -> Void
+    let onPickClick: () -> Void
 
     @State private var aspects: [Double] = []
 
@@ -359,16 +310,87 @@ private struct MergeLayoutPreviewSection: View {
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)
 
-            if urls.count < 2 {
-                Text("选择至少 2 个视频后，这里会显示合并布局预览")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 110)
-                    .background(Color(.systemBackground))
-                    .cornerRadius(10)
+            if urls.isEmpty {
+                // 空态：占位区直接给主入口，选片不用再去别处找按钮
+                VStack(spacing: 10) {
+                    Button(action: onPickClick) {
+                        HStack {
+                            Image(systemName: "plus.circle.fill")
+                            Text("从相册选择视频")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Text("选好视频后这里实时显示合并布局")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 150)
+                .background(Color(.systemBackground))
+                .cornerRadius(10)
+            } else if urls.count < 2 {
+                // 只有 1 个：给出明确的「还差 1 个」引导
+                VStack(spacing: 10) {
+                    Text("已选 1 个，再选 1 个视频即可查看布局预览")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                    Button(action: onPickClick) {
+                        HStack {
+                            Image(systemName: "plus.circle.fill")
+                            Text("继续添加")
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 150)
+                .background(Color(.systemBackground))
+                .cornerRadius(10)
             } else {
                 LayoutCanvasView(layout: previewLayout, isPhotoWall: mergeType == .photoWall)
+            }
+
+            // 已选视频缩略图条（紧凑版，末尾「+」继续添加）
+            if !urls.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(urls.indices, id: \.self) { i in
+                            VideoThumbnailView(url: urls[i])
+                                .frame(width: 56, height: 100)
+                                .clipped()
+                                .cornerRadius(8)
+                                // 右上角「−」移除按钮
+                                .overlay(alignment: .topTrailing) {
+                                    Button {
+                                        onRemove(i)
+                                    } label: {
+                                        Image(systemName: "minus.circle.fill")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.white)
+                                            .shadow(color: .black.opacity(0.55), radius: 2)
+                                    }
+                                    .offset(x: 6, y: -6)
+                                }
+                        }
+                        Button(action: onPickClick) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color(.systemBackground))
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .frame(width: 56, height: 100)
+                    }
+                }
+                Text("已选 \(urls.count) 个视频 · 点 + 添加 · 点 − 移除")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
             }
         }
         .padding(16)

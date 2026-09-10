@@ -50,6 +50,34 @@ final class MergeViewModel: ObservableObject {
         uiState.logLines = ""
     }
 
+    /// 追加视频（预览卡缩略图条末尾的「+」按钮）。
+    /// 按标准化路径去重，避免重复选择同一视频；输入变化后旧结果作废。
+    func addVideos(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        var existing = Set(uiState.selectedVideoURLs.map { $0.standardizedFileURL.absoluteString })
+        let fresh = urls.filter { !existing.contains($0.standardizedFileURL.absoluteString) }
+        guard !fresh.isEmpty else { return }
+        existing.formUnion(fresh.map { $0.standardizedFileURL.absoluteString })
+        uiState.selectedVideoURLs += fresh
+        uiState.errorMessage = nil
+        uiState.mergeResult = nil
+        uiState.isSaved = false
+        uiState.logLines = ""
+    }
+
+    /// 移除单个已选视频（缩略图条右上角「−」按钮）。
+    /// 输入变化后旧结果作废；列表清空时顺带清掉错误提示。
+    func removeVideo(at index: Int) {
+        guard uiState.selectedVideoURLs.indices.contains(index) else { return }
+        uiState.selectedVideoURLs.remove(at: index)
+        if uiState.selectedVideoURLs.isEmpty {
+            uiState.errorMessage = nil
+        }
+        uiState.mergeResult = nil
+        uiState.isSaved = false
+        uiState.logLines = ""
+    }
+
     // MARK: - 合并类型 & 选项
 
     func onMergeTypeSelected(_ type: MergeType) {
