@@ -10,6 +10,8 @@ import PhotosUI
 
 struct HomeView: View {
     @State private var draftInfo = DraftStore.peek()
+    @ObservedObject private var remoteConfig = RemoteConfig.shared
+    @ObservedObject private var ads = AdsManager.shared
     @State private var showNewProjectPicker = false
     @State private var showMergePicker = false
     @State private var showOverwriteDialog = false
@@ -39,9 +41,12 @@ struct HomeView: View {
                              title: "视频合并", subtitle: "宫格 / 主次 / 照片墙") {
                         showMergePicker = true
                     }
-                    homeCard(icon: "music.note", iconColor: Color(hex: 0xFF26C6DA),
-                             title: "抖音去水印", subtitle: "粘贴分享文案，解析无水印视频并保存") {
-                        showDouyin = true
+                    // 抖音解析入口受远程开关控制：App Store 审核风险出现时可热降级
+                    if remoteConfig.douyinParserEnabled {
+                        homeCard(icon: "music.note", iconColor: Color(hex: 0xFF26C6DA),
+                                 title: "抖音去水印", subtitle: "粘贴分享文案，解析无水印视频并保存") {
+                            showDouyin = true
+                        }
                     }
                     homeCard(icon: "photo.stack", iconColor: Color(hex: 0xFFFFA726),
                              title: "视频转GIF", subtitle: "选择视频，一键转为 GIF 动图并保存") {
@@ -67,6 +72,18 @@ struct HomeView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
+            .safeAreaInset(edge: .bottom) {
+                // 首页横幅广告：SDK 就绪且远端未关闭时显示
+                if ads.bannerEnabled && remoteConfig.adsEnabled {
+                    BannerAdView()
+                        .frame(height: BannerAdView.preferredHeight)
+                }
+            }
+            .onAppear {
+                remoteConfig.refreshIfNeeded()
+                // 冷启兜底：didBecomeActive 可能早于视图创建，这里补一次触发
+                ads.onActive()
+            }
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("影剪").font(.system(size: 20, weight: .bold))
