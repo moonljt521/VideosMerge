@@ -32,6 +32,10 @@ target 'VideoMerger' do
   #   上游如发布新版本，先人工确认再手动更新此 SHA。
   pod 'ffmpeg-kit-ios-full-gpl',
       :podspec => 'https://raw.githubusercontent.com/xpcapital/ffmpeg-kit-full-gpl/96ec894567e4ba670144cd29178a46997203e6de/ffmpeg-kit-ios-full-gpl.podspec'
+
+  # Google AdMob（开屏 + 首页横幅，海外全球区）
+  # UMP 同意 SDK 作为其依赖自动引入；AdSupport.swift 使用 v11+ Swift API
+  pod 'GoogleMobileAds', '~> 12.0'
 end
 
 # 单元测试 target：只继承 search_paths（宿主 App 已链接 ffmpegkit），

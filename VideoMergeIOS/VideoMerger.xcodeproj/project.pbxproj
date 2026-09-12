@@ -51,6 +51,7 @@
 		2000000000000000000000F1 /* DouyinParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F1 /* DouyinParser.swift */; };
 		2000000000000000000000F2 /* DouyinViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F2 /* DouyinViewModel.swift */; };
 		2000000000000000000000F3 /* DouyinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F3 /* DouyinView.swift */; };
+		2000000000000000000000F5 /* AdSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F5 /* AdSupport.swift */; };
 		2000000000000000000000D1 /* GifCommandBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D1 /* GifCommandBuilder.swift */; };
 		2000000000000000000000D2 /* GifViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D2 /* GifViewModel.swift */; };
 		2000000000000000000000D3 /* GifView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D3 /* GifView.swift */; };
@@ -124,6 +125,7 @@
 		1000000000000000000000F1 /* DouyinParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinParser.swift; sourceTree = "<group>"; };
 		1000000000000000000000F2 /* DouyinViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinViewModel.swift; sourceTree = "<group>"; };
 		1000000000000000000000F3 /* DouyinView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinView.swift; sourceTree = "<group>"; };
+		1000000000000000000000F5 /* AdSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdSupport.swift; sourceTree = "<group>"; };
 		1000000000000000000000D1 /* GifCommandBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifCommandBuilder.swift; sourceTree = "<group>"; };
 		1000000000000000000000D2 /* GifViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifViewModel.swift; sourceTree = "<group>"; };
 		1000000000000000000000D3 /* GifView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifView.swift; sourceTree = "<group>"; };
@@ -217,6 +219,7 @@
 				100000000000000000000001 /* VideoMergerApp.swift */,
 				3000000000000000000000E1 /* Editor */,
 				3000000000000000000000F4 /* Douyin */,
+				3000000000000000000000F5 /* Ads */,
 				3000000000000000000000D1 /* Gif */,
 				300000000000000000000003 /* Models */,
 				300000000000000000000004 /* Merger */,
@@ -357,6 +360,14 @@
 				1000000000000000000000F3 /* DouyinView.swift */,
 			);
 			path = Douyin;
+			sourceTree = "<group>";
+		};
+		3000000000000000000000F5 /* Ads */ = {
+			isa = PBXGroup;
+			children = (
+				1000000000000000000000F5 /* AdSupport.swift */,
+			);
+			path = Ads;
 			sourceTree = "<group>";
 		};
 		3000000000000000000000D1 /* Gif */ = {
@@ -602,6 +613,7 @@
 				2000000000000000000000F1 /* DouyinParser.swift in Sources */,
 				2000000000000000000000F2 /* DouyinViewModel.swift in Sources */,
 				2000000000000000000000F3 /* DouyinView.swift in Sources */,
+				2000000000000000000000F5 /* AdSupport.swift in Sources */,
 				2000000000000000000000D1 /* GifCommandBuilder.swift in Sources */,
 				2000000000000000000000D2 /* GifViewModel.swift in Sources */,
 				2000000000000000000000D3 /* GifView.swift in Sources */,

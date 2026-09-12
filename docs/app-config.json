@@ -14,14 +14,14 @@
 
   "feature_flags": {
     "douyin_parser_enabled": true,
-    "ads_enabled": false
+    "ads_enabled": true
   },
 
   "ads": {
-    "_note": "先填 Google 官方测试 ID 开发调试；上架前替换为正式 ID。",
-    "ios_app_id": "ca-app-pub-3940256099942544~3347511713",
-    "ios_app_open_unit_id": "",
-    "ios_banner_unit_id": ""
+    "_note": "正式广告位（海外全球区）；iOS 端 Info.plist 与 AdSupport.swift 内置同款 ID，此处可用于紧急关闭或热替换。",
+    "ios_app_id": "ca-app-pub-5604418926465302~8135514967",
+    "ios_app_open_unit_id": "ca-app-pub-5604418926465302/1707029953",
+    "ios_banner_unit_id": "ca-app-pub-5604418926465302/2780080651"
   },
 
   "douyin": {
