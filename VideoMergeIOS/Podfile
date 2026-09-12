@@ -36,6 +36,10 @@ target 'VideoMerger' do
   # Google AdMob（开屏 + 首页横幅，海外全球区）
   # UMP 同意 SDK 作为其依赖自动引入；AdSupport.swift 使用 v11+ Swift API
   pod 'GoogleMobileAds', '~> 12.0'
+
+  # Firebase：Crashlytics 崩溃上报 + Analytics 行为统计（海外全球区）
+  pod 'FirebaseAnalytics'
+  pod 'FirebaseCrashlytics'
 end
 
 # 单元测试 target：只继承 search_paths（宿主 App 已链接 ffmpegkit），

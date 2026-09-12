@@ -156,6 +156,7 @@ final class MergeViewModel: ObservableObject {
                     self?.uiState.progress = 1
                     self?.uiState.statusMessage = "合并完成！预览中"
                     self?.uiState.mergeResult = mergeResult
+                    AppAnalytics.mergeExportSuccess(mergeResult.mergeType)
                 case .failure(let err):
                     self?.uiState.isProcessing = false
                     self?.uiState.progress = 0

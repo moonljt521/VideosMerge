@@ -705,6 +705,7 @@ final class EditorViewModel: ObservableObject {
             switch result {
             case .success(let file):
                 exportEngine.recordToHistory(file: file, project: project)
+                AppAnalytics.editorExportSuccess()
                 let saveResult = await exportEngine.saveToGallery(file: file, projectName: project.name)
                 await MainActor.run {
                     uiState.isExporting = false

@@ -52,6 +52,7 @@
 		2000000000000000000000F2 /* DouyinViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F2 /* DouyinViewModel.swift */; };
 		2000000000000000000000F3 /* DouyinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F3 /* DouyinView.swift */; };
 		2000000000000000000000F5 /* AdSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F5 /* AdSupport.swift */; };
+		2000000000000000000000F6 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F6 /* GoogleService-Info.plist */; };
 		2000000000000000000000D1 /* GifCommandBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D1 /* GifCommandBuilder.swift */; };
 		2000000000000000000000D2 /* GifViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D2 /* GifViewModel.swift */; };
 		2000000000000000000000D3 /* GifView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D3 /* GifView.swift */; };
@@ -126,6 +127,7 @@
 		1000000000000000000000F2 /* DouyinViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinViewModel.swift; sourceTree = "<group>"; };
 		1000000000000000000000F3 /* DouyinView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinView.swift; sourceTree = "<group>"; };
 		1000000000000000000000F5 /* AdSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdSupport.swift; sourceTree = "<group>"; };
+		1000000000000000000000F6 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		1000000000000000000000D1 /* GifCommandBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifCommandBuilder.swift; sourceTree = "<group>"; };
 		1000000000000000000000D2 /* GifViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifViewModel.swift; sourceTree = "<group>"; };
 		1000000000000000000000D3 /* GifView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifView.swift; sourceTree = "<group>"; };
@@ -226,6 +228,7 @@
 				300000000000000000000005 /* Util */,
 				300000000000000000000006 /* UI */,
 				100000000000000000000011 /* Info.plist */,
+				1000000000000000000000F6 /* GoogleService-Info.plist */,
 				100000000000000000000012 /* Assets.xcassets */,
 				300000000000000000000007 /* Frameworks */,
 			);
@@ -409,6 +412,7 @@
 				700000000000000000000001 /* Frameworks */,
 				800000000000000000000001 /* Resources */,
 				F4B69185E63B6854ABFB8E31 /* [CP] Embed Pods Frameworks */,
+				6000000000000000000000F6 /* [Firebase] Upload Crashlytics dSYMs */,
 			);
 			buildRules = (
 			);
@@ -479,6 +483,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				200000000000000000000011 /* Assets.xcassets in Resources */,
+				2000000000000000000000F6 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -492,6 +497,27 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		6000000000000000000000F6 /* [Firebase] Upload Crashlytics dSYMs */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"\"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}\"",
+			);
+			name = "[Firebase] Upload Crashlytics dSYMs";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"\"$(DERIVED_FILE_DIR)/$(EXECUTABLE_NAME)-dsyms.yaml\"",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/FirebaseCrashlytics/run\"\n";
+		};
 		621EACC6C077981C3891604C /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
