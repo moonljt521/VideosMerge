@@ -1,0 +1,31 @@
+{
+  "_comment": "VideosMerge 远程配置。客户端启动时拉取本文件（建议 3s 超时），拉取失败时使用客户端内置默认值兜底。修改本文件即可热修，无需发版审核。",
+  "schema_version": 1,
+  "updated_at": "2026-09-12",
+
+  "min_supported_version": "1.0.0",
+
+  "announcement": {
+    "enabled": false,
+    "title": "",
+    "message": "",
+    "url": ""
+  },
+
+  "feature_flags": {
+    "douyin_parser_enabled": true,
+    "ads_enabled": false
+  },
+
+  "ads": {
+    "_note": "先填 Google 官方测试 ID 开发调试；上架前替换为正式 ID。",
+    "ios_app_id": "ca-app-pub-3940256099942544~3347511713",
+    "ios_app_open_unit_id": "",
+    "ios_banner_unit_id": ""
+  },
+
+  "douyin": {
+    "_note": "解析端点以客户端内置默认值为准；本节仅用于接口变更时的紧急热修，留空表示使用内置值。",
+    "endpoints": []
+  }
+}
