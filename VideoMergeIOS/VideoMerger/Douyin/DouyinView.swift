@@ -3,7 +3,7 @@
 //  VideoMerger
 //
 //  iOS 移植自 Android DouyinScreen.kt —— 抖音去水印页
-//  粘贴分享文案 → 解析 → 下载 → 预览播放 → 保存到相册
+//  粘贴分享文案 → 解析 → 下载 → 预览播放 → 保存到相册 / 系统分享
 //
 
 import SwiftUI
@@ -164,27 +164,45 @@ struct DouyinView: View {
             )
             .frame(height: 220)
 
-            if viewModel.uiState.isSaving {
-                HStack {
-                    ProgressView()
-                    Text("保存中...").foregroundColor(.green)
-                }
-            } else if viewModel.uiState.isSaved {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                    Text("已保存到相册").foregroundColor(.green)
-                }
-            } else {
-                Button { viewModel.saveResult() } label: {
+            HStack(spacing: 8) {
+                if viewModel.uiState.isSaving {
                     HStack {
-                        Image(systemName: "square.and.arrow.down")
-                        Text("保存到相册")
+                        ProgressView()
+                        Text("保存中...").foregroundColor(.green)
+                    }
+                    .frame(maxWidth: .infinity)
+                } else if viewModel.uiState.isSaved {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                        Text("已保存到相册").foregroundColor(.green)
+                    }
+                    .frame(maxWidth: .infinity)
+                } else {
+                    Button { viewModel.saveResult() } label: {
+                        HStack {
+                            Image(systemName: "square.and.arrow.down")
+                            Text("保存到相册")
+                        }
+                        .font(.system(size: 15, weight: .medium))
+                        .frame(maxWidth: .infinity).padding(.vertical, 12)
+                        .background(Color.green).foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
+                }
+
+                // 调起系统分享面板
+                ShareLink(item: url) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("分享")
                     }
                     .font(.system(size: 15, weight: .medium))
-                    .frame(maxWidth: .infinity).padding(.vertical, 12)
-                    .background(Color.green).foregroundColor(.white)
+                    .padding(.horizontal, 14).padding(.vertical, 12)
+                    .background(Color(hex: 0xFF2A2A2A)).foregroundColor(.white)
                     .cornerRadius(12)
                 }
+            }
+            if !viewModel.uiState.isSaving && !viewModel.uiState.isSaved {
                 Text("提示: 长按视频也可保存 · 点击视频全屏播放")
                     .font(.system(size: 11)).foregroundColor(.gray)
             }
