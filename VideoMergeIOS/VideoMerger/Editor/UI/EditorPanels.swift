@@ -368,7 +368,7 @@ struct WatermarkRemovePanelView: View {
         PanelShell(title: "去水印", onClose: onClose) {
             if let clip = clip {
                 Text("框选画面中的水印位置（预览红框标识），导出时对该区域做模糊/马赛克覆盖。\n" +
-                     "自动检测识别静态水印（如抖音 logo/昵称），检测不到可手动添加。")
+                     "自动检测识别静态水印（如平台 logo/昵称），检测不到可手动添加。")
                     .font(.system(size: 11)).foregroundColor(Color(hex: 0xFF888888))
 
                 HStack(spacing: 12) {

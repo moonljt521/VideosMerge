@@ -1491,7 +1491,7 @@ fun WatermarkRemovePanel(
         Spacer(Modifier.height(8.dp))
         Text(
             "框选画面中的水印位置（预览中红框标识），导出时对该区域做模糊/马赛克覆盖。\n" +
-                "自动检测识别静态水印（如抖音 logo/昵称），检测不到可手动添加。",
+                "自动检测识别静态水印（如平台 logo/昵称），检测不到可手动添加。",
             color = Color(0xFF888888),
             fontSize = 11.sp,
             modifier = Modifier.padding(horizontal = 16.dp)

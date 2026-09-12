@@ -38,7 +38,7 @@ final class DouyinViewModel: ObservableObject {
         guard !uiState.isProcessing else { return }
         let text = uiState.input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
-            uiState.errorMessage = "请先粘贴抖音分享文案或链接"
+            uiState.errorMessage = "请先粘贴分享文案或链接"
             return
         }
 
@@ -58,7 +58,7 @@ final class DouyinViewModel: ObservableObject {
             do {
                 // 1. 解析链接与元数据(解析器为非隔离 async,网络与 JSON 均在后台线程)
                 guard let link = DouyinParser.extractShareURL(from: text) else {
-                    throw DouyinError.parseFailed("未在文案中找到抖音链接,请重新复制分享文案")
+                    throw DouyinError.parseFailed("未在文案中找到视频链接,请重新复制分享文案")
                 }
                 let info = try await DouyinParser.resolveAndFetch(shareLink: link)
                 self.uiState.title = info.title
