@@ -33,7 +33,7 @@ struct DouyinView: View {
             .padding(.vertical, 12)
         }
         .background(Color.black)
-        .navigationTitle("抖音去水印")
+        .navigationTitle("短视频去水印")
         .navigationBarTitleDisplayMode(.inline)
         .fullScreenCover(isPresented: $showFullscreen) {
             if let url = viewModel.uiState.resultURL {
@@ -56,10 +56,10 @@ struct DouyinView: View {
             HStack(spacing: 8) {
                 Image(systemName: "doc.on.clipboard")
                     .foregroundColor(Color(hex: 0xFF2196F3))
-                Text("粘贴抖音分享文案")
+                Text("粘贴视频分享文案")
                     .font(.system(size: 16, weight: .bold))
             }
-            Text("在抖音里点「分享 → 复制链接」，把整段文案粘贴到下面即可")
+            Text("在视频 App 里点「分享 → 复制链接」，把整段文案粘贴到下面即可")
                 .font(.system(size: 12))
                 .foregroundColor(Color(hex: 0xFF888888))
 
@@ -213,7 +213,7 @@ struct DouyinView: View {
     }
 
     private var authorLine: String {
-        var parts: [String] = [viewModel.uiState.author.isEmpty ? "抖音" : viewModel.uiState.author]
+        var parts: [String] = [viewModel.uiState.author.isEmpty ? "短视频" : viewModel.uiState.author]
         if viewModel.uiState.durationMs > 0 {
             parts.append("\(viewModel.uiState.durationMs / 1000)s")
         }
@@ -246,7 +246,7 @@ struct DouyinView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("使用步骤").font(.system(size: 14, weight: .bold))
             ForEach([
-                "1. 打开抖音，找到想保存的视频",
+                "1. 打开视频 App，找到想保存的视频",
                 "2. 点右侧「分享」→「复制链接」",
                 "3. 回到这里粘贴，点「解析视频」",
                 "4. 预览无水印视频，确认后保存到相册",

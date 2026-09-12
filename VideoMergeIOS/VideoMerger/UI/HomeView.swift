@@ -44,7 +44,7 @@ struct HomeView: View {
                     // 抖音解析入口受远程开关控制：App Store 审核风险出现时可热降级
                     if remoteConfig.douyinParserEnabled {
                         homeCard(icon: "music.note", iconColor: Color(hex: 0xFF26C6DA),
-                                 title: "抖音去水印", subtitle: "粘贴分享文案，解析无水印视频并保存") {
+                                 title: "短视频去水印", subtitle: "粘贴分享文案，解析无水印视频并保存") {
                             showDouyin = true
                         }
                     }

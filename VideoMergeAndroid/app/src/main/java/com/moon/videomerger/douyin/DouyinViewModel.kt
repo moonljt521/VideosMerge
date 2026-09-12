@@ -43,7 +43,7 @@ class DouyinViewModel(app: Application) : AndroidViewModel(app) {
         val state = _uiState.value
         if (state.isProcessing) return
         if (state.input.isBlank()) {
-            _uiState.value = state.copy(errorMessage = "请先粘贴抖音分享文案或链接")
+            _uiState.value = state.copy(errorMessage = "请先粘贴分享文案或链接")
             return
         }
 
@@ -62,7 +62,7 @@ class DouyinViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val info = withContext(Dispatchers.IO) {
                     val url = DouyinParser.extractShareUrl(state.input)
-                        ?: throw IllegalStateException("未在文案中找到抖音链接，请重新复制分享文案")
+                        ?: throw IllegalStateException("未在文案中找到视频链接，请重新复制分享文案")
                     val pageUrl = DouyinParser.resolveRedirect(url)
                     val videoId = DouyinParser.extractVideoId(pageUrl)
                         ?: throw IllegalStateException("无法从链接中提取视频 ID，请确认是作品分享链接")

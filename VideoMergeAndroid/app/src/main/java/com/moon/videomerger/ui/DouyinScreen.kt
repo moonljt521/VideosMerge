@@ -80,7 +80,7 @@ fun DouyinScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("抖音去水印", fontWeight = FontWeight.Bold) },
+                title = { Text("短视频去水印", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = {
                         viewModel.resetAll()
@@ -184,14 +184,14 @@ private fun InputSection(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "粘贴抖音分享文案",
+                    "粘贴视频分享文案",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                "在抖音里点「分享 → 复制链接」，把整段文案粘贴到下面即可",
+                "在视频 App 里点「分享 → 复制链接」，把整段文案粘贴到下面即可",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -205,7 +205,7 @@ private fun InputSection(
                     .heightIn(min = 96.dp),
                 placeholder = {
                     Text(
-                        "9.74 复制打开抖音，看看【...的作品】... https://v.douyin.com/xxxx/",
+                        "粘贴 App 内复制的分享文案或视频链接",
                         fontSize = 12.sp,
                         color = Color(0xFF666666)
                     )
@@ -356,7 +356,7 @@ private fun DouyinResultSection(
             }
             Text(
                 buildString {
-                    append(author.ifBlank { "抖音" })
+                    append(author.ifBlank { "短视频" })
                     if (durationMs > 0) append(" · ${durationMs / 1000}s")
                 },
                 fontSize = 12.sp,
@@ -512,7 +512,7 @@ private fun UsageHintSection() {
             )
             Spacer(Modifier.height(8.dp))
             val steps = listOf(
-                "1. 打开抖音，找到想保存的视频",
+                "1. 打开视频 App，找到想保存的视频",
                 "2. 点右侧「分享」→「复制链接」",
                 "3. 回到这里粘贴，点「解析视频」",
                 "4. 预览无水印视频，确认后保存到相册"

@@ -18,7 +18,7 @@
   },
 
   "ads": {
-    "_note": "正式广告位（海外全球区）；iOS 端 Info.plist 与 AdSupport.swift 内置同款 ID，此处可用于紧急关闭或热替换。",
+    "_note": "正式广告位 ID 已内置在 iOS 端 Info.plist 与 AdSupport.swift 中；本节 ads_enabled 控制总开关。改 ID 需发版，此处仅作记录。",
     "ios_app_id": "ca-app-pub-5604418926465302~8135514967",
     "ios_app_open_unit_id": "ca-app-pub-5604418926465302/1707029953",
     "ios_banner_unit_id": "ca-app-pub-5604418926465302/2780080651"
