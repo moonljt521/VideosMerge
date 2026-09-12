@@ -129,6 +129,7 @@ final class GifViewModel: ObservableObject {
         if result.success, Self.fileSize(of: output) > 0 {
             uiState.progress = 1
             uiState.resultURL = output
+            AppAnalytics.gifExportSuccess()
         } else {
             try? FileManager.default.removeItem(at: output)
             uiState.progress = 0

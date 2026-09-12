@@ -7,8 +7,9 @@
 //    解析接口变更时可改远端 JSON 热修，无需等 App Store 审核
 //  - AdsManager: UMP 同意流程 → ATT → 初始化 GoogleMobileAds → App 开屏广告（冷启 + 回前台，带冷却）
 //  - BannerAdView: 首页底部自适应横幅
+//  - AppAnalytics: Firebase Analytics 关键漏斗埋点（Crashlytics 由 SDK 自动收集，无需埋点）
 //
-//  依赖：GoogleMobileAds（Podfile 已加，v11+ API；UMP 随其依赖自动引入）
+//  依赖：GoogleMobileAds、FirebaseAnalytics/FirebaseCrashlytics（Podfile，v11+ Swift API；UMP 随其依赖自动引入）
 //
 
 import SwiftUI
@@ -16,6 +17,33 @@ import UIKit
 import GoogleMobileAds
 import GoogleUserMessagingPlatform
 import AppTrackingTransparency
+import FirebaseAnalytics
+
+// MARK: - 关键漏斗埋点
+
+enum AppAnalytics {
+    private static func log(_ name: String, _ params: [String: Any] = [:]) {
+        Analytics.logEvent(name, parameters: params.isEmpty ? nil : params)
+    }
+
+    // 抖音解析漏斗：start → success/error → save → share
+    static func douyinParseStart() { log("douyin_parse_start") }
+    static func douyinParseSuccess(durationMs: Int) {
+        log("douyin_parse_success", ["duration_ms": durationMs])
+    }
+    static func douyinParseError(_ message: String) {
+        log("douyin_parse_error", ["message": String(message.prefix(100))])
+    }
+    static func douyinSaveSuccess() { log("douyin_save_success") }
+    static func douyinShareTap() { log("douyin_share_tap") }
+
+    // 其他核心功能
+    static func mergeExportSuccess(_ mergeType: String) {
+        log("merge_export_success", ["merge_type": mergeType])
+    }
+    static func gifExportSuccess() { log("gif_export_success") }
+    static func editorExportSuccess() { log("editor_export_success") }
+}
 
 // MARK: - 广告位配置
 

@@ -201,6 +201,7 @@ struct DouyinView: View {
                     .background(Color(hex: 0xFF2A2A2A)).foregroundColor(.white)
                     .cornerRadius(12)
                 }
+                .simultaneousGesture(TapGesture().onEnded { AppAnalytics.douyinShareTap() })
             }
             if !viewModel.uiState.isSaving && !viewModel.uiState.isSaved {
                 Text("提示: 长按视频也可保存 · 点击视频全屏播放")

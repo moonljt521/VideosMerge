@@ -51,6 +51,7 @@ final class DouyinViewModel: ObservableObject {
         uiState.resultURL = nil
         uiState.isSaved = false
         uiState.errorMessage = nil
+        AppAnalytics.douyinParseStart()
 
         Task { [weak self] in
             guard let self else { return }
@@ -78,10 +79,12 @@ final class DouyinViewModel: ObservableObject {
                 self.uiState.progress = 1
                 self.uiState.stage = ""
                 self.uiState.resultURL = dest
+                AppAnalytics.douyinParseSuccess(durationMs: info.durationMs)
             } catch {
                 self.uiState.isProcessing = false
                 self.uiState.stage = ""
                 self.uiState.errorMessage = error.localizedDescription
+                AppAnalytics.douyinParseError(error.localizedDescription)
             }
         }
     }
@@ -98,6 +101,7 @@ final class DouyinViewModel: ObservableObject {
                 await MainActor.run { [weak self] in
                     self?.uiState.isSaving = false
                     self?.uiState.isSaved = true
+                    AppAnalytics.douyinSaveSuccess()
                 }
             } catch {
                 await MainActor.run { [weak self] in
