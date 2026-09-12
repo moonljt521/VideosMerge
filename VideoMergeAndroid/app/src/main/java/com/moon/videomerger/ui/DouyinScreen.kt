@@ -1,5 +1,6 @@
 package com.moon.videomerger.ui
 
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,17 +17,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.moon.videomerger.douyin.DouyinViewModel
 
 /**
- * 抖音去水印页面：粘贴分享文案 → 解析 → 下载 → 预览播放 → 保存到相册。
+ * 抖音去水印页面：粘贴分享文案 → 解析 → 下载 → 预览播放 → 保存到相册 / 系统分享。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,7 +39,23 @@ fun DouyinScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
     var showFullscreen by remember { mutableStateOf(false) }
+
+    val shareResult = {
+        uiState.resultFile?.let { file ->
+            val uri = FileProvider.getUriForFile(
+                context, "${context.packageName}.fileprovider", file
+            )
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "video/mp4"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(sendIntent, "分享无水印视频"))
+        }
+        Unit
+    }
 
     // 全屏播放
     if (showFullscreen && uiState.resultFile != null) {
@@ -52,12 +71,21 @@ fun DouyinScreen(
         return
     }
 
+    // 页面级返回：离开时清空本次会话的输入与结果（系统返回键/手势走这里）
+    BackHandler {
+        viewModel.resetAll()
+        onBack()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("抖音去水印", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        viewModel.resetAll()
+                        onBack()
+                    }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
                     }
                 }
@@ -109,6 +137,7 @@ fun DouyinScreen(
                     onTap = { showFullscreen = true },
                     onLongPress = { viewModel.saveResult() },
                     onSaveClick = { viewModel.saveResult() },
+                    onShareClick = shareResult,
                     onClear = { viewModel.clearResult() }
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -277,6 +306,7 @@ private fun DouyinResultSection(
     onTap: () -> Unit,
     onLongPress: () -> Unit,
     onSaveClick: () -> Unit,
+    onShareClick: () -> Unit,
     onClear: () -> Unit
 ) {
     Card(
@@ -346,56 +376,77 @@ private fun DouyinResultSection(
 
             Spacer(Modifier.height(12.dp))
 
-            when {
-                isSaving -> {
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("保存中...", color = Color(0xFF4CAF50))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                when {
+                    isSaving -> {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("保存中...", color = Color(0xFF4CAF50))
+                        }
+                    }
+                    isSaved -> {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "已保存到相册 Movies/VideoMerger/",
+                                color = Color(0xFF4CAF50),
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    else -> {
+                        Button(
+                            onClick = onSaveClick,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                        ) {
+                            Icon(Icons.Default.Save, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("保存到相册")
+                        }
                     }
                 }
-                isSaved -> {
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = Color(0xFF4CAF50),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "已保存到相册 Movies/VideoMerger/",
-                            color = Color(0xFF4CAF50),
-                            fontSize = 13.sp
-                        )
-                    }
-                }
-                else -> {
-                    Button(
-                        onClick = onSaveClick,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
-                    ) {
-                        Icon(Icons.Default.Save, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("保存到相册")
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "提示: 长按视频也可保存 · 点击视频全屏播放",
-                        fontSize = 11.sp,
-                        color = Color(0xFF888888)
+                OutlinedButton(onClick = onShareClick) {
+                    Icon(
+                        Icons.Default.Share,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
                     )
+                    Spacer(Modifier.width(4.dp))
+                    Text("分享")
                 }
+            }
+            if (!isSaving && !isSaved) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "提示: 长按视频也可保存 · 点击视频全屏播放",
+                    fontSize = 11.sp,
+                    color = Color(0xFF888888)
+                )
             }
         }
     }

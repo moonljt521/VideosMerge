@@ -133,12 +133,18 @@ class DouyinViewModel(app: Application) : AndroidViewModel(app) {
         _uiState.value = DouyinUiState(input = _uiState.value.input)
     }
 
+    /** 离开页面时清空整个会话：输入、结果与缓存文件 */
+    fun resetAll() {
+        _uiState.value.resultFile?.delete()
+        _uiState.value = DouyinUiState()
+    }
+
     fun dismissError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
 
     override fun onCleared() {
         super.onCleared()
-        _uiState.value.resultFile?.delete()
+        resetAll()
     }
 }

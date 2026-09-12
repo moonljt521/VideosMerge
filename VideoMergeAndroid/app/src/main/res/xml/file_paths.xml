@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 抖音去水印下载的临时视频存放在 cacheDir 根目录，分享时经 FileProvider 授予读权限 -->
+    <cache-path name="cache" path="." />
+</paths>
