@@ -15,7 +15,7 @@
 import SwiftUI
 import UIKit
 import GoogleMobileAds
-import GoogleUserMessagingPlatform
+import UserMessagingPlatform // UMP 3.x（SPM）的模块名已从 GoogleUserMessagingPlatform 改为 UserMessagingPlatform
 import AppTrackingTransparency
 import FirebaseAnalytics
 
@@ -137,14 +137,14 @@ final class AdsManager: NSObject, ObservableObject {
 
     private func bootstrap() {
         didBootstrap = true
-        let params = ConsentRequestParameters()
+        let params = RequestParameters() // UMP 3.x：ConsentRequestParameters 已改名为 RequestParameters
         ConsentInformation.shared.requestConsentInfoUpdate(with: params) { error in
             if let error {
                 // 拿不到同意信息（如无网络）也继续，SDK 会按非个性化广告处理
                 print("[Ads] consent info error: \(error.localizedDescription)")
             }
             // 有 GDPR 表单则弹出（需在 AdMob 后台 Privacy & messaging 里创建），没有则直接过
-            ConsentForm.loadAndPresentConsentFormIfRequired(from: nil) { formError in
+            ConsentForm.loadAndPresentIfRequired(from: nil) { formError in
                 if let formError {
                     print("[Ads] consent form error: \(formError.localizedDescription)")
                 }
@@ -225,12 +225,12 @@ extension AdsManager: FullScreenContentDelegate {
 
 struct BannerAdView: UIViewRepresentable {
     static var preferredHeight: CGFloat {
-        GADCurrentOrientationAnchoredAdaptiveBanner(width: UIScreen.main.bounds.width).size.height
+        currentOrientationAnchoredAdaptiveBanner(width: UIScreen.main.bounds.width).size.height
     }
 
-    func makeUIView(context: Context) -> GADBannerView {
-        let banner = GADBannerView(
-            adSize: GADCurrentOrientationAnchoredAdaptiveBanner(width: UIScreen.main.bounds.width)
+    func makeUIView(context: Context) -> BannerView {
+        let banner = BannerView(
+            adSize: currentOrientationAnchoredAdaptiveBanner(width: UIScreen.main.bounds.width)
         )
         banner.adUnitID = AdConfig.bannerUnitID
         banner.rootViewController = Self.topViewController()
@@ -238,7 +238,7 @@ struct BannerAdView: UIViewRepresentable {
         return banner
     }
 
-    func updateUIView(_ uiView: GADBannerView) {}
+    func updateUIView(_ uiView: BannerView, context: Context) {}
 
     private static func topViewController() -> UIViewController? {
         let scene = UIApplication.shared.connectedScenes

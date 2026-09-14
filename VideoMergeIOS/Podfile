@@ -34,8 +34,10 @@ target 'VideoMerger' do
       :podspec => 'https://raw.githubusercontent.com/xpcapital/ffmpeg-kit-full-gpl/96ec894567e4ba670144cd29178a46997203e6de/ffmpeg-kit-ios-full-gpl.podspec'
 
   # Google AdMob（开屏 + 首页横幅，海外全球区）
-  # UMP 同意 SDK 作为其依赖自动引入；AdSupport.swift 使用 v11+ Swift API
-  pod 'GoogleMobileAds', '~> 12.0'
+  # ★ v8+ 不再发布到 CocoaPods，改用 Xcode 内置 SPM 集成：
+  #   - GoogleMobileAds: https://github.com/googleads/swift-package-manager-google-mobile-ads（12.x）
+  #   - GoogleUserMessagingPlatform（UMP）: https://github.com/googleads/swift-package-manager-google-user-messaging-platform
+  #   已通过脚本注入 project.pbxproj 的 package references，SPM 解析由 Xcode/xcodebuild 自动完成
 
   # Firebase：Crashlytics 崩溃上报 + Analytics 行为统计（海外全球区）
   pod 'FirebaseAnalytics'
