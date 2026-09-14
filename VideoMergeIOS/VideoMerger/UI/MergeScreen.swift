@@ -51,7 +51,7 @@ struct MergeScreen: View {
                     if isLoadingVideos {
                         HStack(spacing: 8) {
                             ProgressView()
-                            Text("正在加载选中的视频到本地...")
+                            Text(L10n.t("merge.loading_videos"))
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
@@ -78,7 +78,7 @@ struct MergeScreen: View {
                     } label: {
                         HStack {
                             Image(systemName: "video.slash")
-                            Text("开始合并").font(.system(size: 18, weight: .bold))
+                            Text(L10n.t("merge.start")).font(.system(size: 18, weight: .bold))
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
@@ -108,7 +108,7 @@ struct MergeScreen: View {
                 .padding(.horizontal, 16)
             }
             .background(Color(.systemBackground))
-            .navigationTitle("影剪 · 视频合并")
+            .navigationTitle(L10n.t("merge.nav_title"))
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 // ★ 首页带入的已选视频（只应用一次）
@@ -171,7 +171,7 @@ struct MergeScreen: View {
                                 // ★ 追加而非替换：预览卡「+」是增量添加入口
                                 viewModel.addVideos(urls)
                             } else {
-                                viewModel.uiState.errorMessage = "视频加载失败，请重新选择"
+                                viewModel.uiState.errorMessage = L10n.t("merge.load_failed")
                             }
                         }
                     }
@@ -223,7 +223,7 @@ private struct MergeTypeSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("合并模式")
+            Text(L10n.t("merge.mode_title"))
                 .font(.headline)
                 .fontWeight(.bold)
 
@@ -292,7 +292,7 @@ private struct MergeLayoutPreviewSection: View {
             HStack {
                 Image(systemName: "square.grid.2x2")
                     .foregroundColor(.accentColor)
-                Text("布局预览")
+                Text(L10n.t("merge.preview_title"))
                     .font(.headline)
                     .fontWeight(.bold)
                 Spacer()
@@ -300,7 +300,7 @@ private struct MergeLayoutPreviewSection: View {
                     Button(action: onShuffle) {
                         HStack(spacing: 4) {
                             Image(systemName: "shuffle")
-                            Text("换一批").font(.system(size: 12))
+                            Text(L10n.t("merge.shuffle")).font(.system(size: 12))
                         }
                     }
                 }
@@ -316,13 +316,13 @@ private struct MergeLayoutPreviewSection: View {
                     Button(action: onPickClick) {
                         HStack {
                             Image(systemName: "plus.circle.fill")
-                            Text("从相册选择视频")
+                            Text(L10n.t("merge.pick_from_gallery"))
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                     }
                     .buttonStyle(.borderedProminent)
-                    Text("选好视频后这里实时显示合并布局")
+                    Text(L10n.t("merge.preview_empty_hint"))
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
@@ -333,13 +333,13 @@ private struct MergeLayoutPreviewSection: View {
             } else if urls.count < 2 {
                 // 只有 1 个：给出明确的「还差 1 个」引导
                 VStack(spacing: 10) {
-                    Text("已选 1 个，再选 1 个视频即可查看布局预览")
+                    Text(L10n.t("merge.preview_need_one"))
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                     Button(action: onPickClick) {
                         HStack {
                             Image(systemName: "plus.circle.fill")
-                            Text("继续添加")
+                            Text(L10n.t("merge.add_more"))
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
@@ -388,7 +388,7 @@ private struct MergeLayoutPreviewSection: View {
                         .frame(width: 56, height: 100)
                     }
                 }
-                Text("已选 \(urls.count) 个视频 · 点 + 添加 · 点 − 移除")
+                Text(L10n.t("merge.selected_hint", urls.count))
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
             }
@@ -406,14 +406,15 @@ private struct MergeLayoutPreviewSection: View {
     }
 
     private var previewSubtitle: String {
-        guard urls.count >= 2 else { return "合并前先选好视频，预览会实时跟随参数变化" }
+        guard urls.count >= 2 else { return L10n.t("merge.preview_subtitle_default") }
         let note: String
         switch mergeType {
-        case .grid:      note = " · 按主导比例自适应"
-        case .collage:   note = " · 主窗口占比可调"
-        case .photoWall: note = " · 随机布局可换一批"
+        case .grid:      note = L10n.t("merge.note_grid")
+        case .collage:   note = L10n.t("merge.note_collage")
+        case .photoWall: note = L10n.t("merge.note_photo_wall")
         }
-        return "\(mergeType.displayName) · 输出 \(previewLayout.outW)×\(previewLayout.outH) · \(urls.count) 个视频\(note)"
+        return L10n.t("merge.preview_summary", mergeType.displayName,
+                      previewLayout.outW, previewLayout.outH, urls.count, note)
     }
 
     /// 网格布局需要各视频宽高比；在后台读取，避免阻塞滚动。
@@ -543,7 +544,7 @@ private struct OptionsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("参数设置")
+            Text(L10n.t("merge.options_title"))
                 .font(.headline)
                 .fontWeight(.bold)
 
@@ -553,7 +554,7 @@ private struct OptionsSection: View {
             } label: {
                 HStack {
                     Image(systemName: canvasExpanded ? "chevron.up" : "chevron.down")
-                    Text("画布尺寸: \(options.canvasWidth)×\(options.canvasHeight)")
+                    Text(L10n.t("merge.canvas_size", options.canvasWidth, options.canvasHeight))
                     Spacer()
                 }
                 .foregroundColor(.primary)
@@ -585,7 +586,7 @@ private struct OptionsSection: View {
             if mergeType == .collage {
                 Divider().padding(.vertical, 4)
 
-                Text("主窗口位置:").fontWeight(.medium)
+                Text(L10n.t("merge.main_position")).fontWeight(.medium)
                 HStack(spacing: 6) {
                     ForEach(CollageOrient.allCases) { o in
                         Button {
@@ -608,7 +609,7 @@ private struct OptionsSection: View {
                     }
                 }
 
-                Text("主窗口占比: \(Int(options.collageMainRatio * 100))%")
+                Text(L10n.t("merge.main_ratio", Int(options.collageMainRatio * 100)))
                 Slider(value: Binding(
                     get: { options.collageMainRatio },
                     set: { v in
@@ -641,14 +642,14 @@ private struct ProgressAndLogSection: View {
             HStack {
                 Text(message).fontWeight(.medium)
                 Spacer()
-                Text("\(Int(progress * 100))%").fontWeight(.bold)
+                Text(L10n.t("merge.progress_percent", Int(progress * 100))).fontWeight(.bold)
             }
             ProgressView(value: progress)
                 .tint(.accentColor)
 
             if !displayedLog.isEmpty {
                 Divider().padding(.vertical, 2)
-                Text("FFmpeg 日志")
+                Text(L10n.t("merge.ffmpeg_log"))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.secondary)
                 ScrollView {
@@ -697,7 +698,7 @@ private struct PreviewSection: View {
             HStack {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.green)
-                Text("合并完成！预览视频")
+                Text(L10n.t("merge.result_done"))
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(Color(red: 0.18, green: 0.49, blue: 0.20))
                 Spacer()
@@ -721,18 +722,18 @@ private struct PreviewSection: View {
             if isSaving {
                 HStack {
                     ProgressView().scaleEffect(0.7)
-                    Text("保存中...").foregroundColor(Color(red: 0.33, green: 0.55, blue: 0.18))
+                    Text(L10n.t("merge.saving")).foregroundColor(Color(red: 0.33, green: 0.55, blue: 0.18))
                 }
             } else if isSaved {
                 HStack {
                     Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                    Text("已保存到相册").foregroundColor(Color(red: 0.33, green: 0.55, blue: 0.18))
+                    Text(L10n.t("merge.saved_to_gallery")).foregroundColor(Color(red: 0.33, green: 0.55, blue: 0.18))
                 }
             } else {
                 Button(action: onSaveClick) {
                     HStack {
                         Image(systemName: "square.and.arrow.down")
-                        Text("保存到相册")
+                        Text(L10n.t("merge.save_to_gallery"))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -740,7 +741,7 @@ private struct PreviewSection: View {
                     .foregroundColor(.white)
                     .cornerRadius(12)
                 }
-                Text("提示: 长按视频也可保存 · 点击视频全屏播放")
+                Text(L10n.t("merge.preview_tip"))
                     .font(.system(size: 11))
                     .foregroundColor(.gray)
             }
@@ -762,14 +763,14 @@ private struct ErrorSection: View {
             Image(systemName: "xmark.octagon.fill")
                 .font(.system(size: 44))
                 .foregroundColor(Color(red: 0.96, green: 0.26, blue: 0.21))
-            Text("出错了")
+            Text(L10n.t("merge.error_title"))
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(Color(red: 0.78, green: 0.16, blue: 0.16))
             Text(message)
                 .font(.system(size: 13))
                 .multilineTextAlignment(.center)
                 .foregroundColor(Color(red: 0.72, green: 0.11, blue: 0.11))
-            Button("确定", action: onDismiss)
+            Button(L10n.t("merge.ok"), action: onDismiss)
                 .padding(.top, 4)
         }
         .frame(maxWidth: .infinity)

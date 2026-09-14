@@ -30,11 +30,11 @@ final class ExportEngine {
         await withCheckedContinuation { cont in
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 guard let self = self else {
-                    cont.resume(returning: .failure(RuntimeError("引擎已释放")))
+                    cont.resume(returning: .failure(RuntimeError(L10n.t("editorcore.engine_released"))))
                     return
                 }
                 guard let mainTrack = project.mainTrack, !mainTrack.clips.isEmpty else {
-                    cont.resume(returning: .failure(RuntimeError("没有视频片段")))
+                    cont.resume(returning: .failure(RuntimeError(L10n.t("editorcore.no_clips"))))
                     return
                 }
                 let output = FileManager.default.temporaryDirectory
@@ -43,7 +43,7 @@ final class ExportEngine {
 
                 let command = self.filterBuilder.buildExportCommand(project, output.path)
                 guard !command.isEmpty else {
-                    cont.resume(returning: .failure(RuntimeError("命令构建失败")))
+                    cont.resume(returning: .failure(RuntimeError(L10n.t("editorcore.command_build_failed"))))
                     return
                 }
                 onLog("ffmpeg 命令:\n\(command)\n")
@@ -65,8 +65,8 @@ final class ExportEngine {
                             if exists && fileSize == 0 {
                                 try? FileManager.default.removeItem(at: output)
                             }
-                            let reason = result.success ? "输出文件为空" : result.message
-                            cont.resume(returning: .failure(RuntimeError("导出失败: \(reason)")))
+                            let reason = result.success ? L10n.t("editorcore.output_empty") : result.message
+                            cont.resume(returning: .failure(RuntimeError(L10n.t("editorcore.export_failed", reason))))
                         }
                     }
                 )
@@ -81,7 +81,7 @@ final class ExportEngine {
         await withCheckedContinuation { cont in
             PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
                 guard status == .authorized || status == .limited else {
-                    cont.resume(returning: .failure(RuntimeError("没有相册权限")))
+                    cont.resume(returning: .failure(RuntimeError(L10n.t("editorcore.no_gallery_permission"))))
                     return
                 }
                 PHPhotoLibrary.shared().performChanges {
@@ -91,7 +91,7 @@ final class ExportEngine {
                     if ok {
                         cont.resume(returning: .success(file))
                     } else {
-                        cont.resume(returning: .failure(error ?? RuntimeError("保存相册失败")))
+                        cont.resume(returning: .failure(error ?? RuntimeError(L10n.t("editorcore.gallery_save_failed"))))
                     }
                 }
             }

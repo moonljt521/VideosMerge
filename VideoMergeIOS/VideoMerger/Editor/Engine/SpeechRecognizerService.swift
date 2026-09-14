@@ -23,13 +23,13 @@ enum SpeechRecognizerService {
     /// 语音转字幕主流程
     static func transcribe(videoPath: String,
                            onStatus: @escaping (String) -> Void) async throws -> [Subtitle] {
-        onStatus("提取音频...")
+        onStatus(L10n.t("editorcore.speech_status_extract"))
         let wavURL = try extractAudio(videoPath: videoPath)
 
-        onStatus("语音识别中（中文）...")
+        onStatus(L10n.t("editorcore.speech_status_recognizing"))
         let words = try await recognize(url: wavURL)
 
-        onStatus("聚合字幕...")
+        onStatus(L10n.t("editorcore.speech_status_grouping"))
         return groupToSubtitles(words)
     }
 
@@ -42,10 +42,10 @@ enum SpeechRecognizerService {
             "-y -v error -i \"\(videoPath)\" -vn -acodec pcm_s16le -ar 16000 -ac 1 \"\(out.path)\""
         ), let rc = session.getReturnCode(), ReturnCode.isSuccess(rc) else {
             let logs = FFmpegKitConfig.getLastSession()?.getAllLogsAsString() ?? ""
-            throw RuntimeError("音频提取失败：\(String(logs.suffix(500)))")
+            throw RuntimeError(L10n.t("editorcore.audio_extract_failed", String(logs.suffix(500))))
         }
         guard FileManager.default.fileExists(atPath: out.path) else {
-            throw RuntimeError("音频提取失败：输出文件不存在")
+            throw RuntimeError(L10n.t("editorcore.audio_extract_no_output"))
         }
         return out
     }
@@ -56,11 +56,11 @@ enum SpeechRecognizerService {
                 cont.resume(returning: status == .authorized)
             }
         }
-        guard granted else { throw RuntimeError("语音识别权限未授权") }
+        guard granted else { throw RuntimeError(L10n.t("editorcore.speech_permission_denied")) }
 
         guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN")),
               recognizer.isAvailable else {
-            throw RuntimeError("中文语音识别不可用（设备不支持）")
+            throw RuntimeError(L10n.t("editorcore.speech_unavailable"))
         }
 
         let request = SFSpeechURLRecognitionRequest(url: url)

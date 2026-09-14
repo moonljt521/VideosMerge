@@ -79,7 +79,7 @@ struct EditorScreen: View {
                                     onToolClick: { panel in
                                         if viewModel.uiState.selectedClip == nil &&
                                             panel != .export && panel != .subtitle && panel != .watermarkRemove {
-                                            viewModel.showError("请先点击时间轴上的视频片段选中后再使用该工具")
+                                            viewModel.showError(L10n.t("editorui.select_clip_first_hint"))
                                         } else {
                                             viewModel.showPanel(panel)
                                         }
@@ -104,22 +104,22 @@ struct EditorScreen: View {
             // 导出进度浮层
             if viewModel.uiState.isExporting {
                 progressOverlay(
-                    title: "正在导出视频",
+                    title: L10n.t("editorui.exporting_title"),
                     progress: viewModel.uiState.exportProgress,
                     message: viewModel.uiState.exportMessage,
                     indeterminate: false,
-                    cancelText: "取消导出",
+                    cancelText: L10n.t("editorui.cancel_export"),
                     onCancel: { viewModel.cancelExport() })
             }
 
             // 导入进度浮层
             if viewModel.uiState.isImporting {
                 progressOverlay(
-                    title: "正在导入素材",
+                    title: L10n.t("editorui.importing_title"),
                     progress: viewModel.uiState.importProgress,
                     message: viewModel.uiState.importMessage,
                     indeterminate: viewModel.uiState.importProgress <= 0,
-                    cancelText: "取消导入",
+                    cancelText: L10n.t("editorui.cancel_import"),
                     onCancel: { viewModel.cancelImport() })
             }
 
@@ -206,7 +206,7 @@ struct EditorScreen: View {
                     .font(.system(size: 14, weight: .medium))
                     .lineLimit(1)
                 if let count = viewModel.uiState.project.mainTrack?.clips.count {
-                    Text("\(count) 个片段").font(.system(size: 10)).foregroundColor(Color(hex: 0xFF888888))
+                    Text(L10n.t("editorui.clip_count", count)).font(.system(size: 10)).foregroundColor(Color(hex: 0xFF888888))
                 }
             }
             Spacer()
@@ -230,7 +230,7 @@ struct EditorScreen: View {
             if viewModel.uiState.isExporting {
                 ProgressView().scaleEffect(0.7)
             } else {
-                Button("导出") {
+                Button(L10n.t("editorui.export")) {
                     viewModel.showPanel(.export)
                 }
                 .font(.system(size: 15, weight: .bold))
@@ -424,10 +424,10 @@ struct TimelinePanel: View {
                     .onTapGesture { onClearRange() }
             }
             Spacer()
-            actionBarBtn("入", icon: "flag", active: state.inPoint != nil, action: onSetInPoint)
-            actionBarBtn("出", icon: "flag", active: state.outPoint != nil, action: onSetOutPoint)
-            actionBarBtn("分割", icon: "scissors", enabled: canSplit, action: onSplitAtPlayhead)
-            actionBarBtn(hasRange ? "删区间" : "删除", icon: "trash",
+            actionBarBtn(L10n.t("editorui.in_point"), icon: "flag", active: state.inPoint != nil, action: onSetInPoint)
+            actionBarBtn(L10n.t("editorui.out_point"), icon: "flag", active: state.outPoint != nil, action: onSetOutPoint)
+            actionBarBtn(L10n.t("editorui.split"), icon: "scissors", enabled: canSplit, action: onSplitAtPlayhead)
+            actionBarBtn(hasRange ? L10n.t("editorui.delete_range") : L10n.t("editorui.delete"), icon: "trash",
                          enabled: hasRange || state.selectedClip != nil, action: onDelete)
         }
         .padding(.horizontal, 12)
@@ -866,30 +866,30 @@ struct ToolbarPanel: View {
 
     private var items: [Item] {
         var base: [Item] = [
-            .init(name: "剪辑", icon: "scissors", panel: .trim, enabled: hasSelectedClip),
-            .init(name: "变速", icon: "speedometer", panel: .speed, enabled: hasSelectedClip),
-            .init(name: "滤镜", icon: "camera.filters", panel: .filter, enabled: hasSelectedClip),
-            .init(name: "文字", icon: "textformat", panel: .text, enabled: hasSelectedClip),
-            .init(name: "字幕", icon: "captions.bubble", panel: .subtitle, enabled: true),
-            .init(name: "贴纸", icon: "face.smiling", panel: .sticker, enabled: true),
-            .init(name: "画中画", icon: "rectangle.on.rectangle", panel: .picture, enabled: true),
-            .init(name: "水印", icon: "photo.badge.plus", panel: .imageWatermark, enabled: hasSelectedClip),
-            .init(name: "去水印", icon: "wand.and.stars", panel: .watermarkRemove, enabled: hasSelectedClip),
-            .init(name: "音频", icon: "music.note", panel: .audio, enabled: hasSelectedClip),
-            .init(name: "背景", icon: "drop.halffull", panel: .blurBg, enabled: hasSelectedClip),
+            .init(name: L10n.t("editorui.tool_trim"), icon: "scissors", panel: .trim, enabled: hasSelectedClip),
+            .init(name: L10n.t("editorui.tool_speed"), icon: "speedometer", panel: .speed, enabled: hasSelectedClip),
+            .init(name: L10n.t("editorui.tool_filter"), icon: "camera.filters", panel: .filter, enabled: hasSelectedClip),
+            .init(name: L10n.t("editorui.tool_text"), icon: "textformat", panel: .text, enabled: hasSelectedClip),
+            .init(name: L10n.t("editorui.tool_subtitle"), icon: "captions.bubble", panel: .subtitle, enabled: true),
+            .init(name: L10n.t("editorui.tool_sticker"), icon: "face.smiling", panel: .sticker, enabled: true),
+            .init(name: L10n.t("editorui.tool_pip"), icon: "rectangle.on.rectangle", panel: .picture, enabled: true),
+            .init(name: L10n.t("editorui.tool_watermark"), icon: "photo.badge.plus", panel: .imageWatermark, enabled: hasSelectedClip),
+            .init(name: L10n.t("editorui.tool_watermark_remove"), icon: "wand.and.stars", panel: .watermarkRemove, enabled: hasSelectedClip),
+            .init(name: L10n.t("editorui.tool_audio"), icon: "music.note", panel: .audio, enabled: hasSelectedClip),
+            .init(name: L10n.t("editorui.tool_blur_bg"), icon: "drop.halffull", panel: .blurBg, enabled: hasSelectedClip),
         ]
         if canTransition {
-            base.append(.init(name: "转场", icon: "arrow.left.arrow.right", panel: .transition, enabled: hasSelectedClip))
+            base.append(.init(name: L10n.t("editorui.tool_transition"), icon: "arrow.left.arrow.right", panel: .transition, enabled: hasSelectedClip))
         }
-        base.append(.init(name: "画布", icon: "aspectratio", panel: .canvas, enabled: true))
-        base.append(.init(name: "导出", icon: "square.and.arrow.down", panel: .export, enabled: true))
+        base.append(.init(name: L10n.t("editorui.tool_canvas"), icon: "aspectratio", panel: .canvas, enabled: true))
+        base.append(.init(name: L10n.t("editorui.tool_export"), icon: "square.and.arrow.down", panel: .export, enabled: true))
         return base
     }
 
     var body: some View {
         VStack(spacing: 2) {
             if !hasSelectedClip {
-                Text("👆 点击时间轴上的视频片段选中后使用工具")
+                Text(L10n.t("editorui.toolbar_select_hint"))
                     .font(.system(size: 12)).foregroundColor(Color(hex: 0xFF888888))
                     .frame(maxWidth: .infinity)
             }

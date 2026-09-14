@@ -43,11 +43,11 @@ struct TrimPanelView: View {
     let onClose: () -> Void
 
     var body: some View {
-        PanelShell(title: "剪辑", onClose: onClose) {
+        PanelShell(title: L10n.t("editorui.panel_trim"), onClose: onClose) {
             if let clip = clip {
                 Group {
                     HStack {
-                        Text("入点").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA))
+                        Text(L10n.t("editorui.trim_in_point")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA))
                         Slider(value: Binding(
                             get: { clip.trimStart },
                             set: { vm.beginEdit(); vm.updateTrim(clip.id, $0, clip.trimEnd) }
@@ -56,7 +56,7 @@ struct TrimPanelView: View {
                             .font(.system(size: 12)).frame(width: 48)
                     }
                     HStack {
-                        Text("出点").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA))
+                        Text(L10n.t("editorui.trim_out_point")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA))
                         Slider(value: Binding(
                             get: { clip.trimEnd > 0 ? clip.trimEnd : clip.mediaDuration },
                             set: { vm.beginEdit(); vm.updateTrim(clip.id, clip.trimStart, $0) }
@@ -66,9 +66,9 @@ struct TrimPanelView: View {
                     }
                     // 旋转 / 翻转
                     HStack(spacing: 12) {
-                        Text("变换").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA))
+                        Text(L10n.t("editorui.transform")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA))
                         ForEach([RotationMode.none, .cw90, .ccw90, .r180], id: \.self) { m in
-                            Text(m == .none ? "原图" : m.displayName.replacingOccurrences(of: "°", with: ""))
+                            Text(m == .none ? L10n.t("editorui.rotation_none") : m.displayName.replacingOccurrences(of: "°", with: ""))
                                 .font(.system(size: 12))
                                 .foregroundColor(clip.rotation == m.rawValue ? Color(hex: 0xFF2196F3) : Color(hex: 0xFF888888))
                                 .padding(.horizontal, 8).padding(.vertical, 4)
@@ -77,25 +77,25 @@ struct TrimPanelView: View {
                         }
                     }
                     HStack(spacing: 12) {
-                        Toggle("水平镜像", isOn: Binding(
+                        Toggle(L10n.t("editorui.hflip"), isOn: Binding(
                             get: { clip.hflip },
                             set: { _ in vm.beginEdit(); vm.toggleHFlip(clip.id) }))
                             .font(.system(size: 13))
-                        Toggle("垂直镜像", isOn: Binding(
+                        Toggle(L10n.t("editorui.vflip"), isOn: Binding(
                             get: { clip.vflip },
                             set: { _ in vm.beginEdit(); vm.toggleVFlip(clip.id) }))
                             .font(.system(size: 13))
                     }
                     // ── 片尾静止 logo/标语检测截断（对齐 Android：单片段 + 全部片段）──
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("片尾静止片段").font(.system(size: 13))
-                        Text("检测并去掉视频末尾静止的 logo/标语画面")
+                        Text(L10n.t("editorui.tail_still_section")).font(.system(size: 13))
+                        Text(L10n.t("editorui.tail_still_desc"))
                             .font(.system(size: 11)).foregroundColor(Color(hex: 0xFF666666))
                         HStack(spacing: 8) {
-                            detectButton(title: "当前片段", busy: vm.uiState.isDetectingLogo) {
+                            detectButton(title: L10n.t("editorui.current_clip"), busy: vm.uiState.isDetectingLogo) {
                                 vm.detectTailLogo(clip.id)
                             }
-                            detectButton(title: "全部片段", busy: vm.uiState.isDetectingLogo) {
+                            detectButton(title: L10n.t("editorui.all_clips"), busy: vm.uiState.isDetectingLogo) {
                                 vm.detectTailLogoAll()
                             }
                             Spacer()
@@ -103,7 +103,7 @@ struct TrimPanelView: View {
                     }
                 }
             } else {
-                panelLabel("请先选中片段")
+                panelLabel(L10n.t("editorui.no_clip_selected"))
             }
         }
     }
@@ -115,7 +115,7 @@ struct TrimPanelView: View {
         } label: {
             HStack(spacing: 6) {
                 if busy { ProgressView().scaleEffect(0.6) }
-                Text(busy ? "检测中..." : title).font(.system(size: 12))
+                Text(busy ? L10n.t("editorui.detecting") : title).font(.system(size: 12))
             }
             .padding(.horizontal, 12).padding(.vertical, 6)
             .background(RoundedRectangle(cornerRadius: 6).fill(Color(hex: 0xFF2196F3)))
@@ -133,22 +133,22 @@ struct SpeedPanelView: View {
     let onClose: () -> Void
 
     var body: some View {
-        PanelShell(title: "变速", onClose: onClose) {
+        PanelShell(title: L10n.t("editorui.panel_speed"), onClose: onClose) {
             if let clip = clip {
                 HStack {
-                    Text("速度").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA))
+                    Text(L10n.t("editorui.speed")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA))
                     Slider(value: Binding(
                         get: { clip.speed },
                         set: { vm.beginEdit(); vm.updateSpeed(clip.id, $0) }
                     ), in: 0.25...4.0)
                     Text(String(format: "%.2fx", clip.speed)).font(.system(size: 12)).frame(width: 48)
                 }
-                Toggle("倒放", isOn: Binding(
+                Toggle(L10n.t("editorui.reverse"), isOn: Binding(
                     get: { clip.reversed },
                     set: { _ in vm.beginEdit(); vm.toggleReverse(clip.id) }))
                     .font(.system(size: 13))
             } else {
-                panelLabel("请先选中片段")
+                panelLabel(L10n.t("editorui.no_clip_selected"))
             }
         }
     }
@@ -162,7 +162,7 @@ struct FilterPanelView: View {
     let onClose: () -> Void
 
     var body: some View {
-        PanelShell(title: "滤镜", onClose: onClose) {
+        PanelShell(title: L10n.t("editorui.panel_filter"), onClose: onClose) {
             if let clip = clip {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -178,12 +178,12 @@ struct FilterPanelView: View {
                     }
                 }
                 Group {
-                    slider("亮度", value: clip.brightness) { vm.beginEdit(); vm.updateColorParams(clip.id, $0, clip.contrast, clip.saturation) }
-                    slider("对比度", value: clip.contrast) { vm.beginEdit(); vm.updateColorParams(clip.id, clip.brightness, $0, clip.saturation) }
-                    slider("饱和度", value: clip.saturation) { vm.beginEdit(); vm.updateColorParams(clip.id, clip.brightness, clip.contrast, $0) }
+                    slider(L10n.t("editorui.brightness"), value: clip.brightness) { vm.beginEdit(); vm.updateColorParams(clip.id, $0, clip.contrast, clip.saturation) }
+                    slider(L10n.t("editorui.contrast"), value: clip.contrast) { vm.beginEdit(); vm.updateColorParams(clip.id, clip.brightness, $0, clip.saturation) }
+                    slider(L10n.t("editorui.saturation"), value: clip.saturation) { vm.beginEdit(); vm.updateColorParams(clip.id, clip.brightness, clip.contrast, $0) }
                 }
             } else {
-                panelLabel("请先选中片段")
+                panelLabel(L10n.t("editorui.no_clip_selected"))
             }
         }
     }
@@ -206,9 +206,9 @@ struct TextPanelView: View {
     @State private var text: String = ""
 
     var body: some View {
-        PanelShell(title: "文字水印", onClose: onClose) {
+        PanelShell(title: L10n.t("editorui.panel_text"), onClose: onClose) {
             if let clip = clip {
-                TextField("输入水印文字", text: Binding(
+                TextField(L10n.t("editorui.text_placeholder"), text: Binding(
                     get: { clip.textOverlay ?? "" },
                     set: { vm.setTextOverlay(clip.id, $0.isEmpty ? nil : $0) }
                 ))
@@ -216,7 +216,7 @@ struct TextPanelView: View {
                 .font(.system(size: 14))
 
                 HStack {
-                    Text("字号").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 52, alignment: .leading)
+                    Text(L10n.t("editorui.font_size")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 52, alignment: .leading)
                     Slider(value: Binding(
                         get: { Double(clip.textSize) },
                         set: { vm.beginEdit(); vm.setTextStyle(clip.id, size: Int($0), color: clip.textColor, position: clip.textPosition, opacity: clip.textOpacity, border: clip.textBorder) }
@@ -224,9 +224,9 @@ struct TextPanelView: View {
                     Text("\(clip.textSize)").font(.system(size: 12)).frame(width: 32)
                 }
                 HStack {
-                    Text("位置").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 52, alignment: .leading)
+                    Text(L10n.t("editorui.position")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 52, alignment: .leading)
                     ForEach(["top-left", "center", "bottom-right"], id: \.self) { pos in
-                        Text(pos == "top-left" ? "上" : pos == "center" ? "中" : "下右")
+                        Text(pos == "top-left" ? L10n.t("editorui.pos_top") : pos == "center" ? L10n.t("editorui.pos_center") : L10n.t("editorui.pos_bottom_right"))
                             .font(.system(size: 12))
                             .foregroundColor(clip.textPosition == pos ? Color(hex: 0xFF2196F3) : Color(hex: 0xFF888888))
                             .padding(.horizontal, 10).padding(.vertical, 4)
@@ -237,14 +237,14 @@ struct TextPanelView: View {
                                                 position: pos, opacity: clip.textOpacity, border: clip.textBorder)
                             }
                     }
-                    Toggle("描边", isOn: Binding(
+                    Toggle(L10n.t("editorui.stroke"), isOn: Binding(
                         get: { clip.textBorder },
                         set: { nv, _ in vm.beginEdit(); vm.setTextStyle(clip.id, size: clip.textSize, color: clip.textColor,
                                                                position: clip.textPosition, opacity: clip.textOpacity, border: nv) }))
                         .font(.system(size: 13))
                 }
             } else {
-                panelLabel("请先选中片段")
+                panelLabel(L10n.t("editorui.no_clip_selected"))
             }
         }
     }
@@ -258,13 +258,13 @@ struct AudioPanelView: View {
     let onClose: () -> Void
 
     var body: some View {
-        PanelShell(title: "音频", onClose: onClose) {
+        PanelShell(title: L10n.t("editorui.panel_audio"), onClose: onClose) {
             if let clip = clip {
                 if !clip.hasAudio {
-                    panelLabel("该片段没有音轨")
+                    panelLabel(L10n.t("editorui.no_audio_track"))
                 } else {
                     HStack {
-                        Text("音量").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 52, alignment: .leading)
+                        Text(L10n.t("editorui.volume")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 52, alignment: .leading)
                         Slider(value: Binding(
                             get: { clip.volume },
                             set: { vm.beginEdit(); vm.updateVolume(clip.id, $0) }
@@ -272,7 +272,7 @@ struct AudioPanelView: View {
                         Text(String(format: "%.1f", clip.volume)).font(.system(size: 12)).frame(width: 36)
                     }
                     HStack {
-                        Text("淡入").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 52, alignment: .leading)
+                        Text(L10n.t("editorui.fade_in")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 52, alignment: .leading)
                         Slider(value: Binding(
                             get: { clip.audioFadeIn },
                             set: { vm.beginEdit(); vm.updateAudioFade(clip.id, $0, clip.audioFadeOut) }
@@ -280,7 +280,7 @@ struct AudioPanelView: View {
                         Text(String(format: "%.1fs", clip.audioFadeIn)).font(.system(size: 12)).frame(width: 44)
                     }
                     HStack {
-                        Text("淡出").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 52, alignment: .leading)
+                        Text(L10n.t("editorui.fade_out")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 52, alignment: .leading)
                         Slider(value: Binding(
                             get: { clip.audioFadeOut },
                             set: { vm.beginEdit(); vm.updateAudioFade(clip.id, clip.audioFadeIn, $0) }
@@ -288,21 +288,21 @@ struct AudioPanelView: View {
                         Text(String(format: "%.1fs", clip.audioFadeOut)).font(.system(size: 12)).frame(width: 44)
                     }
                     HStack {
-                        Text("变声").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 52, alignment: .leading)
+                        Text(L10n.t("editorui.pitch")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA)).frame(width: 52, alignment: .leading)
                         Slider(value: Binding(
                             get: { clip.pitchShift },
                             set: { vm.beginEdit(); vm.updatePitchShift(clip.id, $0) }
                         ), in: 0.5...2.0)
-                        Text(clip.pitchShift == 1.0 ? "原声" : (clip.pitchShift > 1 ? "高音" : "低音"))
+                        Text(clip.pitchShift == 1.0 ? L10n.t("editorui.pitch_normal") : (clip.pitchShift > 1 ? L10n.t("editorui.pitch_high") : L10n.t("editorui.pitch_low")))
                             .font(.system(size: 12)).frame(width: 40)
                     }
-                    Toggle("降噪", isOn: Binding(
+                    Toggle(L10n.t("editorui.noise_reduction"), isOn: Binding(
                         get: { clip.noiseReduction },
                         set: { nv, _ in vm.beginEdit(); if nv != clip.noiseReduction { vm.toggleNoiseReduction(clip.id) } }))
                         .font(.system(size: 13))
                 }
             } else {
-                panelLabel("请先选中片段")
+                panelLabel(L10n.t("editorui.no_clip_selected"))
             }
         }
     }
@@ -322,7 +322,7 @@ struct TransitionPanelView: View {
     ]
 
     var body: some View {
-        PanelShell(title: "转场", onClose: onClose) {
+        PanelShell(title: L10n.t("editorui.panel_transition"), onClose: onClose) {
             if let clip = clip {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 8)], spacing: 8) {
                     ForEach(effects, id: \.self) { effect in
@@ -341,7 +341,7 @@ struct TransitionPanelView: View {
                 }
                 if clip.transition != .none {
                     HStack {
-                        Text("时长").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA))
+                        Text(L10n.t("editorui.duration")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA))
                         Slider(value: Binding(
                             get: { clip.transitionDuration },
                             set: { vm.beginEdit(); vm.updateTransitionDuration(clip.id, $0) }
@@ -349,9 +349,9 @@ struct TransitionPanelView: View {
                         Text(String(format: "%.1fs", clip.transitionDuration)).font(.system(size: 12)).frame(width: 40)
                     }
                 }
-                panelLabel("转场时长会缩短总时长（片段重叠播放），导出与时间轴一致")
+                panelLabel(L10n.t("editorui.transition_duration_note"))
             } else {
-                panelLabel("请先选中片段")
+                panelLabel(L10n.t("editorui.no_clip_selected"))
             }
         }
     }
@@ -365,10 +365,9 @@ struct WatermarkRemovePanelView: View {
     let onClose: () -> Void
 
     var body: some View {
-        PanelShell(title: "去水印", onClose: onClose) {
+        PanelShell(title: L10n.t("editorui.panel_watermark_remove"), onClose: onClose) {
             if let clip = clip {
-                Text("框选画面中的水印位置（预览红框标识），导出时对该区域做模糊/马赛克覆盖。\n" +
-                     "自动检测识别静态水印（如平台 logo/昵称），检测不到可手动添加。")
+                Text(L10n.t("editorui.wm_remove_desc"))
                     .font(.system(size: 11)).foregroundColor(Color(hex: 0xFF888888))
 
                 HStack(spacing: 12) {
@@ -377,7 +376,7 @@ struct WatermarkRemovePanelView: View {
                     } label: {
                         HStack(spacing: 6) {
                             if vm.uiState.isDetectingWatermark { ProgressView().scaleEffect(0.6) }
-                            Text(vm.uiState.isDetectingWatermark ? "检测中..." : "自动检测水印")
+                            Text(vm.uiState.isDetectingWatermark ? L10n.t("editorui.detecting") : L10n.t("editorui.auto_detect_wm"))
                                 .font(.system(size: 13))
                         }
                         .padding(.horizontal, 12).padding(.vertical, 6)
@@ -387,16 +386,16 @@ struct WatermarkRemovePanelView: View {
                     .disabled(vm.uiState.isDetectingWatermark)
 
                     Button { vm.beginEdit(); vm.addWatermarkRegion(clip.id) } label: {
-                        Text("手动添加区域").font(.system(size: 13))
+                        Text(L10n.t("editorui.add_region_manually")).font(.system(size: 13))
                     }
                     .buttonStyle(.borderedProminent)
                 }
 
                 HStack(spacing: 8) {
-                    Text("常用水印位置：")
+                    Text(L10n.t("editorui.common_positions"))
                         .font(.system(size: 11)).foregroundColor(Color(hex: 0xFF888888))
                     ForEach(["tl", "tr", "bl", "br"], id: \.self) { corner in
-                        Text(corner == "tl" ? "左上" : corner == "tr" ? "右上" : corner == "bl" ? "左下" : "右下")
+                        Text(corner == "tl" ? L10n.t("editorui.corner_tl") : corner == "tr" ? L10n.t("editorui.corner_tr") : corner == "bl" ? L10n.t("editorui.corner_bl") : L10n.t("editorui.corner_br"))
                             .font(.system(size: 12)).foregroundColor(Color(hex: 0xFF2196F3))
                             .onTapGesture { vm.beginEdit(); vm.addWatermarkRegion(clip.id, corner: corner) }
                     }
@@ -405,12 +404,12 @@ struct WatermarkRemovePanelView: View {
                 ForEach(Array(clip.watermarkRegions.enumerated()), id: \.offset) { index, region in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text("区域 \(index + 1)").font(.system(size: 13))
+                            Text(L10n.t("editorui.region_index", index + 1)).font(.system(size: 13))
                             Spacer()
-                            Text("模糊").font(.system(size: 12))
+                            Text(L10n.t("editorui.mode_blur")).font(.system(size: 12))
                                 .foregroundColor(region.mode == .blur ? Color(hex: 0xFF2196F3) : Color(hex: 0xFF888888))
                                 .onTapGesture { vm.beginEdit(); vm.updateWatermarkRegion(clip.id, index, region) }
-                            Text("马赛克").font(.system(size: 12))
+                            Text(L10n.t("editorui.mode_mosaic")).font(.system(size: 12))
                                 .foregroundColor(region.mode == .mosaic ? Color(hex: 0xFF2196F3) : Color(hex: 0xFF888888))
                                 .onTapGesture {
                                     vm.beginEdit()
@@ -420,17 +419,17 @@ struct WatermarkRemovePanelView: View {
                             Image(systemName: "trash").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFFF7043))
                                 .onTapGesture { vm.beginEdit(); vm.removeWatermarkRegion(clip.id, index) }
                         }
-                        wmSlider("位置X", value: region.x) { vm.updateWatermarkRegion(clip.id, index, regionWith(region, x: $0)) }
-                        wmSlider("位置Y", value: region.y) { vm.updateWatermarkRegion(clip.id, index, regionWith(region, y: $0)) }
-                        wmSlider("宽度", value: region.w) { vm.updateWatermarkRegion(clip.id, index, regionWith(region, w: $0)) }
-                        wmSlider("高度", value: region.h) { vm.updateWatermarkRegion(clip.id, index, regionWith(region, h: $0)) }
-                        wmSlider("强度", value: Double(region.strength), range: 1...40, format: "%.0f") {
+                        wmSlider(L10n.t("editorui.pos_x"), value: region.x) { vm.updateWatermarkRegion(clip.id, index, regionWith(region, x: $0)) }
+                        wmSlider(L10n.t("editorui.pos_y"), value: region.y) { vm.updateWatermarkRegion(clip.id, index, regionWith(region, y: $0)) }
+                        wmSlider(L10n.t("editorui.width"), value: region.w) { vm.updateWatermarkRegion(clip.id, index, regionWith(region, w: $0)) }
+                        wmSlider(L10n.t("editorui.height"), value: region.h) { vm.updateWatermarkRegion(clip.id, index, regionWith(region, h: $0)) }
+                        wmSlider(L10n.t("editorui.strength"), value: Double(region.strength), range: 1...40, format: "%.0f") {
                             vm.updateWatermarkRegion(clip.id, index, regionWith(region, strength: Int($0)))
                         }
                         HStack {
-                            Text("时间段").font(.system(size: 12)).foregroundColor(Color(hex: 0xFF888888))
+                            Text(L10n.t("editorui.time_range")).font(.system(size: 12)).foregroundColor(Color(hex: 0xFF888888))
                             Text(region.endTime <= region.startTime
-                                 ? "整段生效"
+                                 ? L10n.t("editorui.full_range")
                                  : String(format: "%.1fs - %.1fs", region.startTime, region.endTime))
                                 .font(.system(size: 12))
                         }
@@ -439,7 +438,7 @@ struct WatermarkRemovePanelView: View {
                     .background(RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0xFF242424)))
                 }
             } else {
-                panelLabel("请先选中片段")
+                panelLabel(L10n.t("editorui.no_clip_selected"))
             }
         }
     }
@@ -474,25 +473,25 @@ struct ExportPanelView: View {
     let onClose: () -> Void
 
     var body: some View {
-        PanelShell(title: "导出", onClose: onClose) {
-            Text("项目: \(state.project.name)").font(.system(size: 14))
-            Text("画布: \(state.project.canvasWidth)x\(state.project.canvasHeight)")
+        PanelShell(title: L10n.t("editorui.panel_export"), onClose: onClose) {
+            Text(L10n.t("editorui.project_label", state.project.name)).font(.system(size: 14))
+            Text(L10n.t("editorui.canvas_label", state.project.canvasWidth, state.project.canvasHeight))
                 .font(.system(size: 12)).foregroundColor(Color(hex: 0xFF888888))
-            Text(String(format: "时长: %.2fs", state.project.totalDuration))
+            Text(L10n.t("editorui.duration_label", state.project.totalDuration))
                 .font(.system(size: 12)).foregroundColor(Color(hex: 0xFF888888))
-            Text("片段数: \(state.project.mainTrack?.clips.count ?? 0)")
+            Text(L10n.t("editorui.clip_count_label", state.project.mainTrack?.clips.count ?? 0))
                 .font(.system(size: 12)).foregroundColor(Color(hex: 0xFF888888))
 
             if state.isExporting {
                 ProgressView(value: Double(state.exportProgress)).tint(Color(hex: 0xFF2196F3))
                 Text(state.exportMessage).font(.system(size: 12)).foregroundColor(Color(hex: 0xFF888888))
-                Button("取消导出") { vm.cancelExport() }
+                Button(L10n.t("editorui.cancel_export")) { vm.cancelExport() }
                     .foregroundColor(Color(hex: 0xFFFF7043))
             } else {
                 Button {
                     vm.export()
                 } label: {
-                    Text("导出视频")
+                    Text(L10n.t("editorui.export_video"))
                         .font(.system(size: 15, weight: .bold))
                         .frame(maxWidth: .infinity).frame(height: 44)
                 }
@@ -500,7 +499,7 @@ struct ExportPanelView: View {
             }
 
             if let path = state.outputPath {
-                Text("✅ 已导出: \(path)").font(.system(size: 11)).foregroundColor(Color(hex: 0xFF4CAF50))
+                Text(L10n.t("editorui.exported_to", path)).font(.system(size: 11)).foregroundColor(Color(hex: 0xFF4CAF50))
             }
         }
     }
@@ -516,17 +515,17 @@ struct PicturePanelView: View {
     let onPickImage: () -> Void
 
     var body: some View {
-        PanelShell(title: "画中画", onClose: onClose) {
+        PanelShell(title: L10n.t("editorui.panel_pip"), onClose: onClose) {
             if let clip = clip, clip.pipEnabled {
                 Group {
-                    slider("位置X", clip.pipX, 0...0.99) { vm.beginEdit(); vm.updatePipTransform(clip.id, x: $0, y: clip.pipY, width: clip.pipWidth, opacity: clip.pipOpacity) }
-                    slider("位置Y", clip.pipY, 0...0.99) { vm.beginEdit(); vm.updatePipTransform(clip.id, x: clip.pipX, y: $0, width: clip.pipWidth, opacity: clip.pipOpacity) }
-                    slider("大小", clip.pipWidth, 0.05...1) { vm.beginEdit(); vm.updatePipTransform(clip.id, x: clip.pipX, y: clip.pipY, width: $0, opacity: clip.pipOpacity) }
-                    slider("透明度", clip.pipOpacity, 0...1) { vm.beginEdit(); vm.updatePipTransform(clip.id, x: clip.pipX, y: clip.pipY, width: clip.pipWidth, opacity: $0) }
+                    slider(L10n.t("editorui.pos_x"), clip.pipX, 0...0.99) { vm.beginEdit(); vm.updatePipTransform(clip.id, x: $0, y: clip.pipY, width: clip.pipWidth, opacity: clip.pipOpacity) }
+                    slider(L10n.t("editorui.pos_y"), clip.pipY, 0...0.99) { vm.beginEdit(); vm.updatePipTransform(clip.id, x: clip.pipX, y: $0, width: clip.pipWidth, opacity: clip.pipOpacity) }
+                    slider(L10n.t("editorui.size"), clip.pipWidth, 0.05...1) { vm.beginEdit(); vm.updatePipTransform(clip.id, x: clip.pipX, y: clip.pipY, width: $0, opacity: clip.pipOpacity) }
+                    slider(L10n.t("editorui.opacity"), clip.pipOpacity, 0...1) { vm.beginEdit(); vm.updatePipTransform(clip.id, x: clip.pipX, y: clip.pipY, width: clip.pipWidth, opacity: $0) }
                     HStack(spacing: 12) {
-                        Text("形状").font(.system(size: 13)).foregroundColor(Color(hex: 0xFF888888))
+                        Text(L10n.t("editorui.shape")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFF888888))
                         ForEach([PipShape.rect, .rounded, .circle], id: \.self) { shape in
-                            Text(shape == .rect ? "矩形" : shape == .rounded ? "圆角" : "圆形")
+                            Text(shape == .rect ? L10n.t("editorui.shape_rect") : shape == .rounded ? L10n.t("editorui.shape_rounded") : L10n.t("editorui.shape_circle"))
                                 .font(.system(size: 12))
                                 .foregroundColor(clip.pipShape == shape ? Color(hex: 0xFF2196F3) : Color(hex: 0xFF888888))
                                 .padding(.horizontal, 8).padding(.vertical, 4)
@@ -537,23 +536,23 @@ struct PicturePanelView: View {
                                                       border: clip.pipBorder, borderWidth: clip.pipBorderWidth)
                                 }
                         }
-                        Toggle("描边", isOn: Binding(
+                        Toggle(L10n.t("editorui.stroke"), isOn: Binding(
                             get: { clip.pipBorder },
                             set: { nv, _ in vm.beginEdit(); vm.updatePipStyle(clip.id, shape: clip.pipShape,
                                                        cornerRadius: clip.pipCornerRadius, border: nv, borderWidth: clip.pipBorderWidth) }))
                             .font(.system(size: 13))
                     }
-                    slider("开始", clip.timelineStart, 0...max(vm.uiState.project.totalDuration, 0.5), fmt: "%.1f") {
+                    slider(L10n.t("editorui.start"), clip.timelineStart, 0...max(vm.uiState.project.totalDuration, 0.5), fmt: "%.1f") {
                         vm.beginEdit(); vm.updatePipTiming(clip.id, start: $0, duration: clip.timelineDuration)
                     }
-                    slider("时长", clip.timelineDuration, 0.5...max(clip.mediaDuration / max(clip.speed, 0.1), 0.6), fmt: "%.1f") {
+                    slider(L10n.t("editorui.duration"), clip.timelineDuration, 0.5...max(clip.mediaDuration / max(clip.speed, 0.1), 0.6), fmt: "%.1f") {
                         vm.beginEdit(); vm.updatePipTiming(clip.id, start: clip.timelineStart, duration: $0)
                     }
 
                     // 位置关键帧
                     HStack {
-                        Text("关键帧").font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA))
-                        Button("在播放头添加") {
+                        Text(L10n.t("editorui.keyframes")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFFAAAAAA))
+                        Button(L10n.t("editorui.add_keyframe")) {
                             vm.beginEdit(); vm.addPipKeyframe(clip.id)
                         }
                         .font(.system(size: 12))
@@ -570,7 +569,7 @@ struct PicturePanelView: View {
                         }
                     }
 
-                    Button("删除此画中画", role: .destructive) {
+                    Button(L10n.t("editorui.delete_pip"), role: .destructive) {
                         if let id = vm.uiState.selectedClipId { vm.deleteClip(id) }
                         onClose()
                     }
@@ -578,11 +577,11 @@ struct PicturePanelView: View {
                 }
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("把视频或图片叠加在主画面之上").font(.system(size: 12)).foregroundColor(Color(hex: 0xFF888888))
+                    Text(L10n.t("editorui.pip_desc")).font(.system(size: 12)).foregroundColor(Color(hex: 0xFF888888))
                     HStack(spacing: 12) {
-                        Button("选择视频") { onPickVideo() }
+                        Button(L10n.t("editorui.pick_video")) { onPickVideo() }
                             .buttonStyle(.borderedProminent)
-                        Button("选择图片") { onPickImage() }
+                        Button(L10n.t("editorui.pick_image")) { onPickImage() }
                             .buttonStyle(.bordered)
                     }
                 }
@@ -611,8 +610,8 @@ struct StickerPanelView: View {
                           "🐶", "🐱", "🐼", "🦄", "🍉", "🍔", "🍺", "☕", "⚽", "🎮"]
 
     var body: some View {
-        PanelShell(title: "贴纸", onClose: onClose) {
-            Text("点击贴纸添加到播放头位置（时长 3s，可在画中画面板调整）")
+        PanelShell(title: L10n.t("editorui.panel_sticker"), onClose: onClose) {
+            Text(L10n.t("editorui.sticker_desc"))
                 .font(.system(size: 11)).foregroundColor(Color(hex: 0xFF888888))
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 48), spacing: 8)], spacing: 8) {
                 ForEach(emojis, id: \.self) { emoji in
@@ -638,32 +637,32 @@ struct SubtitlePanelView: View {
     @State private var end = 2.0
 
     var body: some View {
-        PanelShell(title: "字幕", onClose: onClose) {
+        PanelShell(title: L10n.t("editorui.panel_subtitle"), onClose: onClose) {
             Button {
                 vm.transcribeSpeech()
             } label: {
                 HStack {
                     if state.isTranscribing {
                         ProgressView().scaleEffect(0.7)
-                        Text("识别中...").font(.system(size: 13))
+                        Text(L10n.t("editorui.transcribing")).font(.system(size: 13))
                     } else {
-                        Text("🎙 语音转字幕（识别第一个片段）").font(.system(size: 13))
+                        Text(L10n.t("editorui.speech_to_subtitle")).font(.system(size: 13))
                     }
                 }
             }
             .buttonStyle(.borderedProminent)
             .disabled(state.isTranscribing)
 
-            TextField("手动添加字幕文字", text: $text)
+            TextField(L10n.t("editorui.subtitle_placeholder"), text: $text)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: 14))
             HStack {
-                Text("起止").font(.system(size: 13)).foregroundColor(Color(hex: 0xFF888888))
+                Text(L10n.t("editorui.start_end")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFF888888))
                 Slider(value: $start, in: 0...max(state.project.totalDuration, 0.5))
                     .frame(width: 90)
                 Slider(value: $end, in: 0...max(state.project.totalDuration, 0.5))
                     .frame(width: 90)
-                Button("添加") {
+                Button(L10n.t("editorui.add")) {
                     vm.addSubtitle(text, start, end)
                     text = String()
                 }
@@ -698,23 +697,23 @@ struct ImageWatermarkPanelView: View {
     let onPickImage: () -> Void
 
     var body: some View {
-        PanelShell(title: "图片水印", onClose: onClose) {
+        PanelShell(title: L10n.t("editorui.panel_image_watermark"), onClose: onClose) {
             if let clip = clip {
                 if clip.imageWatermarkPath == nil {
-                    Button("选择水印图片") { onPickImage() }
+                    Button(L10n.t("editorui.pick_watermark_image")) { onPickImage() }
                         .buttonStyle(.borderedProminent)
                 } else {
-                    slider("大小", clip.imageWatermarkScale, 0.05...1) {
+                    slider(L10n.t("editorui.size"), clip.imageWatermarkScale, 0.05...1) {
                         vm.beginEdit(); vm.updateImageWatermark(clip.id, scale: $0, opacity: clip.imageWatermarkOpacity, position: clip.imageWatermarkPosition)
                     }
-                    slider("透明度", clip.imageWatermarkOpacity, 0...1) {
+                    slider(L10n.t("editorui.opacity"), clip.imageWatermarkOpacity, 0...1) {
                         vm.beginEdit(); vm.updateImageWatermark(clip.id, scale: clip.imageWatermarkScale, opacity: $0, position: clip.imageWatermarkPosition)
                     }
                     HStack {
-                        Text("位置").font(.system(size: 13)).foregroundColor(Color(hex: 0xFF888888))
+                        Text(L10n.t("editorui.position")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFF888888))
                         ForEach(["top-left", "top-right", "center", "bottom-left", "bottom-right"], id: \.self) { pos in
-                            Text(pos == "top-left" ? "左上" : pos == "top-right" ? "右上" : pos == "center" ? "中" :
-                                 pos == "bottom-left" ? "左下" : "右下")
+                            Text(pos == "top-left" ? L10n.t("editorui.corner_tl") : pos == "top-right" ? L10n.t("editorui.corner_tr") : pos == "center" ? L10n.t("editorui.pos_center") :
+                                 pos == "bottom-left" ? L10n.t("editorui.corner_bl") : L10n.t("editorui.corner_br"))
                                 .font(.system(size: 12))
                                 .foregroundColor(clip.imageWatermarkPosition == pos ? Color(hex: 0xFF2196F3) : Color(hex: 0xFF888888))
                                 .padding(.horizontal, 6).padding(.vertical, 4)
@@ -726,10 +725,10 @@ struct ImageWatermarkPanelView: View {
                                 }
                         }
                     }
-                    Button("更换图片") { onPickImage() }.font(.system(size: 13))
+                    Button(L10n.t("editorui.change_image")) { onPickImage() }.font(.system(size: 13))
                 }
             } else {
-                panelLabel("请先选中片段")
+                panelLabel(L10n.t("editorui.no_clip_selected"))
             }
         }
     }
@@ -752,16 +751,16 @@ struct BlurBgPanelView: View {
     let onClose: () -> Void
 
     var body: some View {
-        PanelShell(title: "模糊背景", onClose: onClose) {
+        PanelShell(title: L10n.t("editorui.panel_blur_bg"), onClose: onClose) {
             if let clip = clip {
-                Toggle("开启模糊背景（竖屏转横屏时用模糊画面填充黑边）", isOn: Binding(
+                Toggle(L10n.t("editorui.blur_bg_toggle"), isOn: Binding(
                     get: { clip.blurBgEnabled },
                     set: { nv, _ in vm.beginEdit();
                         if nv != clip.blurBgEnabled { vm.toggleBlurBg(clip.id) } }))
                     .font(.system(size: 13))
                 if clip.blurBgEnabled {
                     HStack {
-                        Text("模糊强度").font(.system(size: 13)).foregroundColor(Color(hex: 0xFF888888))
+                        Text(L10n.t("editorui.blur_strength")).font(.system(size: 13)).foregroundColor(Color(hex: 0xFF888888))
                         Slider(value: Binding(
                             get: { Double(clip.blurStrength) },
                             set: { vm.beginEdit(); vm.updateBlurStrength(clip.id, Int($0)) }
@@ -769,10 +768,10 @@ struct BlurBgPanelView: View {
                         Text("\(clip.blurStrength)").font(.system(size: 12)).frame(width: 28)
                     }
                 }
-                Text("预览不实时呈现模糊背景，以导出为准")
+                Text(L10n.t("editorui.blur_bg_note"))
                     .font(.system(size: 11)).foregroundColor(Color(hex: 0xFF888888))
             } else {
-                panelLabel("请先选中片段")
+                panelLabel(L10n.t("editorui.no_clip_selected"))
             }
         }
     }
@@ -825,20 +824,20 @@ struct CanvasPanelView: View {
     }
 
     var body: some View {
-        PanelShell(title: "画布", onClose: onClose) {
-            panelLabel("比例")
+        PanelShell(title: L10n.t("editorui.panel_canvas"), onClose: onClose) {
+            panelLabel(L10n.t("editorui.ratio"))
             HStack(spacing: 12) {
                 ForEach(ratios, id: \.label) { r in
                     ratioCard(r)
                 }
             }
-            panelLabel("清晰度")
+            panelLabel(L10n.t("editorui.quality"))
             HStack(spacing: 8) {
                 ForEach(qualities, id: \.label) { q in
                     qualityChip(q)
                 }
             }
-            Text("当前画布：\(currentW)×\(currentH)（预览以导出为准）")
+            Text(L10n.t("editorui.canvas_current", currentW, currentH))
                 .font(.system(size: 11)).foregroundColor(Color(hex: 0xFF666666))
         }
     }

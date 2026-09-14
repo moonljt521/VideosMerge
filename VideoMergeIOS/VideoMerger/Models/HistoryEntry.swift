@@ -18,9 +18,9 @@ struct HistoryEntry: Identifiable, Equatable {
 
     var mergeTypeDisplay: String {
         switch mergeType {
-        case "GRID":      return "网格拼贴"
-        case "COLLAGE":   return "画中画"
-        case "PHOTO_WALL": return "照片墙"
+        case "GRID":      return L10n.t("model.merge_grid")
+        case "COLLAGE":   return L10n.t("model.merge_collage")
+        case "PHOTO_WALL": return L10n.t("model.merge_photo_wall")
         default:          return mergeType
         }
     }

@@ -35,7 +35,7 @@ struct PreviewPanel: View {
         if clips.isEmpty {
             ZStack {
                 Color.black
-                Text("导入视频后在此预览").foregroundColor(.gray).font(.system(size: 14))
+                Text(L10n.t("editorui.preview_empty")).foregroundColor(.gray).font(.system(size: 14))
             }
         } else {
             PreviewContent(
@@ -116,16 +116,16 @@ private struct PreviewContent: View {
             // 预览保真度提示
             let unpreviewed: [String] = {
                 var list: [String] = []
-                if primary.reversed { list.append("倒放") }
-                if primary.rotation != 0 || primary.hflip || primary.vflip { list.append("旋转/翻转") }
-                if primary.textOverlay != nil { list.append("文字水印") }
-                if primary.logoCutTime != nil { list.append("截断") }
-                if primary.blurBgEnabled { list.append("模糊背景") }
-                if !state.project.tracks.filter({ $0.type == .picture }).flatMap(\.clips).isEmpty { list.append("画中画动态画面") }
+                if primary.reversed { list.append(L10n.t("editorui.feature_reversed")) }
+                if primary.rotation != 0 || primary.hflip || primary.vflip { list.append(L10n.t("editorui.feature_rotate_flip")) }
+                if primary.textOverlay != nil { list.append(L10n.t("editorui.feature_text_watermark")) }
+                if primary.logoCutTime != nil { list.append(L10n.t("editorui.feature_trimmed")) }
+                if primary.blurBgEnabled { list.append(L10n.t("editorui.feature_blur_bg")) }
+                if !state.project.tracks.filter({ $0.type == .picture }).flatMap(\.clips).isEmpty { list.append(L10n.t("editorui.feature_pip_dynamic")) }
                 return list
             }()
             if !unpreviewed.isEmpty {
-                Text("预览不含\(unpreviewed.joined(separator: "/"))，以导出为准")
+                Text(L10n.t("editorui.preview_fidelity_note", unpreviewed.joined(separator: "/")))
                     .font(.system(size: 10)).foregroundColor(Color(hex: 0xFFCCCCCC))
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Capsule().fill(Color.black.opacity(0.6)))
@@ -529,7 +529,7 @@ private struct WatermarkRegionOverlayView: View {
         if !active.isEmpty {
             GeometryReader { geo in
                 ForEach(Array(active.enumerated()), id: \.offset) { i, r in
-                    Text("水印\(i + 1)")
+                    Text(L10n.t("editorui.watermark_index", i + 1))
                         .font(.system(size: 9)).foregroundColor(.white)
                         .padding(.horizontal, 3).padding(.vertical, 1)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

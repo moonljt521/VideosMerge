@@ -20,17 +20,17 @@ enum MergeType: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .grid:      return "网格拼贴"
-        case .collage:   return "画中画"
-        case .photoWall: return "照片墙"
+        case .grid:      return L10n.t("model.merge_grid")
+        case .collage:   return L10n.t("model.merge_collage")
+        case .photoWall: return L10n.t("model.merge_photo_wall")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .grid:      return "均匀网格布局"
-        case .collage:   return "一主多副布局"
-        case .photoWall: return "错落有致+边框"
+        case .grid:      return L10n.t("model.merge_subtitle_grid")
+        case .collage:   return L10n.t("model.merge_subtitle_collage")
+        case .photoWall: return L10n.t("model.merge_subtitle_photo_wall")
         }
     }
 }
@@ -42,10 +42,10 @@ enum CollageOrient: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .left:   return "左"
-        case .right:  return "右"
-        case .top:    return "上"
-        case .bottom: return "下"
+        case .left:   return L10n.t("model.orient_left")
+        case .right:  return L10n.t("model.orient_right")
+        case .top:    return L10n.t("model.orient_top")
+        case .bottom: return L10n.t("model.orient_bottom")
         }
     }
 }

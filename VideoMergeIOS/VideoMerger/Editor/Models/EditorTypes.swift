@@ -25,14 +25,14 @@ enum FilterPreset: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .none: return "原图"
-        case .vintage: return "复古"
-        case .warm: return "暖色"
-        case .cool: return "冷色"
-        case .vivid: return "鲜艳"
-        case .bw: return "黑白"
-        case .bright: return "明亮"
-        case .dark: return "暗调"
+        case .none: return L10n.t("editorcore.filter_none")
+        case .vintage: return L10n.t("editorcore.filter_vintage")
+        case .warm: return L10n.t("editorcore.filter_warm")
+        case .cool: return L10n.t("editorcore.filter_cool")
+        case .vivid: return L10n.t("editorcore.filter_vivid")
+        case .bw: return L10n.t("editorcore.filter_bw")
+        case .bright: return L10n.t("editorcore.filter_bright")
+        case .dark: return L10n.t("editorcore.filter_dark")
         }
     }
 
@@ -53,10 +53,10 @@ enum RotationMode: Int, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .none: return "不旋转"
-        case .cw90: return "顺时针90°"
-        case .ccw90: return "逆时针90°"
-        case .r180: return "180°"
+        case .none: return L10n.t("editorcore.rotation_none")
+        case .cw90: return L10n.t("editorcore.rotation_cw90")
+        case .ccw90: return L10n.t("editorcore.rotation_ccw90")
+        case .r180: return L10n.t("editorcore.rotation_180")
         }
     }
 }
@@ -72,27 +72,27 @@ enum TransitionEffect: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .none: return "无转场"
-        case .fade: return "淡入淡出"
-        case .wipeleft: return "向左擦除"
-        case .wiperight: return "向右擦除"
-        case .wipeup: return "向上擦除"
-        case .wipedown: return "向下擦除"
-        case .slideleft: return "向左滑动"
-        case .slideright: return "向右滑动"
-        case .slideup: return "向上滑动"
-        case .slidedown: return "向下滑动"
-        case .circleopen: return "圆形展开"
-        case .circleclose: return "圆形关闭"
-        case .dissolve: return "溶解"
-        case .pixelize: return "像素化"
-        case .fadewhite: return "淡入白色"
-        case .fadeblack: return "淡入黑色"
-        case .zoomin: return "放大"
-        case .hblur: return "水平模糊"
-        case .radial: return "径向"
-        case .smoothleft: return "平滑左滑"
-        case .smoothright: return "平滑右滑"
+        case .none: return L10n.t("editorcore.transition_none")
+        case .fade: return L10n.t("editorcore.transition_fade")
+        case .wipeleft: return L10n.t("editorcore.transition_wipeleft")
+        case .wiperight: return L10n.t("editorcore.transition_wiperight")
+        case .wipeup: return L10n.t("editorcore.transition_wipeup")
+        case .wipedown: return L10n.t("editorcore.transition_wipedown")
+        case .slideleft: return L10n.t("editorcore.transition_slideleft")
+        case .slideright: return L10n.t("editorcore.transition_slideright")
+        case .slideup: return L10n.t("editorcore.transition_slideup")
+        case .slidedown: return L10n.t("editorcore.transition_slidedown")
+        case .circleopen: return L10n.t("editorcore.transition_circleopen")
+        case .circleclose: return L10n.t("editorcore.transition_circleclose")
+        case .dissolve: return L10n.t("editorcore.transition_dissolve")
+        case .pixelize: return L10n.t("editorcore.transition_pixelize")
+        case .fadewhite: return L10n.t("editorcore.transition_fadewhite")
+        case .fadeblack: return L10n.t("editorcore.transition_fadeblack")
+        case .zoomin: return L10n.t("editorcore.transition_zoomin")
+        case .hblur: return L10n.t("editorcore.transition_hblur")
+        case .radial: return L10n.t("editorcore.transition_radial")
+        case .smoothleft: return L10n.t("editorcore.transition_smoothleft")
+        case .smoothright: return L10n.t("editorcore.transition_smoothright")
         }
     }
 }
@@ -109,7 +109,7 @@ enum WatermarkMode: String, Codable {
     case blur
     case mosaic
 
-    var displayName: String { self == .blur ? "模糊" : "马赛克" }
+    var displayName: String { self == .blur ? L10n.t("editorcore.watermark_blur") : L10n.t("editorcore.watermark_mosaic") }
 }
 
 struct WatermarkRegion: Codable, Equatable {
@@ -397,7 +397,7 @@ struct Track: Codable, Equatable {
 
 struct EditorProject: Codable, Equatable {
     var id = UUID().uuidString
-    var name: String = "未命名项目"
+    var name: String = L10n.t("editorcore.untitled_project")
     var canvasWidth: Int = 1088
     var canvasHeight: Int = 1920
     var fps: Int = 30

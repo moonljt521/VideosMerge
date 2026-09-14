@@ -21,7 +21,7 @@ extension EditorViewModel {
     func addPipOverlay(urls: [URL]) {
         guard !urls.isEmpty else { return }
         Task {
-            beginImport("准备添加画中画...")
+            beginImport(L10n.t("editorcore.pip_add_preparing"))
             do {
                 var newClips: [Clip] = []
                 for (i, url) in urls.enumerated() {
@@ -49,7 +49,7 @@ extension EditorViewModel {
         do {
             try data.write(to: url)
             guard let img = UIImage(contentsOfFile: url.path) else {
-                showError("图片读取失败")
+                showError(L10n.t("editorcore.image_read_failed"))
                 return
             }
             var clip = Clip(
@@ -64,7 +64,7 @@ extension EditorViewModel {
             placePipClips([clip])
             uiState.currentPanel = .picture
         } catch {
-            showError("图片保存失败：\(error.localizedDescription)")
+            showError(L10n.t("editorcore.image_save_failed", error.localizedDescription))
         }
     }
 
@@ -72,7 +72,7 @@ extension EditorViewModel {
     func addSticker(_ emoji: String) {
         Task {
             guard let png = StickerRenderer.renderToPng(emoji) else {
-                showError("贴纸渲染失败")
+                showError(L10n.t("editorcore.sticker_render_failed"))
                 return
             }
             var clip = Clip(
@@ -184,7 +184,7 @@ extension EditorViewModel {
         do {
             try data.write(to: url)
         } catch {
-            showError("图片保存失败")
+            showError(L10n.t("editorcore.image_save_failed_simple"))
             return
         }
         pushUndo()
@@ -262,7 +262,7 @@ extension EditorViewModel {
     /// 语音转字幕（iOS Speech 框架，主轨第一个片段）
     func transcribeSpeech() {
         guard let mainClip = uiState.project.mainTrack?.clips.first else {
-            showError("没有视频片段")
+            showError(L10n.t("editorcore.no_clips"))
             return
         }
         uiState.isTranscribing = true
@@ -276,18 +276,18 @@ extension EditorViewModel {
                 await MainActor.run {
                     uiState.isTranscribing = false
                     if subs.isEmpty {
-                        showError("未识别到语音")
+                        showError(L10n.t("editorcore.speech_none"))
                     } else {
                         pushUndo()
                         uiState.project.subtitles = (uiState.project.subtitles + subs)
                             .sorted { $0.startTime < $1.startTime }
-                        showError("已生成 \(subs.count) 条字幕")
+                        showError(L10n.t("editorcore.subtitles_generated", subs.count))
                     }
                 }
             } catch {
                 await MainActor.run {
                     uiState.isTranscribing = false
-                    showError("语音识别失败：\(error.localizedDescription)", severity: .error)
+                    showError(L10n.t("editorcore.speech_failed", error.localizedDescription), severity: .error)
                 }
             }
         }
@@ -320,7 +320,7 @@ extension EditorViewModel {
                     self.updateTrim(id, c.trimStart, cut)
                     removed += 1
                 }
-                self.showError(removed > 0 ? "已去除 \(removed) 个片段的片尾静止片段" : "未检测到片尾静止片段")
+                self.showError(removed > 0 ? L10n.t("editorcore.logo_cut_batch", removed) : L10n.t("editorcore.tail_static_not_found"))
             }
         }
     }
@@ -336,7 +336,7 @@ extension EditorViewModel {
             await MainActor.run {
                 self.uiState.isDetectingWatermark = false
                 if found.isEmpty {
-                    self.showError("未检测到静态水印，可手动框选区域")
+                    self.showError(L10n.t("editorcore.watermark_none_found"))
                     return
                 }
                 self.pushUndo()
@@ -346,7 +346,7 @@ extension EditorViewModel {
                     cc.watermarkRegions += add
                     return cc
                 }
-                self.showError("检测到 \(found.count) 处水印，可微调位置和强度")
+                self.showError(L10n.t("editorcore.watermark_found", found.count))
             }
         }
     }

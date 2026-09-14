@@ -206,6 +206,32 @@ final class AdsManager: NSObject, ObservableObject {
         guard bannerEnabled else { return }
         NotificationCenter.default.post(name: Notification.Name("AdsReloadBanner"), object: nil)
     }
+
+    // MARK: 隐私选项（设置页入口）
+
+    /// 同意信息是否就绪（决定设置页"广告隐私选项"入口是否展示）
+    var canManagePrivacy: Bool { ConsentInformation.shared.canRequestAds }
+
+    /// 重新弹出广告隐私选项表单（GDPR / 美国州级法规的"改主意"入口）
+    func presentPrivacyOptions() {
+        ConsentForm.presentPrivacyOptionsForm(from: nil) { [weak self] formError in
+            if let formError {
+                print("[Ads] privacy options error: \(formError.localizedDescription)")
+            }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if ConsentInformation.shared.canRequestAds {
+                    // 选项可能变化：重新走初始化（ATT 已决定时立即返回）并刷新广告
+                    self.requestATTThenStart()
+                    self.reloadBannerIfPossible()
+                } else {
+                    // 用户撤回全部同意：隐藏横幅并作废开屏
+                    self.bannerEnabled = false
+                    self.appOpenAd = nil
+                }
+            }
+        }
+    }
 }
 
 extension AdsManager: FullScreenContentDelegate {

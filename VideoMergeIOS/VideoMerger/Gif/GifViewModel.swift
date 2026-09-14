@@ -47,7 +47,7 @@ final class GifViewModel: ObservableObject {
             guard let self else { return }
             guard let meta = MediaUtils.getVideoMeta(path: url.path),
                   meta.duration > 0, meta.width > 0 else {
-                self.uiState.errorMessage = "无法读取视频信息，请换一个视频试试"
+                self.uiState.errorMessage = L10n.t("gif.error_meta")
                 return
             }
             // 换新源时清掉上一轮的源文件与结果
@@ -133,8 +133,8 @@ final class GifViewModel: ObservableObject {
         } else {
             try? FileManager.default.removeItem(at: output)
             uiState.progress = 0
-            if result.message != "已取消" {
-                uiState.errorMessage = "转换失败 (code=\(result.returnCode))"
+            if result.message != L10n.t("merger.status_cancelled") {
+                uiState.errorMessage = L10n.t("gif.error_convert_failed", result.returnCode)
             }
         }
     }
@@ -174,7 +174,7 @@ final class GifViewModel: ObservableObject {
             } catch {
                 await MainActor.run { [weak self] in
                     self?.uiState.isSaving = false
-                    self?.uiState.errorMessage = "保存到相册失败:\(error.localizedDescription)"
+                    self?.uiState.errorMessage = L10n.t("gif.error_save_failed", error.localizedDescription)
                 }
             }
         }

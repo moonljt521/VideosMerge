@@ -31,7 +31,7 @@ final class MergeEngine {
 
         if videoURLs.isEmpty {
             completion(.failure(NSError(domain: "MergeEngine", code: 1,
-                                         userInfo: [NSLocalizedDescriptionKey: "未选择视频"])))
+                                         userInfo: [NSLocalizedDescriptionKey: L10n.t("merger.error_no_video")])))
             return
         }
 
@@ -39,7 +39,7 @@ final class MergeEngine {
             do {
                 // 1. 复制到临时文件
                 onProgress(0.0)
-                onLog("开始复制 \(videoURLs.count) 个视频到临时文件...\n")
+                onLog(L10n.t("merger.log_copy_start", videoURLs.count))
 
                 var tempFiles: [URL] = []
                 for (i, url) in videoURLs.enumerated() {
@@ -49,30 +49,36 @@ final class MergeEngine {
                 let inputPaths = tempFiles.map { $0.path }
 
                 // 2. 探测元数据
-                onLog("探测视频元数据...\n")
+                onLog(L10n.t("merger.log_probe_meta"))
                 var metas: [VideoMeta] = []
                 for path in inputPaths {
                     guard let m = MediaUtils.getVideoMeta(path: path) else {
                         throw NSError(domain: "MergeEngine", code: 2,
-                                      userInfo: [NSLocalizedDescriptionKey: "无法读取视频元数据: \(path)"])
+                                      userInfo: [NSLocalizedDescriptionKey: L10n.t("merger.error_probe_meta", path)])
                     }
                     metas.append(m)
                 }
                 let durations = metas.map { $0.duration }
 
                 for (i, meta) in metas.enumerated() {
-                    onLog("  [\(i)] \(tempFiles[i].lastPathComponent)  \(meta.width)x\(meta.height)  \(String(format: "%.2f", meta.duration))s  audio=\(meta.hasAudio)\n")
+                    onLog(L10n.t("merger.log_meta_line", i, tempFiles[i].lastPathComponent,
+                                 meta.width, meta.height,
+                                 String(format: "%.2f", meta.duration), String(meta.hasAudio)))
                 }
 
                 // 2.5 检测尾部 logo
-                onLog("检测尾部 logo（静止片段）...\n")
+                onLog(L10n.t("merger.log_detect_start"))
                 var cutTimes: [Double?] = []
                 for (i, path) in inputPaths.enumerated() {
                     let cut = MediaUtils.detectLogoCut(path: path)
                     if let cut = cut {
-                        onLog("  [\(i)] \(tempFiles[i].lastPathComponent)  \(String(format: "%.2f", durations[i]))s → 截断至 \(String(format: "%.2f", cut))s（去除尾部 \(String(format: "%.2f", durations[i] - cut))s logo）\n")
+                        onLog(L10n.t("merger.log_cut_line", i, tempFiles[i].lastPathComponent,
+                                     String(format: "%.2f", durations[i]),
+                                     String(format: "%.2f", cut),
+                                     String(format: "%.2f", durations[i] - cut)))
                     } else {
-                        onLog("  [\(i)] \(tempFiles[i].lastPathComponent)  \(String(format: "%.2f", durations[i]))s → 未检测到尾部 logo\n")
+                        onLog(L10n.t("merger.log_no_cut_line", i, tempFiles[i].lastPathComponent,
+                                     String(format: "%.2f", durations[i])))
                     }
                     cutTimes.append(cut)
                 }
@@ -103,7 +109,7 @@ final class MergeEngine {
                     )
                 }
 
-                onLog("ffmpeg 命令:\n\(command)\n\n")
+                onLog(L10n.t("merger.log_command", command))
 
                 // 4. 执行 ffmpeg
                 let maxDur = effDurations.max() ?? 0.0
@@ -115,7 +121,7 @@ final class MergeEngine {
                 if !success {
                     DispatchQueue.main.async {
                         completion(.failure(NSError(domain: "MergeEngine", code: 3,
-                                                    userInfo: [NSLocalizedDescriptionKey: "FFmpeg 合并失败"])))
+                                                    userInfo: [NSLocalizedDescriptionKey: L10n.t("merger.error_ffmpeg_failed")])))
                     }
                     MediaUtils.cleanupInputFiles()
                     return
@@ -124,7 +130,7 @@ final class MergeEngine {
                 guard FileManager.default.fileExists(atPath: outputFile.path) else {
                     DispatchQueue.main.async {
                         completion(.failure(NSError(domain: "MergeEngine", code: 4,
-                                                    userInfo: [NSLocalizedDescriptionKey: "输出文件不存在或为空"])))
+                                                    userInfo: [NSLocalizedDescriptionKey: L10n.t("merger.error_output_missing")])))
                     }
                     MediaUtils.cleanupInputFiles()
                     return
@@ -141,14 +147,15 @@ final class MergeEngine {
                 guard let outMeta = MediaUtils.getVideoMeta(path: outputFile.path) else {
                     DispatchQueue.main.async {
                         completion(.failure(NSError(domain: "MergeEngine", code: 5,
-                                                    userInfo: [NSLocalizedDescriptionKey: "无法读取输出文件元数据"])))
+                                                    userInfo: [NSLocalizedDescriptionKey: L10n.t("merger.error_output_meta")])))
                     }
                     MediaUtils.cleanupInputFiles()
                     return
                 }
 
-                onLog("合并完成！输出: \(outputFile.path)\n")
-                onLog("  尺寸: \(outMeta.width)x\(outMeta.height)  时长: \(String(format: "%.2f", outMeta.duration))s\n")
+                onLog(L10n.t("merger.log_done", outputFile.path))
+                onLog(L10n.t("merger.log_done_meta", outMeta.width, outMeta.height,
+                             String(format: "%.2f", outMeta.duration)))
 
                 // 清理临时输入文件
                 MediaUtils.cleanupInputFiles()
@@ -214,7 +221,7 @@ final class MergeEngine {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let timestamp = Int(Date().timeIntervalSince1970 * 1000)
-                let displayName = "影剪_\(timestamp).mp4"
+                let displayName = L10n.t("merger.filename_shadowcut", timestamp)
                 try MediaUtils.saveToGallery(fileURL: url, displayName: displayName)
                 DispatchQueue.main.async {
                     completion(.success(()))

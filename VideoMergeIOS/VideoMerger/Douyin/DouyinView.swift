@@ -33,7 +33,7 @@ struct DouyinView: View {
             .padding(.vertical, 12)
         }
         .background(Color.black)
-        .navigationTitle("短视频去水印")
+        .navigationTitle(L10n.t("douyin.nav_title"))
         .navigationBarTitleDisplayMode(.inline)
         .fullScreenCover(isPresented: $showFullscreen) {
             if let url = viewModel.uiState.resultURL {
@@ -56,10 +56,10 @@ struct DouyinView: View {
             HStack(spacing: 8) {
                 Image(systemName: "doc.on.clipboard")
                     .foregroundColor(Color(hex: 0xFF2196F3))
-                Text("粘贴视频分享文案")
+                Text(L10n.t("douyin.input_title"))
                     .font(.system(size: 16, weight: .bold))
             }
-            Text("在视频 App 里点「分享 → 复制链接」，把整段文案粘贴到下面即可")
+            Text(L10n.t("douyin.input_hint"))
                 .font(.system(size: 12))
                 .foregroundColor(Color(hex: 0xFF888888))
 
@@ -79,7 +79,7 @@ struct DouyinView: View {
                         viewModel.updateInput(s)
                     }
                 } label: {
-                    Text("粘贴")
+                    Text(L10n.t("douyin.paste"))
                         .font(.system(size: 14))
                         .padding(.horizontal, 18).padding(.vertical, 8)
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(hex: 0xFF2196F3)))
@@ -95,7 +95,7 @@ struct DouyinView: View {
                         if viewModel.uiState.isProcessing {
                             ProgressView().scaleEffect(0.7)
                         }
-                        Text("解析视频").font(.system(size: 14, weight: .medium))
+                        Text(L10n.t("douyin.parse")).font(.system(size: 14, weight: .medium))
                     }
                     .padding(.horizontal, 18).padding(.vertical, 8)
                     .background(RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0xFF2196F3)))
@@ -137,7 +137,7 @@ struct DouyinView: View {
         VStack(spacing: 12) {
             HStack {
                 Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                Text("解析成功 · 无水印")
+                Text(L10n.t("douyin.result_title"))
                     .font(.system(size: 16, weight: .bold))
                 Spacer()
                 Button { viewModel.clearResult() } label: {
@@ -168,20 +168,20 @@ struct DouyinView: View {
                 if viewModel.uiState.isSaving {
                     HStack {
                         ProgressView()
-                        Text("保存中...").foregroundColor(.green)
+                        Text(L10n.t("douyin.saving")).foregroundColor(.green)
                     }
                     .frame(maxWidth: .infinity)
                 } else if viewModel.uiState.isSaved {
                     HStack {
                         Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                        Text("已保存到相册").foregroundColor(.green)
+                        Text(L10n.t("douyin.saved")).foregroundColor(.green)
                     }
                     .frame(maxWidth: .infinity)
                 } else {
                     Button { viewModel.saveResult() } label: {
                         HStack {
                             Image(systemName: "square.and.arrow.down")
-                            Text("保存到相册")
+                            Text(L10n.t("douyin.save"))
                         }
                         .font(.system(size: 15, weight: .medium))
                         .frame(maxWidth: .infinity).padding(.vertical, 12)
@@ -194,7 +194,7 @@ struct DouyinView: View {
                 ShareLink(item: url) {
                     HStack(spacing: 4) {
                         Image(systemName: "square.and.arrow.up")
-                        Text("分享")
+                        Text(L10n.t("douyin.share"))
                     }
                     .font(.system(size: 15, weight: .medium))
                     .padding(.horizontal, 14).padding(.vertical, 12)
@@ -204,7 +204,7 @@ struct DouyinView: View {
                 .simultaneousGesture(TapGesture().onEnded { AppAnalytics.douyinShareTap() })
             }
             if !viewModel.uiState.isSaving && !viewModel.uiState.isSaved {
-                Text("提示: 长按视频也可保存 · 点击视频全屏播放")
+                Text(L10n.t("douyin.result_hint"))
                     .font(.system(size: 11)).foregroundColor(.gray)
             }
         }
@@ -213,7 +213,7 @@ struct DouyinView: View {
     }
 
     private var authorLine: String {
-        var parts: [String] = [viewModel.uiState.author.isEmpty ? "短视频" : viewModel.uiState.author]
+        var parts: [String] = [viewModel.uiState.author.isEmpty ? L10n.t("douyin.default_author") : viewModel.uiState.author]
         if viewModel.uiState.durationMs > 0 {
             parts.append("\(viewModel.uiState.durationMs / 1000)s")
         }
@@ -227,12 +227,12 @@ struct DouyinView: View {
             Image(systemName: "xmark.octagon.fill")
                 .font(.system(size: 44))
                 .foregroundColor(Color(hex: 0xFFFF5252))
-            Text("解析失败").font(.system(size: 18, weight: .bold))
+            Text(L10n.t("douyin.error_title")).font(.system(size: 18, weight: .bold))
             Text(message)
                 .font(.system(size: 13))
                 .multilineTextAlignment(.center)
                 .foregroundColor(Color(hex: 0xFFE57373))
-            Button("确定") { viewModel.dismissError() }
+            Button(L10n.t("douyin.ok")) { viewModel.dismissError() }
                 .padding(.top, 4)
         }
         .frame(maxWidth: .infinity)
@@ -244,12 +244,12 @@ struct DouyinView: View {
 
     private var usageSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("使用步骤").font(.system(size: 14, weight: .bold))
+            Text(L10n.t("douyin.usage_title")).font(.system(size: 14, weight: .bold))
             ForEach([
-                "1. 打开视频 App，找到想保存的视频",
-                "2. 点右侧「分享」→「复制链接」",
-                "3. 回到这里粘贴，点「解析视频」",
-                "4. 预览无水印视频，确认后保存到相册",
+                L10n.t("douyin.usage_step1"),
+                L10n.t("douyin.usage_step2"),
+                L10n.t("douyin.usage_step3"),
+                L10n.t("douyin.usage_step4"),
             ], id: \.self) { step in
                 Text(step)
                     .font(.system(size: 12))

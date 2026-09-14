@@ -36,7 +36,7 @@ struct GifView: View {
             .padding(.vertical, 12)
         }
         .background(Color.black)
-        .navigationTitle("视频转GIF")
+        .navigationTitle(L10n.t("gif.nav_title"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showPicker) {
             VideoPicker(maxSelection: 1) { ids in
@@ -59,9 +59,9 @@ struct GifView: View {
                 Image(systemName: "video.fill")
                     .font(.system(size: 44))
                     .foregroundColor(Color(hex: 0xFF2196F3))
-                Text("点击选择视频")
+                Text(L10n.t("gif.pick_title"))
                     .font(.system(size: 16, weight: .bold))
-                Text("从相册选择要转换为 GIF 的视频")
+                Text(L10n.t("gif.pick_hint"))
                     .font(.system(size: 12))
                     .foregroundColor(Color(hex: 0xFF666666))
             }
@@ -81,7 +81,7 @@ struct GifView: View {
                 Text(viewModel.uiState.sourceName)
                     .font(.system(size: 14, weight: .medium))
                     .lineLimit(1)
-                Text(String(format: "%.1f 秒 · %d×%d",
+                Text(L10n.t("gif.source_info",
                             viewModel.uiState.sourceDuration,
                             viewModel.uiState.sourceWidth,
                             viewModel.uiState.sourceHeight))
@@ -89,7 +89,7 @@ struct GifView: View {
                     .foregroundColor(Color(hex: 0xFF888888))
             }
             Spacer()
-            Button("重新选择") { showPicker = true }
+            Button(L10n.t("gif.repick")) { showPicker = true }
                 .font(.system(size: 13))
                 .disabled(viewModel.uiState.isConverting)
         }
@@ -102,33 +102,33 @@ struct GifView: View {
 
     private var optionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("参数设置")
+            Text(L10n.t("gif.options_title"))
                 .font(.system(size: 15, weight: .bold))
 
-            chipRow(title: "宽度",
+            chipRow(title: L10n.t("gif.option_width"),
                     options: [240, 360, 480, 720],
                     isSelected: { $0 == viewModel.uiState.targetWidth },
                     label: { "\($0)px" },
                     enabled: !viewModel.uiState.isConverting) {
                 viewModel.updateTargetWidth($0)
             }
-            chipRow(title: "帧率",
+            chipRow(title: L10n.t("gif.option_fps"),
                     options: [8, 10, 15],
                     isSelected: { $0 == viewModel.uiState.fps },
                     label: { "\($0)fps" },
                     enabled: !viewModel.uiState.isConverting) {
                 viewModel.updateFps($0)
             }
-            chipRow(title: "质量",
+            chipRow(title: L10n.t("gif.option_quality"),
                     options: Array(GifQuality.allCases),
                     isSelected: { $0 == viewModel.uiState.quality },
-                    label: { $0.rawValue },
+                    label: { $0.displayName },
                     enabled: !viewModel.uiState.isConverting) {
                 viewModel.updateQuality($0)
             }
 
             HStack {
-                Text("循环播放").font(.system(size: 13))
+                Text(L10n.t("gif.option_loop")).font(.system(size: 13))
                 Spacer()
                 Toggle("", isOn: Binding(
                     get: { viewModel.uiState.loop },
@@ -179,7 +179,7 @@ struct GifView: View {
         VStack(spacing: 12) {
             if viewModel.uiState.isConverting {
                 HStack {
-                    Text("转换中...").font(.system(size: 14, weight: .medium))
+                    Text(L10n.t("gif.converting")).font(.system(size: 14, weight: .medium))
                     Spacer()
                     Text("\(Int(viewModel.uiState.progress * 100))%").bold()
                 }
@@ -188,7 +188,7 @@ struct GifView: View {
                 Button {
                     viewModel.cancelConvert()
                 } label: {
-                    Text("取消")
+                    Text(L10n.t("gif.cancel"))
                         .font(.system(size: 14))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -200,7 +200,7 @@ struct GifView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "photo.stack")
-                        Text("生成 GIF").font(.system(size: 16, weight: .medium))
+                        Text(L10n.t("gif.generate")).font(.system(size: 16, weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -235,7 +235,7 @@ struct GifView: View {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(Color(hex: 0xFF4CAF50))
-                Text("GIF 生成成功")
+                Text(L10n.t("gif.result_title"))
                     .font(.system(size: 16, weight: .bold))
                 Spacer()
                 Button {
@@ -261,7 +261,7 @@ struct GifView: View {
             if viewModel.uiState.isSaving {
                 HStack(spacing: 8) {
                     ProgressView().scaleEffect(0.8)
-                    Text("保存中...").font(.system(size: 13))
+                    Text(L10n.t("gif.saving")).font(.system(size: 13))
                         .foregroundColor(Color(hex: 0xFF4CAF50))
                 }
             } else if viewModel.uiState.isSaved {
@@ -269,7 +269,7 @@ struct GifView: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 14))
                         .foregroundColor(Color(hex: 0xFF4CAF50))
-                    Text("已保存到系统相册")
+                    Text(L10n.t("gif.saved"))
                         .font(.system(size: 13))
                         .foregroundColor(Color(hex: 0xFF4CAF50))
                 }
@@ -279,7 +279,7 @@ struct GifView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "square.and.arrow.down")
-                        Text("保存到相册").font(.system(size: 15, weight: .medium))
+                        Text(L10n.t("gif.save")).font(.system(size: 15, weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -300,7 +300,7 @@ struct GifView: View {
                 .font(.system(size: 13))
                 .foregroundColor(Color(hex: 0xFFE57373))
                 .multilineTextAlignment(.center)
-            Button("确定") { viewModel.dismissError() }
+            Button(L10n.t("gif.ok")) { viewModel.dismissError() }
                 .font(.system(size: 14))
         }
         .frame(maxWidth: .infinity)
@@ -310,11 +310,11 @@ struct GifView: View {
 
     private var hintSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("小贴士").font(.system(size: 14, weight: .bold))
+            Text(L10n.t("gif.tips_title")).font(.system(size: 14, weight: .bold))
             ForEach([
-                "• 宽度越小、帧率越低，GIF 体积越小、生成越快",
-                "• 「高质量」使用 Bayer 抖动，色彩过渡更平滑",
-                "• GIF 不含声音，太长的视频建议先在编辑器里裁剪",
+                L10n.t("gif.tip1"),
+                L10n.t("gif.tip2"),
+                L10n.t("gif.tip3"),
             ], id: \.self) { tip in
                 Text(tip)
                     .font(.system(size: 12))

@@ -25,6 +25,8 @@ struct HomeView: View {
     @State private var editorMode: EditorScreen.Mode = .draft
     @State private var pendingURLs: [URL] = []
     @State private var showHistory = false
+    @State private var showSettings = false
+    @State private var didHandleLaunchArgs = false
     @State private var historyList: [HistoryEntry] = []
     @State private var playingHistoryURL: URL? = nil
 
@@ -34,22 +36,22 @@ struct HomeView: View {
                 Color.black.ignoresSafeArea()
                 VStack(spacing: 12) {
                     homeCard(icon: "plus.circle.fill", iconColor: Color(hex: 0xFF2196F3),
-                             title: "新建项目", subtitle: "选择视频开始编辑") {
+                             title: L10n.t("home.new_project"), subtitle: L10n.t("home.new_project_subtitle")) {
                         if draftInfo != nil { showOverwriteDialog = true } else { showNewProjectPicker = true }
                     }
                     homeCard(icon: "square.grid.2x2.fill", iconColor: Color(hex: 0xFF4CAF50),
-                             title: "视频合并", subtitle: "宫格 / 主次 / 照片墙") {
+                             title: L10n.t("home.merge_entry_title"), subtitle: L10n.t("home.merge_entry_subtitle")) {
                         showMergePicker = true
                     }
                     // 抖音解析入口受远程开关控制：App Store 审核风险出现时可热降级
                     if remoteConfig.douyinParserEnabled {
                         homeCard(icon: "music.note", iconColor: Color(hex: 0xFF26C6DA),
-                                 title: "短视频去水印", subtitle: "粘贴分享文案，解析无水印视频并保存") {
+                                 title: L10n.t("home.douyin_title"), subtitle: L10n.t("home.douyin_subtitle")) {
                             showDouyin = true
                         }
                     }
                     homeCard(icon: "photo.stack", iconColor: Color(hex: 0xFFFFA726),
-                             title: "视频转GIF", subtitle: "选择视频，一键转为 GIF 动图并保存") {
+                             title: L10n.t("home.gif_title"), subtitle: L10n.t("home.gif_subtitle")) {
                         showGif = true
                     }
                     Spacer()
@@ -83,10 +85,18 @@ struct HomeView: View {
                 remoteConfig.refreshIfNeeded()
                 // 冷启兜底：didBecomeActive 可能早于视图创建，这里补一次触发
                 ads.onActive()
+                // 调试辅助：launch argument "-OpenSettings" 冷启时直接打开设置页（自动化验证用）
+                // ★ 仅首次 onAppear 处理：从设置页返回主页会再次触发 onAppear，不能重复打开
+                if !didHandleLaunchArgs {
+                    didHandleLaunchArgs = true
+                    if ProcessInfo.processInfo.arguments.contains("-OpenSettings") {
+                        showSettings = true
+                    }
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("影剪").font(.system(size: 20, weight: .bold))
+                    Text(L10n.t("home.app_name")).font(.system(size: 20, weight: .bold))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     if draftInfo != nil {
@@ -108,6 +118,11 @@ struct HomeView: View {
                         showHistory = true
                     } label: {
                         Image(systemName: "clock.arrow.circlepath")
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape")
                     }
                 }
             }
@@ -137,6 +152,11 @@ struct HomeView: View {
                     },
                     onBack: { showHistory = false }
                 )
+            }
+            .navigationDestination(isPresented: $showSettings) {
+                SettingsView(onBack: { showSettings = false },
+                             onDraftCleared: { draftInfo = DraftStore.peek() })
+                    .navigationBarBackButtonHidden(true)
             }
             .fullScreenCover(isPresented: Binding(
                 get: { playingHistoryURL != nil },
@@ -171,7 +191,7 @@ struct HomeView: View {
                 Task { @MainActor in
                     let urls = await MediaUtils.loadVideoURLs(assetIdentifiers: ids)
                     guard urls.count >= 2 else {
-                        if !urls.isEmpty { mergeHint = "视频合并至少需要选择 2 个视频（当前 \(urls.count) 个）" }
+                        if !urls.isEmpty { mergeHint = L10n.t("home.merge_min_videos", urls.count) }
                         return
                     }
                     mergeInitialURLs = urls
@@ -179,20 +199,20 @@ struct HomeView: View {
                 }
             }
         }
-        .alert("覆盖现有草稿？", isPresented: $showOverwriteDialog) {
-            Button("仍要新建", role: .destructive) { showNewProjectPicker = true }
-            Button("继续编辑草稿") { openDraft() }
-            Button("取消", role: .cancel) {}
+        .alert(L10n.t("home.overwrite_draft_title"), isPresented: $showOverwriteDialog) {
+            Button(L10n.t("home.overwrite_draft_new"), role: .destructive) { showNewProjectPicker = true }
+            Button(L10n.t("home.overwrite_draft_edit")) { openDraft() }
+            Button(L10n.t("home.cancel"), role: .cancel) {}
         } message: {
-            Text("当前有未导出的草稿「\(draftInfo?.name ?? "")」，新建项目将自动覆盖它。")
+            Text(L10n.t("home.overwrite_draft_message", draftInfo?.name ?? ""))
         }
-        .alert("草稿", isPresented: $showDraftDialog) {
-            Button("继续编辑") { openDraft() }
-            Button("删除草稿", role: .destructive) {
+        .alert(L10n.t("home.draft_title"), isPresented: $showDraftDialog) {
+            Button(L10n.t("home.draft_continue")) { openDraft() }
+            Button(L10n.t("home.draft_delete"), role: .destructive) {
                 DraftStore.clear()
                 draftInfo = nil
             }
-            Button("取消", role: .cancel) {}
+            Button(L10n.t("home.cancel"), role: .cancel) {}
         } message: {
             Text(draftSummary())
         }
@@ -200,8 +220,8 @@ struct HomeView: View {
 
     private func draftSummary() -> String {
         var parts: [String] = [draftInfo?.name ?? ""]
-        if let c = draftInfo?.clipCount, c > 0 { parts.append("\(c) 个片段") }
-        if let s = draftInfo?.subtitleCount, s > 0 { parts.append("\(s) 条字幕") }
+        if let c = draftInfo?.clipCount, c > 0 { parts.append(L10n.t("home.draft_clips", c)) }
+        if let s = draftInfo?.subtitleCount, s > 0 { parts.append(L10n.t("home.draft_subtitles", s)) }
         return parts.joined(separator: " · ")
     }
 
@@ -215,10 +235,10 @@ struct HomeView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let ts = Int(Date().timeIntervalSince1970 * 1000)
-                try MediaUtils.saveToGallery(fileURL: url, displayName: "影剪_\(ts).mp4")
-                DispatchQueue.main.async { mergeHint = "已保存到相册" }
+                try MediaUtils.saveToGallery(fileURL: url, displayName: L10n.t("home.save_filename", ts))
+                DispatchQueue.main.async { mergeHint = L10n.t("home.saved_to_gallery") }
             } catch {
-                DispatchQueue.main.async { mergeHint = "保存失败: \(error.localizedDescription)" }
+                DispatchQueue.main.async { mergeHint = L10n.t("home.save_failed", error.localizedDescription) }
             }
         }
     }

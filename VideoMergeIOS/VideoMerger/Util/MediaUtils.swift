@@ -70,7 +70,7 @@ enum MediaUtils {
     /// - Returns: 加载成功的本地 URL 数组
     static func loadVideoURLs(assetIdentifiers: [String]) async -> [URL] {
         guard !assetIdentifiers.isEmpty else { return [] }
-        print("[loadVideoURLs] 开始加载 \(assetIdentifiers.count) 个视频")
+        print("[loadVideoURLs] " + L10n.t("util.log_load_start", assetIdentifiers.count))
 
         // 1. 拿到 PHAsset 数组
         let assets: [PHAsset] = await withCheckedContinuation { cont in
@@ -85,10 +85,10 @@ enum MediaUtils {
             }
         }
         guard !assets.isEmpty else {
-            print("[loadVideoURLs] 未取到 PHAsset")
+            print("[loadVideoURLs] " + L10n.t("util.log_no_assets"))
             return []
         }
-        print("[loadVideoURLs] 取到 \(assets.count) 个 PHAsset，开始写盘")
+        print("[loadVideoURLs] " + L10n.t("util.log_assets_fetched", assets.count))
 
         // 2. 分批并发写临时文件（每批 3 个，避免 IO 峰值；
         //    不用 DispatchSemaphore——它在 async 上下文里是反模式）
@@ -113,11 +113,11 @@ enum MediaUtils {
             for (_, url) in batchResults.sorted(by: { $0.0 < $1.0 }) {
                 if let u = url {
                     results.append(u)
-                    print("[loadVideoURLs] 已加载 \(results.count)/\(assets.count): \(u.lastPathComponent)")
+                    print("[loadVideoURLs] " + L10n.t("util.log_loaded_progress", results.count, assets.count, u.lastPathComponent))
                 }
             }
         }
-        print("[loadVideoURLs] 完成，成功 \(results.count)/\(assets.count)")
+        print("[loadVideoURLs] " + L10n.t("util.log_load_done", results.count, assets.count))
         return results
     }
 
@@ -126,7 +126,7 @@ enum MediaUtils {
                                                 index: Int,
                                                 inputDir: URL) async -> URL? {
         guard let resource = PHAssetResource.assetResources(for: asset).first else {
-            print("[loadOne] #\(index) 无 PHAssetResource")
+            print("[loadOne] " + L10n.t("util.log_no_resource", index))
             return nil
         }
         let dest = inputDir.appendingPathComponent("picker_\(index)_\(UUID().uuidString).mov")
@@ -137,12 +137,12 @@ enum MediaUtils {
             }
             FileManager.default.createFile(atPath: dest.path, contents: nil)
         } catch {
-            print("[loadOne] #\(index) 创建文件失败: \(error)")
+            print("[loadOne] " + L10n.t("util.log_create_file_failed", index, "\(error)"))
             return nil
         }
 
         guard let fileHandle = try? FileHandle(forWritingTo: dest) else {
-            print("[loadOne] #\(index) 打开 FileHandle 失败")
+            print("[loadOne] " + L10n.t("util.log_open_handle_failed", index))
             return nil
         }
 
@@ -159,7 +159,7 @@ enum MediaUtils {
                 completionHandler: { error in
                     try? fileHandle.close()
                     if let error = error {
-                        print("[loadOne] #\(index) requestData 失败: \(error)")
+                        print("[loadOne] " + L10n.t("util.log_request_data_failed", index, "\(error)"))
                     }
                     cont.resume(returning: error == nil)
                 }

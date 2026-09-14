@@ -13,10 +13,13 @@ import ffmpegkit
 @main
 struct VideoMergerApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    /// 语言切换时通过 .id(resolvedCode) 强制重建整棵视图树
+    @ObservedObject private var language = LanguageManager.shared
 
     var body: some Scene {
         WindowGroup {
             HomeView()
+                .id(language.resolvedCode)
         }
     }
 }

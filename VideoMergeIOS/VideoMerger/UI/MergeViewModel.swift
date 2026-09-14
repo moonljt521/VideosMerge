@@ -105,17 +105,17 @@ final class MergeViewModel: ObservableObject {
 
     func startMerge() {
         if uiState.selectedVideoURLs.isEmpty {
-            uiState.errorMessage = "请先选择视频"
+            uiState.errorMessage = L10n.t("merge.error_no_video")
             return
         }
         if uiState.selectedVideoURLs.count == 1 {
-            uiState.errorMessage = "至少需要选择 2 个视频"
+            uiState.errorMessage = L10n.t("merge.error_need_two")
             return
         }
 
         uiState.isProcessing = true
         uiState.progress = 0
-        uiState.statusMessage = "准备中..."
+        uiState.statusMessage = L10n.t("merge.preparing")
         uiState.errorMessage = nil
         uiState.mergeResult = nil
         uiState.isSaved = false
@@ -131,9 +131,9 @@ final class MergeViewModel: ObservableObject {
             options: options,
             onProgress: { [weak self] progress in
                 let msg: String
-                if progress < 0.1 { msg = "复制视频文件中..." }
-                else if progress < 0.98 { msg = "合并中... \(Int(progress * 100))%" }
-                else { msg = "正在完成..." }
+                if progress < 0.1 { msg = L10n.t("merge.copying") }
+                else if progress < 0.98 { msg = L10n.t("merge.merging", Int(progress * 100)) }
+                else { msg = L10n.t("merge.finalizing") }
                 self?.uiState.progress = progress
                 self?.uiState.statusMessage = msg
             },
@@ -144,7 +144,7 @@ final class MergeViewModel: ObservableObject {
                 let maxLen = 8 * 1024
                 if combined.count > maxLen {
                     let start = combined.index(combined.endIndex, offsetBy: -maxLen)
-                    self.uiState.logLines = "…(已截断)\n" + combined[start...]
+                    self.uiState.logLines = L10n.t("merge.log_truncated") + combined[start...]
                 } else {
                     self.uiState.logLines = combined
                 }
@@ -154,7 +154,7 @@ final class MergeViewModel: ObservableObject {
                 case .success(let mergeResult):
                     self?.uiState.isProcessing = false
                     self?.uiState.progress = 1
-                    self?.uiState.statusMessage = "合并完成！预览中"
+                    self?.uiState.statusMessage = L10n.t("merge.done_previewing")
                     self?.uiState.mergeResult = mergeResult
                     AppAnalytics.mergeExportSuccess(mergeResult.mergeType)
                 case .failure(let err):
@@ -180,7 +180,7 @@ final class MergeViewModel: ObservableObject {
                 self?.uiState.history = self?.engine.loadHistory() ?? []
             case .failure(let err):
                 self?.uiState.isSaving = false
-                self?.uiState.errorMessage = "保存失败: \(err.localizedDescription)"
+                self?.uiState.errorMessage = L10n.t("merge.save_failed", err.localizedDescription)
             }
         }
     }
@@ -195,10 +195,10 @@ final class MergeViewModel: ObservableObject {
             case .success:
                 self?.uiState.isSaving = false
                 self?.uiState.isSaved = true
-                self?.uiState.statusMessage = "已保存到相册"
+                self?.uiState.statusMessage = L10n.t("merge.saved_to_gallery")
             case .failure(let err):
                 self?.uiState.isSaving = false
-                self?.uiState.errorMessage = "保存失败: \(err.localizedDescription)"
+                self?.uiState.errorMessage = L10n.t("merge.save_failed", err.localizedDescription)
             }
         }
     }

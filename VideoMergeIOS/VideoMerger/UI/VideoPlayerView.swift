@@ -29,7 +29,7 @@ struct InlineVideoPlayer: View {
                     Color.black
                 }
 
-                Text("点击全屏播放 · 长按保存到相册")
+                Text(L10n.t("player.tap_hint"))
                     .font(.system(size: 11))
                     .foregroundColor(.white)
                     .padding(.horizontal, 8)

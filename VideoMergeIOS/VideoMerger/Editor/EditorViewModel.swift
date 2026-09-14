@@ -104,17 +104,17 @@ final class EditorViewModel: ObservableObject {
         guard !urls.isEmpty else { return }
         importTask?.cancel()
         importTask = Task {
-            beginImport("准备导入 \(urls.count) 个视频...")
+            beginImport(L10n.t("editorcore.import_prepare", urls.count))
             do {
                 var clips: [Clip] = []
                 for (i, url) in urls.enumerated() {
                     try Task.checkCancellation()
                     clips.append(try await importClip(url: url, seed: Int(Date().timeIntervalSince1970 * 1000) + i))
                     uiState.importProgress = Float(i + 1) / Float(urls.count)
-                    uiState.importMessage = "正在导入视频 \(i + 1)/\(urls.count)"
+                    uiState.importMessage = L10n.t("editorcore.import_progress", i + 1, urls.count)
                 }
                 var project = EditorProject(
-                    name: "项目 \(Self.dateStamp())",
+                    name: L10n.t("editorcore.project_name_stamp", Self.dateStamp()),
                     tracks: [Track(type: .main, clips: relayoutMainTrackClips(clips))]
                 )
                 project.updatedAt = Date().timeIntervalSince1970 * 1000
@@ -136,14 +136,14 @@ final class EditorViewModel: ObservableObject {
         guard !urls.isEmpty else { return }
         importTask?.cancel()
         importTask = Task {
-            beginImport("准备添加 \(urls.count) 个视频...")
+            beginImport(L10n.t("editorcore.add_prepare", urls.count))
             do {
                 var newClips: [Clip] = []
                 for (i, url) in urls.enumerated() {
                     try Task.checkCancellation()
                     newClips.append(try await importClip(url: url, seed: Int(Date().timeIntervalSince1970 * 1000) + i))
                     uiState.importProgress = Float(i + 1) / Float(urls.count)
-                    uiState.importMessage = "正在添加视频 \(i + 1)/\(urls.count)"
+                    uiState.importMessage = L10n.t("editorcore.add_progress", i + 1, urls.count)
                 }
                 pushUndo()
                 // ★ 导入成功，清除导入中状态（否则浮层永远不消失）
@@ -197,7 +197,7 @@ final class EditorViewModel: ObservableObject {
     func loadDraft() {
         Task {
             guard var loaded = DraftStore.load() else {
-                showError("草稿不存在或已损坏")
+                showError(L10n.t("editorcore.draft_missing"))
                 return
             }
             // 剔除素材丢失的片段
@@ -251,7 +251,7 @@ final class EditorViewModel: ObservableObject {
     func endImportOnError(_ e: Error) {
         uiState.isImporting = false
         uiState.importMessage = ""
-        showError("导入失败：\(e.localizedDescription)")
+        showError(L10n.t("editorcore.import_failed", e.localizedDescription))
     }
 
     func cancelImport() {
@@ -518,7 +518,7 @@ final class EditorViewModel: ObservableObject {
         }
 
         if kept.isEmpty {
-            showError("区间包含了全部内容，无法全部删除")
+            showError(L10n.t("editorcore.range_cannot_delete"))
             return
         }
 
@@ -674,9 +674,9 @@ final class EditorViewModel: ObservableObject {
                 if let cut = cut, cut < clip.mediaDuration - 0.1 {
                     self.pushUndo()
                     self.updateTrim(clipId, clip.trimStart, cut)
-                    self.showError(String(format: "已去除片尾静止片段，出点裁至 %.2fs", cut))
+                    self.showError(String(format: L10n.t("editorcore.logo_cut_done"), cut))
                 } else {
-                    self.showError("未检测到片尾静止 logo")
+                    self.showError(L10n.t("editorcore.logo_not_found"))
                 }
             }
         }
@@ -690,14 +690,14 @@ final class EditorViewModel: ObservableObject {
         pausePlayback()
         uiState.isExporting = true
         uiState.exportProgress = 0
-        uiState.exportMessage = "准备导出..."
+        uiState.exportMessage = L10n.t("editorcore.export_preparing")
         uiState.errorMessage = nil
 
         exportTask = Task {
             let result = await exportEngine.export(project: project) { [weak self] progress in
                 Task { @MainActor in
                     self?.uiState.exportProgress = progress
-                    self?.uiState.exportMessage = "导出中... \(Int(progress * 100))%"
+                    self?.uiState.exportMessage = L10n.t("editorcore.export_progress", Int(progress * 100))
                 }
             } onLog: { log in
                 print("[Export] \(log)")
@@ -718,16 +718,16 @@ final class EditorViewModel: ObservableObject {
                             DraftStore.clear()
                         }
                         uiState.exportProgress = 1
-                        uiState.exportMessage = "导出完成！已保存到相册"
+                        uiState.exportMessage = L10n.t("editorcore.export_done_saved")
                         uiState.outputPath = file.path
                     case .failure(let e):
-                        showError("保存失败: \(e.localizedDescription)", severity: .error)
+                        showError(L10n.t("editorcore.save_failed", e.localizedDescription), severity: .error)
                     }
                 }
             case .failure(let e):
                 await MainActor.run {
                     uiState.isExporting = false
-                    showError("导出失败: \(e.localizedDescription)", severity: .error)
+                    showError(L10n.t("editorcore.export_failed", e.localizedDescription), severity: .error)
                 }
             }
         }
@@ -737,7 +737,7 @@ final class EditorViewModel: ObservableObject {
         exportEngine.cancel()
         exportTask?.cancel()
         uiState.isExporting = false
-        showError("已取消导出")
+        showError(L10n.t("editorcore.export_cancelled"))
     }
 
     // MARK: 提示

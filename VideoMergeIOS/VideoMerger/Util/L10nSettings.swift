@@ -1,0 +1,87 @@
+//
+//  L10nSettings.swift
+//  VideoMerger
+//
+//  设置页文案词典
+//
+
+import Foundation
+
+enum L10nSettings {
+    static let table: L10nModuleTable = (
+        zh: [
+            "settings.title": "设置",
+            "settings.section.ads_privacy": "广告与隐私",
+            "settings.privacy_options": "广告隐私选项",
+            "settings.privacy_options.subtitle": "重新管理个性化广告同意",
+            "settings.tracking": "个性化广告授权",
+            "settings.tracking.allowed": "已允许 · 可在系统设置中修改",
+            "settings.tracking.denied": "已拒绝 · 点击前往系统设置开启",
+            "settings.tracking.restricted": "受系统限制",
+            "settings.tracking.not_determined": "未询问 · 点击前往系统设置开启",
+            "settings.section.general": "通用",
+            "settings.language": "语言",
+            "settings.language.subtitle_fmt": "当前：%@",
+            "settings.language.system": "跟随系统",
+            "settings.language.zh": "简体中文",
+            "settings.language.en": "English",
+            "settings.privacy_policy": "隐私政策",
+            "settings.privacy_policy.subtitle": "moonljt521.github.io/VideosMerge",
+            "settings.feedback": "意见反馈",
+            "settings.feedback.subtitle": "到 GitHub 提交问题与建议",
+            "settings.version": "版本",
+            "settings.app_name": "影剪 (ShadowCut)",
+            "settings.section.data": "数据",
+            "settings.clear_draft": "清除编辑草稿",
+            "settings.clear_draft.subtitle": "删除当前未导出的编辑器草稿",
+            "settings.clear_draft.alert_title": "清除编辑草稿？",
+            "settings.clear_draft.alert_message": "当前未导出的编辑器草稿将被删除，此操作不可恢复。",
+            "settings.clear_history": "清除历史记录",
+            "settings.clear_history.subtitle": "删除全部已导出成片的历史条目",
+            "settings.clear_history.alert_title": "清除全部历史记录？",
+            "settings.clear_history.alert_message": "仅删除历史条目，不会删除已保存到相册的视频。",
+            "settings.confirm_clear": "清除",
+            "settings.cancel": "取消",
+            "settings.toast.draft_cleared": "已清除编辑草稿",
+            "settings.toast.history_cleared_fmt": "已清除 %lld 条历史记录",
+            "settings.toast.history_empty": "暂无历史记录",
+        ],
+        en: [
+            "settings.title": "Settings",
+            "settings.section.ads_privacy": "Ads & Privacy",
+            "settings.privacy_options": "Ad Privacy Options",
+            "settings.privacy_options.subtitle": "Revisit your personalized ads consent",
+            "settings.tracking": "Personalized Ads Authorization",
+            "settings.tracking.allowed": "Allowed · Change in system settings",
+            "settings.tracking.denied": "Denied · Tap to enable in system settings",
+            "settings.tracking.restricted": "Restricted by system",
+            "settings.tracking.not_determined": "Not requested · Tap to enable in system settings",
+            "settings.section.general": "General",
+            "settings.language": "Language",
+            "settings.language.subtitle_fmt": "Current: %@",
+            "settings.language.system": "Follow System",
+            "settings.language.zh": "简体中文",
+            "settings.language.en": "English",
+            "settings.privacy_policy": "Privacy Policy",
+            "settings.privacy_policy.subtitle": "moonljt521.github.io/VideosMerge",
+            "settings.feedback": "Feedback",
+            "settings.feedback.subtitle": "Report issues on GitHub",
+            "settings.version": "Version",
+            "settings.app_name": "ShadowCut",
+            "settings.section.data": "Data",
+            "settings.clear_draft": "Clear Editor Draft",
+            "settings.clear_draft.subtitle": "Delete the current unsaved editor draft",
+            "settings.clear_draft.alert_title": "Clear editor draft?",
+            "settings.clear_draft.alert_message": "The unsaved editor draft will be deleted. This cannot be undone.",
+            "settings.clear_history": "Clear History",
+            "settings.clear_history.subtitle": "Remove all exported-video history entries",
+            "settings.clear_history.alert_title": "Clear all history?",
+            "settings.clear_history.alert_message": "Only history entries are removed. Videos saved to your photo library are not deleted.",
+            "settings.confirm_clear": "Clear",
+            "settings.cancel": "Cancel",
+            "settings.toast.draft_cleared": "Editor draft cleared",
+            "settings.toast.history_cleared_fmt": "Removed %lld history entries",
+            "settings.toast.history_empty": "No history yet",
+        ]
+    )
+}

@@ -32,6 +32,9 @@
 		200000000000000000000017 /* VideoPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000017 /* VideoPicker.swift */; };
 		200000000000000000000018 /* MergeLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000018 /* MergeLayout.swift */; };
 		200000000000000000000019 /* MergeLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000019 /* MergeLayoutTests.swift */; };
+		2000000000000000000000D1 /* GifCommandBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D1 /* GifCommandBuilder.swift */; };
+		2000000000000000000000D2 /* GifViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D2 /* GifViewModel.swift */; };
+		2000000000000000000000D3 /* GifView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D3 /* GifView.swift */; };
 		2000000000000000000000E1 /* EditorTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E1 /* EditorTypes.swift */; };
 		2000000000000000000000E2 /* FilterBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E2 /* FilterBuilder.swift */; };
 		2000000000000000000000E3 /* TextWatermarkRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E3 /* TextWatermarkRenderer.swift */; };
@@ -53,16 +56,21 @@
 		2000000000000000000000F3 /* DouyinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F3 /* DouyinView.swift */; };
 		2000000000000000000000F5 /* AdSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F5 /* AdSupport.swift */; };
 		2000000000000000000000F6 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F6 /* GoogleService-Info.plist */; };
-		2000000000000000000000D1 /* GifCommandBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D1 /* GifCommandBuilder.swift */; };
-		2000000000000000000000D2 /* GifViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D2 /* GifViewModel.swift */; };
-		2000000000000000000000D3 /* GifView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000D3 /* GifView.swift */; };
-		8C2D3E4F5A6B708192A3B4C5 /* GifCommandBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F60718293A4B5 /* GifCommandBuilderTests.swift */; };
+		2000000000000000000001B0 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000001B0 /* SettingsView.swift */; };
+		2000000000000000000001C0 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000001C0 /* L10n.swift */; };
+		2000000000000000000001C1 /* L10nSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000001C1 /* L10nSettings.swift */; };
+		2000000000000000000001C2 /* L10nHome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000001C2 /* L10nHome.swift */; };
+		2000000000000000000001C3 /* L10nEditorUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000001C3 /* L10nEditorUI.swift */; };
+		2000000000000000000001C4 /* L10nEditorCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000001C4 /* L10nEditorCore.swift */; };
+		2000000000000000000001C5 /* L10nFeatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000001C5 /* L10nFeatures.swift */; };
+		2000000000000000000001C9 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3000000000000000000001C8 /* InfoPlist.strings */; };
 		3A7550F98C2351C3D795AB4D /* SpeechGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 305C328CA268B1B7CD6E9E48 /* SpeechGroupingTests.swift */; };
 		4D4A46C72932BDD9A3755935 /* CanvasSizeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6D4CBA65F5B957571082053 /* CanvasSizeTests.swift */; };
 		57E3F6831FCD83FA1DBFCA61 /* Pods_VideoMerger.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 07A93845A7C16B3783C4CFC4 /* Pods_VideoMerger.framework */; };
 		622F8BCF57661D5844A15A97 /* DraftSerializationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52D80CBB1404DADA585BF243 /* DraftSerializationTests.swift */; };
 		63468427957B2248900D5A35 /* TimelineLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D4536A1F4462B5E1FF2CB37 /* TimelineLayoutTests.swift */; };
 		7E84F279B327CE5600EE4A08 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E4A94DD2959A4ADF708377AC /* Foundation.framework */; };
+		8C2D3E4F5A6B708192A3B4C5 /* GifCommandBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F60718293A4B5 /* GifCommandBuilderTests.swift */; };
 		AC20416E3CAE8573D11C2D78 /* Pods_VideoMergerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3ECC7E505CDB2F7C182F76E4 /* Pods_VideoMergerTests.framework */; };
 		B1A2C3D4E5F60000000000B1 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = B1A2C3D4E5F60000000000D1 /* GoogleMobileAds */; };
 		B1A2C3D4E5F60000000000B2 /* GoogleUserMessagingPlatform in Frameworks */ = {isa = PBXBuildFile; productRef = B1A2C3D4E5F60000000000D2 /* GoogleUserMessagingPlatform */; };
@@ -109,6 +117,9 @@
 		100000000000000000000018 /* MergeLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergeLayout.swift; sourceTree = "<group>"; };
 		100000000000000000000019 /* MergeLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MergeLayoutTests.swift; path = VideoMergerTests/MergeLayoutTests.swift; sourceTree = "<group>"; };
 		100000000000000000000099 /* VideoMerger.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VideoMerger.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1000000000000000000000D1 /* GifCommandBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifCommandBuilder.swift; sourceTree = "<group>"; };
+		1000000000000000000000D2 /* GifViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifViewModel.swift; sourceTree = "<group>"; };
+		1000000000000000000000D3 /* GifView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifView.swift; sourceTree = "<group>"; };
 		1000000000000000000000E1 /* EditorTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTypes.swift; sourceTree = "<group>"; };
 		1000000000000000000000E2 /* FilterBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBuilder.swift; sourceTree = "<group>"; };
 		1000000000000000000000E3 /* TextWatermarkRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextWatermarkRenderer.swift; sourceTree = "<group>"; };
@@ -130,9 +141,15 @@
 		1000000000000000000000F3 /* DouyinView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinView.swift; sourceTree = "<group>"; };
 		1000000000000000000000F5 /* AdSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdSupport.swift; sourceTree = "<group>"; };
 		1000000000000000000000F6 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
-		1000000000000000000000D1 /* GifCommandBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifCommandBuilder.swift; sourceTree = "<group>"; };
-		1000000000000000000000D2 /* GifViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifViewModel.swift; sourceTree = "<group>"; };
-		1000000000000000000000D3 /* GifView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifView.swift; sourceTree = "<group>"; };
+		1000000000000000000001B0 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		1000000000000000000001C0 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
+		1000000000000000000001C1 /* L10nSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10nSettings.swift; sourceTree = "<group>"; };
+		1000000000000000000001C2 /* L10nHome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10nHome.swift; sourceTree = "<group>"; };
+		1000000000000000000001C3 /* L10nEditorUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10nEditorUI.swift; sourceTree = "<group>"; };
+		1000000000000000000001C4 /* L10nEditorCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10nEditorCore.swift; sourceTree = "<group>"; };
+		1000000000000000000001C5 /* L10nFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10nFeatures.swift; sourceTree = "<group>"; };
+		1000000000000000000001C6 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		1000000000000000000001C7 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		1149D2E692C566C45D52EB01 /* Pods-VideoMergerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VideoMergerTests.debug.xcconfig"; path = "Target Support Files/Pods-VideoMergerTests/Pods-VideoMergerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		305C328CA268B1B7CD6E9E48 /* SpeechGroupingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpeechGroupingTests.swift; path = VideoMergerTests/SpeechGroupingTests.swift; sourceTree = "<group>"; };
 		3ECC7E505CDB2F7C182F76E4 /* Pods_VideoMergerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_VideoMergerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -140,8 +157,8 @@
 		572D6B70BE57075BC12DAEAE /* TransitionZoneTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TransitionZoneTests.swift; path = VideoMergerTests/TransitionZoneTests.swift; sourceTree = "<group>"; };
 		5A74B135D3FF02F9F8E37A1D /* VideoMergerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VideoMergerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		619C97E11E8A037D944C3D8F /* Pods-VideoMergerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VideoMergerTests.release.xcconfig"; path = "Target Support Files/Pods-VideoMergerTests/Pods-VideoMergerTests.release.xcconfig"; sourceTree = "<group>"; };
-		84221DE24FBCBE84D35DA4B0 /* ExportCommandWatermarkTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExportCommandWatermarkTests.swift; path = VideoMergerTests/ExportCommandWatermarkTests.swift; sourceTree = "<group>"; };
 		7A1B2C3D4E5F60718293A4B5 /* GifCommandBuilderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GifCommandBuilderTests.swift; path = VideoMergerTests/GifCommandBuilderTests.swift; sourceTree = "<group>"; };
+		84221DE24FBCBE84D35DA4B0 /* ExportCommandWatermarkTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExportCommandWatermarkTests.swift; path = VideoMergerTests/ExportCommandWatermarkTests.swift; sourceTree = "<group>"; };
 		8636FDE1A21012354A90CFCD /* Pods-VideoMerger.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VideoMerger.release.xcconfig"; path = "Target Support Files/Pods-VideoMerger/Pods-VideoMerger.release.xcconfig"; sourceTree = "<group>"; };
 		875C7C832DFFB96E8D3973FE /* ShiftOverlaysTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShiftOverlaysTests.swift; path = VideoMergerTests/ShiftOverlaysTests.swift; sourceTree = "<group>"; };
 		9644DAC7517BFD9F1C641DEF /* WatermarkDetectorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WatermarkDetectorTests.swift; path = VideoMergerTests/WatermarkDetectorTests.swift; sourceTree = "<group>"; };
@@ -196,7 +213,6 @@
 				619C97E11E8A037D944C3D8F /* Pods-VideoMergerTests.release.xcconfig */,
 				1149D2E692C566C45D52EB01 /* Pods-VideoMergerTests.debug.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -232,6 +248,7 @@
 				300000000000000000000005 /* Util */,
 				300000000000000000000006 /* UI */,
 				100000000000000000000011 /* Info.plist */,
+				3000000000000000000001C8 /* InfoPlist.strings */,
 				1000000000000000000000F6 /* GoogleService-Info.plist */,
 				100000000000000000000012 /* Assets.xcassets */,
 				300000000000000000000007 /* Frameworks */,
@@ -268,6 +285,12 @@
 			children = (
 				10000000000000000000000B /* MediaUtils.swift */,
 				10000000000000000000000C /* VideoHistoryStore.swift */,
+				1000000000000000000001C0 /* L10n.swift */,
+				1000000000000000000001C1 /* L10nSettings.swift */,
+				1000000000000000000001C2 /* L10nHome.swift */,
+				1000000000000000000001C3 /* L10nEditorUI.swift */,
+				1000000000000000000001C4 /* L10nEditorCore.swift */,
+				1000000000000000000001C5 /* L10nFeatures.swift */,
 			);
 			path = Util;
 			sourceTree = "<group>";
@@ -276,6 +299,7 @@
 			isa = PBXGroup;
 			children = (
 				1000000000000000000000EA /* HomeView.swift */,
+				1000000000000000000001B0 /* SettingsView.swift */,
 				10000000000000000000000D /* MergeScreen.swift */,
 				10000000000000000000000E /* MergeViewModel.swift */,
 				10000000000000000000000F /* VideoPlayerView.swift */,
@@ -303,6 +327,16 @@
 				5A74B135D3FF02F9F8E37A1D /* VideoMergerTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		3000000000000000000000D1 /* Gif */ = {
+			isa = PBXGroup;
+			children = (
+				1000000000000000000000D1 /* GifCommandBuilder.swift */,
+				1000000000000000000000D2 /* GifViewModel.swift */,
+				1000000000000000000000D3 /* GifView.swift */,
+			);
+			path = Gif;
 			sourceTree = "<group>";
 		};
 		3000000000000000000000E1 /* Editor */ = {
@@ -375,16 +409,6 @@
 				1000000000000000000000F5 /* AdSupport.swift */,
 			);
 			path = Ads;
-			sourceTree = "<group>";
-		};
-		3000000000000000000000D1 /* Gif */ = {
-			isa = PBXGroup;
-			children = (
-				1000000000000000000000D1 /* GifCommandBuilder.swift */,
-				1000000000000000000000D2 /* GifViewModel.swift */,
-				1000000000000000000000D3 /* GifView.swift */,
-			);
-			path = Gif;
 			sourceTree = "<group>";
 		};
 		78FA037BB2C14FC44B006507 /* VideoMergerTests */ = {
@@ -473,18 +497,19 @@
 			knownRegions = (
 				"zh-Hans",
 				Base,
+				en,
 			);
 			mainGroup = 300000000000000000000001;
+			packageReferences = (
+				B1A2C3D4E5F60000000000C1 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
+				B1A2C3D4E5F60000000000C2 /* XCRemoteSwiftPackageReference "swift-package-manager-google-user-messaging-platform" */,
+			);
 			productRefGroup = 300000000000000000000008 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				400000000000000000000001 /* VideoMerger */,
 				E5091CC225ED41F69F75AEA6 /* VideoMergerTests */,
-			);
-			packageReferences = (
-				B1A2C3D4E5F60000000000C1 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
-				B1A2C3D4E5F60000000000C2 /* XCRemoteSwiftPackageReference "swift-package-manager-google-user-messaging-platform" */,
 			);
 		};
 /* End PBXProject section */
@@ -496,6 +521,7 @@
 			files = (
 				200000000000000000000011 /* Assets.xcassets in Resources */,
 				2000000000000000000000F6 /* GoogleService-Info.plist in Resources */,
+				2000000000000000000001C9 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -648,6 +674,13 @@
 				2000000000000000000000E8 /* PreviewPanel.swift in Sources */,
 				2000000000000000000000E9 /* EditorPanels.swift in Sources */,
 				2000000000000000000000EA /* HomeView.swift in Sources */,
+				2000000000000000000001B0 /* SettingsView.swift in Sources */,
+				2000000000000000000001C0 /* L10n.swift in Sources */,
+				2000000000000000000001C1 /* L10nSettings.swift in Sources */,
+				2000000000000000000001C2 /* L10nHome.swift in Sources */,
+				2000000000000000000001C3 /* L10nEditorUI.swift in Sources */,
+				2000000000000000000001C4 /* L10nEditorCore.swift in Sources */,
+				2000000000000000000001C5 /* L10nFeatures.swift in Sources */,
 				2000000000000000000000F1 /* DouyinParser.swift in Sources */,
 				2000000000000000000000F2 /* DouyinViewModel.swift in Sources */,
 				2000000000000000000000F3 /* DouyinView.swift in Sources */,
@@ -686,6 +719,18 @@
 			targetProxy = D2B25545E3929CA0F9EC3B8D /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		3000000000000000000001C8 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				1000000000000000000001C6 /* InfoPlist.strings */,
+				1000000000000000000001C7 /* InfoPlist.strings */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		8A5519E82641E2512ED41A5F /* Release */ = {

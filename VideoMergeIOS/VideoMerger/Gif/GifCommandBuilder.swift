@@ -13,10 +13,19 @@
 import Foundation
 
 /// GIF 质量档位（对应 video_to_gif.py 的 fast/normal/high）
+/// rawValue 仅作内部标识，用户可见文案走 displayName（多语言）
 enum GifQuality: String, CaseIterable {
     case fast = "快速"
     case normal = "标准"
     case high = "高质量"
+
+    var displayName: String {
+        switch self {
+        case .fast:   return L10n.t("gif.quality_fast")
+        case .normal: return L10n.t("gif.quality_normal")
+        case .high:   return L10n.t("gif.quality_high")
+        }
+    }
 }
 
 enum GifCommandBuilder {
@@ -24,7 +33,7 @@ enum GifCommandBuilder {
     /// 按目标宽度等比计算 GIF 宽高。
     /// 尺寸取偶数，避免个别播放器/平台对奇数尺寸 GIF 兼容性差。
     static func targetDimensions(sourceWidth: Int, sourceHeight: Int, targetWidth: Int) -> (width: Int, height: Int) {
-        precondition(sourceWidth > 0 && sourceHeight > 0, "源视频尺寸无效")
+        precondition(sourceWidth > 0 && sourceHeight > 0, L10n.t("gif.error_invalid_source"))
         let w = max(2, min(4096, targetWidth))
         let h = max(2, Int((Double(sourceHeight) * Double(w) / Double(sourceWidth)).rounded()))
         return (w - w % 2, h - h % 2)

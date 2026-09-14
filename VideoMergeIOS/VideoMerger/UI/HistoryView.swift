@@ -24,7 +24,7 @@ struct HistoryView: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 18, weight: .semibold))
                 }
-                Text("历史记录 (\(history.count))")
+                Text(L10n.t("history.title", history.count))
                     .font(.headline)
                     .fontWeight(.bold)
                 Spacer()
@@ -37,7 +37,7 @@ struct HistoryView: View {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.system(size: 60))
                         .foregroundColor(.gray)
-                    Text("暂无历史记录")
+                    Text(L10n.t("history.empty"))
                         .foregroundColor(.gray)
                         .font(.system(size: 16))
                 }
@@ -62,19 +62,19 @@ struct HistoryView: View {
                 }
             }
         }
-        .alert("删除记录", isPresented: Binding(
+        .alert(L10n.t("history.delete_title"), isPresented: Binding(
             get: { entryToDelete != nil },
             set: { if !$0 { entryToDelete = nil } }
         )) {
-            Button("取消", role: .cancel) { entryToDelete = nil }
-            Button("删除", role: .destructive) {
+            Button(L10n.t("history.cancel"), role: .cancel) { entryToDelete = nil }
+            Button(L10n.t("history.delete"), role: .destructive) {
                 if let e = entryToDelete {
                     onItemDelete(e)
                     entryToDelete = nil
                 }
             }
         } message: {
-            Text("确定删除这条历史记录？\n视频文件也会被删除。")
+            Text(L10n.t("history.delete_message"))
         }
     }
 }

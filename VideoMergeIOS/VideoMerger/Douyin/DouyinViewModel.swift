@@ -38,12 +38,12 @@ final class DouyinViewModel: ObservableObject {
         guard !uiState.isProcessing else { return }
         let text = uiState.input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
-            uiState.errorMessage = "请先粘贴分享文案或链接"
+            uiState.errorMessage = L10n.t("douyin.error_empty_input")
             return
         }
 
         uiState.isProcessing = true
-        uiState.stage = "解析链接中..."
+        uiState.stage = L10n.t("douyin.stage_parsing")
         uiState.progress = -1
         uiState.title = ""
         uiState.author = ""
@@ -58,13 +58,13 @@ final class DouyinViewModel: ObservableObject {
             do {
                 // 1. 解析链接与元数据(解析器为非隔离 async,网络与 JSON 均在后台线程)
                 guard let link = DouyinParser.extractShareURL(from: text) else {
-                    throw DouyinError.parseFailed("未在文案中找到视频链接,请重新复制分享文案")
+                    throw DouyinError.parseFailed(L10n.t("douyin.error_no_link_found"))
                 }
                 let info = try await DouyinParser.resolveAndFetch(shareLink: link)
                 self.uiState.title = info.title
                 self.uiState.author = info.author
                 self.uiState.durationMs = info.durationMs
-                self.uiState.stage = "下载视频中..."
+                self.uiState.stage = L10n.t("douyin.stage_downloading")
 
                 // 2. 下载到缓存(进度回调在代理线程,跳回主线程刷新)
                 let dest = FileManager.default.temporaryDirectory
@@ -106,7 +106,7 @@ final class DouyinViewModel: ObservableObject {
             } catch {
                 await MainActor.run { [weak self] in
                     self?.uiState.isSaving = false
-                    self?.uiState.errorMessage = "保存到相册失败:\(error.localizedDescription)"
+                    self?.uiState.errorMessage = L10n.t("douyin.error_save_failed", error.localizedDescription)
                 }
             }
         }

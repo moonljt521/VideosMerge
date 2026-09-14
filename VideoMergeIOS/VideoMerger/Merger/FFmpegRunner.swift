@@ -73,24 +73,24 @@ final class FFmpegRunner {
 
     private func handleComplete(_ session: FFmpegSession?) {
         guard let session = session else {
-            onComplete(FFmpegResult(success: false, message: "会话为空", returnCode: -1))
+            onComplete(FFmpegResult(success: false, message: L10n.t("merger.error_session_empty"), returnCode: -1))
             return
         }
         guard let rc = session.getReturnCode() else {
-            onComplete(FFmpegResult(success: false, message: "返回码为空", returnCode: -1))
+            onComplete(FFmpegResult(success: false, message: L10n.t("merger.error_rc_empty"), returnCode: -1))
             return
         }
 
         if ReturnCode.isSuccess(rc) {
-            onComplete(FFmpegResult(success: true, message: "合并完成", returnCode: Int(rc.getValue())))
+            onComplete(FFmpegResult(success: true, message: L10n.t("merger.status_complete"), returnCode: Int(rc.getValue())))
         } else if ReturnCode.isCancel(rc) {
-            onComplete(FFmpegResult(success: false, message: "已取消", returnCode: Int(rc.getValue())))
+            onComplete(FFmpegResult(success: false, message: L10n.t("merger.status_cancelled"), returnCode: Int(rc.getValue())))
         } else {
             let logs = session.getAllLogsAsString() ?? ""
-            print("FFmpeg 失败: returnCode=\(rc.getValue())\n\(logs)")
+            print(L10n.t("merger.log_ffmpeg_fail", Int(rc.getValue()), logs))
             onComplete(FFmpegResult(
                 success: false,
-                message: "合并失败 (code=\(rc.getValue()))",
+                message: L10n.t("merger.status_failed", Int(rc.getValue())),
                 returnCode: Int(rc.getValue())
             ))
         }

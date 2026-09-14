@@ -20,7 +20,7 @@ enum DouyinError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .badLink: return "链接无效"
+        case .badLink: return L10n.t("douyin.error_bad_link")
         case .parseFailed(let msg): return msg
         }
     }
@@ -47,7 +47,7 @@ enum DouyinParser {
     static func resolveAndFetch(shareLink: String) async throws -> VideoInfo {
         let pageURL = try await resolveRedirect(shareLink)
         guard let videoID = extractVideoID(from: pageURL) else {
-            throw DouyinError.parseFailed("无法从链接中提取视频 ID,请确认是作品分享链接")
+            throw DouyinError.parseFailed(L10n.t("douyin.error_no_video_id"))
         }
         return try await fetchVideoInfo(videoID: videoID)
     }
@@ -105,20 +105,20 @@ enum DouyinParser {
 
         let (data, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
-            throw DouyinError.parseFailed("解析失败:接口请求失败,请稍后重试")
+            throw DouyinError.parseFailed(L10n.t("douyin.error_request"))
         }
 
         guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let list = root["aweme_list"] as? [[String: Any]],
               let item = list.first else {
-            throw DouyinError.parseFailed("解析失败:视频不存在或已删除(私密视频无法解析)")
+            throw DouyinError.parseFailed(L10n.t("douyin.error_not_found"))
         }
         guard let video = item["video"] as? [String: Any] else {
-            throw DouyinError.parseFailed("该链接是图集/图文作品,暂不支持")
+            throw DouyinError.parseFailed(L10n.t("douyin.error_album_post"))
         }
         guard let playAddr = video["play_addr"] as? [String: Any],
               let rawURLs = playAddr["url_list"] as? [String] else {
-            throw DouyinError.parseFailed("解析失败:未找到播放地址")
+            throw DouyinError.parseFailed(L10n.t("douyin.error_no_play_url"))
         }
 
         let fixed = rawURLs
@@ -128,7 +128,7 @@ enum DouyinParser {
         let cdn = fixed.filter { !$0.contains("video_id=") }
         let candidates = stable + cdn
         guard !candidates.isEmpty else {
-            throw DouyinError.parseFailed("解析失败:播放地址为空")
+            throw DouyinError.parseFailed(L10n.t("douyin.error_empty_play_url"))
         }
 
         let author = (item["author"] as? [String: Any])?["nickname"] as? String ?? ""
@@ -146,7 +146,7 @@ enum DouyinParser {
     /// 依次尝试候选地址下载到 dest,回调进度 0~1(nil = 总长未知)
     static func downloadVideo(from urls: [String], to dest: URL,
                               onProgress: @escaping (Double?) -> Void) async throws {
-        var lastError: Error = DouyinError.parseFailed("视频下载失败:所有地址均不可用")
+        var lastError: Error = DouyinError.parseFailed(L10n.t("douyin.error_download_all_failed"))
         for u in urls {
             guard let url = URL(string: u) else { continue }
             do {
@@ -183,7 +183,7 @@ enum DouyinParser {
         try FileManager.default.moveItem(at: location, to: dest)
         let size = (try? FileManager.default.attributesOfItem(atPath: dest.path)[.size] as? NSNumber)?.int64Value ?? 0
         if size == 0 {
-            throw DouyinError.parseFailed("下载内容为空")
+            throw DouyinError.parseFailed(L10n.t("douyin.error_empty_download"))
         }
     }
 
