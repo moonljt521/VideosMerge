@@ -56,6 +56,13 @@ enum AdConfig {
     static let appOpenCooldown: TimeInterval = 180
     /// 开屏广告有效期（秒），超时重新加载
     static let appOpenValidDuration: TimeInterval = 4 * 3600
+
+    /// 真机调试用测试设备 ID（仅 DEBUG 生效）：避免真机点正式广告产生无效流量风险
+    /// 获取方式：真机跑一次 App，Xcode 控制台搜索 "To enable test ads on this device"，
+    /// 把打印的哈希串填进下面数组（模拟器自动视为测试设备，无需配置）
+    static let debugTestDeviceIdentifiers: [String] = [
+        "e4c043cf741fbf0a127aff1322d5fd3a",
+    ]
 }
 
 // MARK: - 远程配置
@@ -157,6 +164,13 @@ final class AdsManager: NSObject, ObservableObject {
         guard ConsentInformation.shared.canRequestAds else { return }
         ATTrackingManager.requestTrackingAuthorization { _ in
             DispatchQueue.main.async {
+                #if DEBUG
+                // 真机调试：注册测试设备，广告显示 "Test mode"，不产生无效流量
+                if !AdConfig.debugTestDeviceIdentifiers.isEmpty {
+                    MobileAds.shared.requestConfiguration.testDeviceIdentifiers =
+                        AdConfig.debugTestDeviceIdentifiers
+                }
+                #endif
                 MobileAds.shared.start { _ in
                     DispatchQueue.main.async {
                         self.bannerEnabled = true
