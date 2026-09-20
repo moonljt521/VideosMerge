@@ -26,16 +26,17 @@ enum AppAnalytics {
         Analytics.logEvent(name, parameters: params.isEmpty ? nil : params)
     }
 
-    // 抖音解析漏斗：start → success/error → save → share
-    static func douyinParseStart() { log("douyin_parse_start") }
-    static func douyinParseSuccess(durationMs: Int) {
-        log("douyin_parse_success", ["duration_ms": durationMs])
+    // 去水印解析漏斗：start → success/error → save → share
+    // platform 为 LinkParser.id(douyin / ...),用于区分哪个平台的接口先失效
+    static func linkParseStart(platform: String) { log("link_parse_start", ["platform": platform]) }
+    static func linkParseSuccess(platform: String, durationMs: Int) {
+        log("link_parse_success", ["platform": platform, "duration_ms": durationMs])
     }
-    static func douyinParseError(_ message: String) {
-        log("douyin_parse_error", ["message": String(message.prefix(100))])
+    static func linkParseError(platform: String, message: String) {
+        log("link_parse_error", ["platform": platform, "message": String(message.prefix(100))])
     }
-    static func douyinSaveSuccess() { log("douyin_save_success") }
-    static func douyinShareTap() { log("douyin_share_tap") }
+    static func linkSaveSuccess(platform: String) { log("link_save_success", ["platform": platform]) }
+    static func linkShareTap(platform: String) { log("link_share_tap", ["platform": platform]) }
 
     // 其他核心功能
     static func mergeExportSuccess(_ mergeType: String) {
@@ -75,8 +76,10 @@ final class RemoteConfig: ObservableObject {
         string: "https://moonljt521.github.io/VideosMerge/app-config.json"
     )!
 
-    /// 抖音解析入口开关：远端置 false 可整体降级该功能（App Store 合规预案）
-    @Published var douyinParserEnabled: Bool = true
+    /// 去水印入口开关：远端置 false 可整体降级该功能（App Store 合规预案）
+    /// 远端键仍叫 douyin_parser_enabled —— 线上 app-config.json 用的是这个键名，
+    /// 改名会让已部署的紧急降级开关静默失效，接入第二个平台时再一并切换
+    @Published var linkParserEnabled: Bool = true
     /// 广告总开关：远端可一键关闭全部广告
     @Published var adsEnabled: Bool = true
 
@@ -95,7 +98,7 @@ final class RemoteConfig: ObservableObject {
                   let flags = json["feature_flags"] as? [String: Any] else { return }
             DispatchQueue.main.async {
                 if let v = flags["douyin_parser_enabled"] as? Bool {
-                    self.douyinParserEnabled = v
+                    self.linkParserEnabled = v
                 }
                 if let v = flags["ads_enabled"] as? Bool {
                     self.adsEnabled = v

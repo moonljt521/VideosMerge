@@ -43,7 +43,15 @@ enum L10nFeatures {
             "douyin.error_no_link_found":  "未在文案中找到视频链接,请重新复制分享文案",
             "douyin.error_save_failed":    "保存到相册失败:%@",
             "douyin.stage_parsing":        "解析链接中...",
+            "douyin.error_too_large":      "视频约 %@,超过单次下载上限 %@,已停止下载",
             "douyin.stage_downloading":    "下载视频中...",
+
+            // MARK: - 第二平台解析(商店合规:文案不得出现任何第三方平台名/商标)
+            "bilibili.error_no_video_id":  "无法从链接中提取视频编号,请确认是作品分享链接",
+            "bilibili.error_not_found":    "解析失败:视频不存在、已删除,或需登录/会员才能观看",
+            "bilibili.error_no_play_url":  "解析失败:未找到可下载地址(付费或受限内容不支持)",
+            "bilibili.error_multi_part":   "该作品为多集投稿,暂只支持单集视频",
+            "bilibili.error_segmented":    "该视频被拆成多段存放,暂不支持",
 
             // MARK: - 视频转 GIF
             "gif.nav_title":          "视频转GIF",
@@ -156,7 +164,14 @@ enum L10nFeatures {
             "douyin.error_no_link_found":  "No video link found in the text. Please copy the share text again",
             "douyin.error_save_failed":    "Failed to save to Photos: %@",
             "douyin.stage_parsing":        "Parsing link...",
+            "douyin.error_too_large":      "The video is about %@, over the %@ per-download limit, so it was not downloaded",
             "douyin.stage_downloading":    "Downloading video...",
+
+            "bilibili.error_no_video_id":  "Could not extract the video ID from the link. Make sure it is a share link of a video post",
+            "bilibili.error_not_found":    "Parse failed: video missing, deleted, or requires login/membership to watch",
+            "bilibili.error_no_play_url":  "Parse failed: no downloadable address found (paid or restricted content is not supported)",
+            "bilibili.error_multi_part":   "This post has multiple parts; only single-part videos are supported",
+            "bilibili.error_segmented":    "This video is stored in several segments, which is not supported",
 
             // MARK: - Video to GIF
             "gif.nav_title":          "Video to GIF",

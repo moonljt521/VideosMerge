@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4258FD0E57854429B26284D0 /* LinkParserRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E2B2191F9B84FAD84CBA3B1 /* LinkParserRegistryTests.swift */; };
 		00AAE57BB4731FE158031B2B /* ExportCommandWatermarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84221DE24FBCBE84D35DA4B0 /* ExportCommandWatermarkTests.swift */; };
 		200000000000000000000001 /* VideoMergerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000001 /* VideoMergerApp.swift */; };
 		200000000000000000000002 /* MergeTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000002 /* MergeTypes.swift */; };
@@ -51,9 +52,11 @@
 		2000000000000000000000EE /* WatermarkDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000EE /* WatermarkDetector.swift */; };
 		2000000000000000000000EF /* SpeechRecognizerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000EF /* SpeechRecognizerService.swift */; };
 		2000000000000000000000F0 /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F0 /* ImagePicker.swift */; };
+		2000000000000000000000F8 /* BilibiliParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F8 /* BilibiliParser.swift */; };
+		2000000000000000000000F7 /* LinkParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F7 /* LinkParser.swift */; };
 		2000000000000000000000F1 /* DouyinParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F1 /* DouyinParser.swift */; };
-		2000000000000000000000F2 /* DouyinViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F2 /* DouyinViewModel.swift */; };
-		2000000000000000000000F3 /* DouyinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F3 /* DouyinView.swift */; };
+		2000000000000000000000F2 /* LinkParseViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F2 /* LinkParseViewModel.swift */; };
+		2000000000000000000000F3 /* LinkParseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F3 /* LinkParseView.swift */; };
 		2000000000000000000000F5 /* AdSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F5 /* AdSupport.swift */; };
 		2000000000000000000000F6 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F6 /* GoogleService-Info.plist */; };
 		2000000000000000000001B0 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000001B0 /* SettingsView.swift */; };
@@ -90,6 +93,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		5E2B2191F9B84FAD84CBA3B1 /* LinkParserRegistryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LinkParserRegistryTests.swift; path = VideoMergerTests/LinkParserRegistryTests.swift; sourceTree = "<group>"; };
 		07A93845A7C16B3783C4CFC4 /* Pods_VideoMerger.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_VideoMerger.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		100000000000000000000001 /* VideoMergerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoMergerApp.swift; sourceTree = "<group>"; };
 		100000000000000000000002 /* MergeTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergeTypes.swift; sourceTree = "<group>"; };
@@ -136,9 +140,11 @@
 		1000000000000000000000EE /* WatermarkDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatermarkDetector.swift; sourceTree = "<group>"; };
 		1000000000000000000000EF /* SpeechRecognizerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognizerService.swift; sourceTree = "<group>"; };
 		1000000000000000000000F0 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
+		1000000000000000000000F8 /* BilibiliParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilibiliParser.swift; sourceTree = "<group>"; };
+		1000000000000000000000F7 /* LinkParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkParser.swift; sourceTree = "<group>"; };
 		1000000000000000000000F1 /* DouyinParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinParser.swift; sourceTree = "<group>"; };
-		1000000000000000000000F2 /* DouyinViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinViewModel.swift; sourceTree = "<group>"; };
-		1000000000000000000000F3 /* DouyinView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinView.swift; sourceTree = "<group>"; };
+		1000000000000000000000F2 /* LinkParseViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkParseViewModel.swift; sourceTree = "<group>"; };
+		1000000000000000000000F3 /* LinkParseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkParseView.swift; sourceTree = "<group>"; };
 		1000000000000000000000F5 /* AdSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdSupport.swift; sourceTree = "<group>"; };
 		1000000000000000000000F6 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		1000000000000000000001B0 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -240,7 +246,7 @@
 			children = (
 				100000000000000000000001 /* VideoMergerApp.swift */,
 				3000000000000000000000E1 /* Editor */,
-				3000000000000000000000F4 /* Douyin */,
+				3000000000000000000000F4 /* LinkParse */,
 				3000000000000000000000F5 /* Ads */,
 				3000000000000000000000D1 /* Gif */,
 				300000000000000000000003 /* Models */,
@@ -393,14 +399,16 @@
 			path = UI;
 			sourceTree = "<group>";
 		};
-		3000000000000000000000F4 /* Douyin */ = {
+		3000000000000000000000F4 /* LinkParse */ = {
 			isa = PBXGroup;
 			children = (
+				1000000000000000000000F8 /* BilibiliParser.swift */,
+				1000000000000000000000F7 /* LinkParser.swift */,
 				1000000000000000000000F1 /* DouyinParser.swift */,
-				1000000000000000000000F2 /* DouyinViewModel.swift */,
-				1000000000000000000000F3 /* DouyinView.swift */,
+				1000000000000000000000F2 /* LinkParseViewModel.swift */,
+				1000000000000000000000F3 /* LinkParseView.swift */,
 			);
-			path = Douyin;
+			path = LinkParse;
 			sourceTree = "<group>";
 		};
 		3000000000000000000000F5 /* Ads */ = {
@@ -424,6 +432,7 @@
 				9D4536A1F4462B5E1FF2CB37 /* TimelineLayoutTests.swift */,
 				7A1B2C3D4E5F60718293A4B5 /* GifCommandBuilderTests.swift */,
 				100000000000000000000019 /* MergeLayoutTests.swift */,
+				5E2B2191F9B84FAD84CBA3B1 /* LinkParserRegistryTests.swift */,
 			);
 			name = VideoMergerTests;
 			sourceTree = SOURCE_ROOT;
@@ -651,6 +660,7 @@
 				63468427957B2248900D5A35 /* TimelineLayoutTests.swift in Sources */,
 				8C2D3E4F5A6B708192A3B4C5 /* GifCommandBuilderTests.swift in Sources */,
 				200000000000000000000019 /* MergeLayoutTests.swift in Sources */,
+				4258FD0E57854429B26284D0 /* LinkParserRegistryTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -681,9 +691,11 @@
 				2000000000000000000001C3 /* L10nEditorUI.swift in Sources */,
 				2000000000000000000001C4 /* L10nEditorCore.swift in Sources */,
 				2000000000000000000001C5 /* L10nFeatures.swift in Sources */,
+				2000000000000000000000F8 /* BilibiliParser.swift in Sources */,
+				2000000000000000000000F7 /* LinkParser.swift in Sources */,
 				2000000000000000000000F1 /* DouyinParser.swift in Sources */,
-				2000000000000000000000F2 /* DouyinViewModel.swift in Sources */,
-				2000000000000000000000F3 /* DouyinView.swift in Sources */,
+				2000000000000000000000F2 /* LinkParseViewModel.swift in Sources */,
+				2000000000000000000000F3 /* LinkParseView.swift in Sources */,
 				2000000000000000000000F5 /* AdSupport.swift in Sources */,
 				2000000000000000000000D1 /* GifCommandBuilder.swift in Sources */,
 				2000000000000000000000D2 /* GifViewModel.swift in Sources */,

@@ -18,7 +18,7 @@ struct HomeView: View {
     @State private var showDraftDialog = false
     @State private var showEditor = false
     @State private var showMerge = false
-    @State private var showDouyin = false
+    @State private var showLinkParse = false
     @State private var showGif = false
     @State private var mergeInitialURLs: [URL] = []
     @State private var mergeHint: String? = nil
@@ -43,11 +43,11 @@ struct HomeView: View {
                              title: L10n.t("home.merge_entry_title"), subtitle: L10n.t("home.merge_entry_subtitle")) {
                         showMergePicker = true
                     }
-                    // 抖音解析入口受远程开关控制：App Store 审核风险出现时可热降级
-                    if remoteConfig.douyinParserEnabled {
+                    // 去水印入口受远程开关控制：App Store 审核风险出现时可热降级
+                    if remoteConfig.linkParserEnabled {
                         homeCard(icon: "music.note", iconColor: Color(hex: 0xFF26C6DA),
                                  title: L10n.t("home.douyin_title"), subtitle: L10n.t("home.douyin_subtitle")) {
-                            showDouyin = true
+                            showLinkParse = true
                         }
                     }
                     homeCard(icon: "photo.stack", iconColor: Color(hex: 0xFFFFA726),
@@ -136,8 +136,8 @@ struct HomeView: View {
             .navigationDestination(isPresented: $showMerge) {
                 MergeScreen(initialURLs: mergeInitialURLs)
             }
-            .navigationDestination(isPresented: $showDouyin) {
-                DouyinView()
+            .navigationDestination(isPresented: $showLinkParse) {
+                LinkParseView()
             }
             .navigationDestination(isPresented: $showGif) {
                 GifView()

@@ -33,11 +33,22 @@ A CapCut-style mobile editor:
 - Auto truncation of Douyin's trailing frozen-logo segment (`freezedetect`)
 - Canvas presets 1920×1080 / 1080×1920 / 1080×1080 / 4K, `libx264` software encoding
 
-### 💧 Douyin Watermark-free Parsing
+### 💧 Watermark-free Link Parsing (Douyin + Bilibili)
 
 Paste a share text → parse the watermark-free video → preview → save to Photos.
 
-Identical chain to Android: short link → video ID → mobile feed API → multi-candidate watermark-free URLs. See the header comment in [`Douyin/DouyinParser.swift`](VideoMerger/Douyin/DouyinParser.swift) for details.
+Douyin chain is identical to Android: short link → video ID → mobile feed API → multi-candidate
+watermark-free URLs. See the header comment in [`LinkParse/DouyinParser.swift`](VideoMerger/LinkParse/DouyinParser.swift).
+The Bilibili parser is iOS-only: `view` → `playurl?fnval=1` yields one progressive mp4 that already
+carries its audio track, unsigned and cookieless, capped at 720P while logged out.
+
+On iOS the platform sits behind a `LinkParser` protocol + `LinkParserRegistry`
+([`LinkParse/LinkParser.swift`](VideoMerger/LinkParse/LinkParser.swift)): the share text decides
+which parser handles it, so adding a platform means writing one parser and adding one registry
+entry — ViewModel and View stay untouched. Each parser supplies its own `requestHeaders`, since the
+CDNs are mutually incompatible (Bilibili 403s on the Douyin app UA and on a missing Referer).
+Downloads above `LinkParsePolicy.maxDownloadBytes` (150 MB) are refused before they start.
+Android has no equivalent layer yet.
 
 ## Project Layout
 
@@ -53,7 +64,8 @@ VideoMergeIOS/
     │   │                            #   watermark detection / speech recognition
     │   ├── Data/DraftStore.swift    #   draft persistence
     │   └── UI/                      #   editor screen / preview / timeline / panels
-    ├── Douyin/                      # Douyin parsing (Parser / ViewModel / View)
+    ├── LinkParse/                   # watermark-free link parsing: LinkParser protocol + registry
+    │                                #   / DouyinParser / BilibiliParser / ViewModel / View
     ├── Merger/                      # three merge algorithms + MergeEngine
     ├── Models/                      # merge types / metadata / history entry
     ├── UI/                          # merge screen / players / history / picker (incl. HomeView)

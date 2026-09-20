@@ -13,6 +13,7 @@
   },
 
   "feature_flags": {
+    "_note": "douyin_parser_enabled 现控制整个「短视频去水印」入口（不再只针对抖音），键名沿用以免旧版客户端的降级开关失效；接入第二个平台时再新增按平台的开关。",
     "douyin_parser_enabled": true,
     "ads_enabled": true
   },

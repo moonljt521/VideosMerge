@@ -1,16 +1,19 @@
 //
-//  DouyinViewModel.swift
+//  LinkParseViewModel.swift
 //  VideoMerger
 //
-//  iOS 移植自 Android DouyinViewModel.kt —— 抖音去水印页状态
+//  去水印页状态编排,移植自 Android DouyinViewModel.kt
+//  与具体平台无关:平台由 LinkParserRegistry 从分享文案里识别,再交给对应解析器
 //
 
 import Foundation
 import Combine
 
-/// 抖音去水印 UI 状态
-struct DouyinUiState: Equatable {
+/// 去水印 UI 状态
+struct LinkParseUiState: Equatable {
     var input: String = ""
+    /// 命中的解析平台 id;空 = 尚未识别出平台
+    var platformID = ""
     var isProcessing = false
     var stage = ""
     /// 下载进度 0~1;-1 表示无进度(解析阶段)
@@ -25,9 +28,9 @@ struct DouyinUiState: Equatable {
 }
 
 @MainActor
-final class DouyinViewModel: ObservableObject {
+final class LinkParseViewModel: ObservableObject {
 
-    @Published var uiState = DouyinUiState()
+    @Published var uiState = LinkParseUiState()
 
     func updateInput(_ text: String) {
         uiState.input = text
@@ -41,7 +44,13 @@ final class DouyinViewModel: ObservableObject {
             uiState.errorMessage = L10n.t("douyin.error_empty_input")
             return
         }
+        guard let match = LinkParserRegistry.detect(in: text) else {
+            uiState.errorMessage = L10n.t("douyin.error_no_link_found")
+            return
+        }
 
+        let parser = match.parser
+        uiState.platformID = parser.id
         uiState.isProcessing = true
         uiState.stage = L10n.t("douyin.stage_parsing")
         uiState.progress = -1
@@ -51,25 +60,30 @@ final class DouyinViewModel: ObservableObject {
         uiState.resultURL = nil
         uiState.isSaved = false
         uiState.errorMessage = nil
-        AppAnalytics.douyinParseStart()
+        AppAnalytics.linkParseStart(platform: parser.id)
 
         Task { [weak self] in
             guard let self else { return }
             do {
                 // 1. 解析链接与元数据(解析器为非隔离 async,网络与 JSON 均在后台线程)
-                guard let link = DouyinParser.extractShareURL(from: text) else {
-                    throw DouyinError.parseFailed(L10n.t("douyin.error_no_link_found"))
-                }
-                let info = try await DouyinParser.resolveAndFetch(shareLink: link)
+                let info = try await parser.parse(shareLink: match.shareURL)
                 self.uiState.title = info.title
                 self.uiState.author = info.author
                 self.uiState.durationMs = info.durationMs
+
+                // 体积闸门:超限就不发起下载,否则会留下一个永远走不完进度
+                if let bytes = info.sizeBytes, bytes > LinkParsePolicy.maxDownloadBytes {
+                    throw LinkParseError(L10n.t("douyin.error_too_large",
+                                                LinkParsePolicy.human(bytes),
+                                                LinkParsePolicy.human(LinkParsePolicy.maxDownloadBytes)))
+                }
                 self.uiState.stage = L10n.t("douyin.stage_downloading")
 
                 // 2. 下载到缓存(进度回调在代理线程,跳回主线程刷新)
+                let ts = Int(Date().timeIntervalSince1970 * 1000)
                 let dest = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("douyin_\(Int(Date().timeIntervalSince1970 * 1000)).mp4")
-                try await DouyinParser.downloadVideo(from: info.playURLs, to: dest) { [weak self] p in
+                    .appendingPathComponent("\(parser.id)_\(ts).mp4")
+                try await parser.download(urls: info.playURLs, to: dest) { [weak self] p in
                     Task { @MainActor [weak self] in
                         self?.uiState.progress = p ?? -1
                     }
@@ -79,12 +93,12 @@ final class DouyinViewModel: ObservableObject {
                 self.uiState.progress = 1
                 self.uiState.stage = ""
                 self.uiState.resultURL = dest
-                AppAnalytics.douyinParseSuccess(durationMs: info.durationMs)
+                AppAnalytics.linkParseSuccess(platform: parser.id, durationMs: info.durationMs)
             } catch {
                 self.uiState.isProcessing = false
                 self.uiState.stage = ""
                 self.uiState.errorMessage = error.localizedDescription
-                AppAnalytics.douyinParseError(error.localizedDescription)
+                AppAnalytics.linkParseError(platform: parser.id, message: error.localizedDescription)
             }
         }
     }
@@ -92,16 +106,17 @@ final class DouyinViewModel: ObservableObject {
     /// 保存到相册
     func saveResult() {
         guard let url = uiState.resultURL, !uiState.isSaving else { return }
+        let platform = uiState.platformID
         uiState.isSaving = true
         // MediaUtils.saveToGallery 内部用信号量阻塞等待,放到后台线程执行
         Task.detached(priority: .userInitiated) { [weak self] in
             do {
-                let name = "douyin_\(Int(Date().timeIntervalSince1970 * 1000)).mp4"
+                let name = "\(platform)_\(Int(Date().timeIntervalSince1970 * 1000)).mp4"
                 _ = try MediaUtils.saveToGallery(fileURL: url, displayName: name)
                 await MainActor.run { [weak self] in
                     self?.uiState.isSaving = false
                     self?.uiState.isSaved = true
-                    AppAnalytics.douyinSaveSuccess()
+                    AppAnalytics.linkSaveSuccess(platform: platform)
                 }
             } catch {
                 await MainActor.run { [weak self] in
@@ -117,7 +132,7 @@ final class DouyinViewModel: ObservableObject {
         if let url = uiState.resultURL {
             try? FileManager.default.removeItem(at: url)
         }
-        uiState = DouyinUiState(input: uiState.input)
+        uiState = LinkParseUiState(input: uiState.input)
     }
 
     func dismissError() {

@@ -1,16 +1,16 @@
 //
-//  DouyinView.swift
+//  LinkParseView.swift
 //  VideoMerger
 //
-//  iOS 移植自 Android DouyinScreen.kt —— 抖音去水印页
+//  iOS 移植自 Android DouyinScreen.kt —— 短视频去水印页(平台由分享文案自动识别)
 //  粘贴分享文案 → 解析 → 下载 → 预览播放 → 保存到相册 / 系统分享
 //
 
 import SwiftUI
 import UIKit
 
-struct DouyinView: View {
-    @StateObject private var viewModel = DouyinViewModel()
+struct LinkParseView: View {
+    @StateObject private var viewModel = LinkParseViewModel()
     @State private var showFullscreen = false
     @FocusState private var inputFocused: Bool
 
@@ -201,7 +201,9 @@ struct DouyinView: View {
                     .background(Color(hex: 0xFF2A2A2A)).foregroundColor(.white)
                     .cornerRadius(12)
                 }
-                .simultaneousGesture(TapGesture().onEnded { AppAnalytics.douyinShareTap() })
+                .simultaneousGesture(TapGesture().onEnded {
+                    AppAnalytics.linkShareTap(platform: viewModel.uiState.platformID)
+                })
             }
             if !viewModel.uiState.isSaving && !viewModel.uiState.isSaved {
                 Text(L10n.t("douyin.result_hint"))
