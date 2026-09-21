@@ -1,4 +1,4 @@
-package com.moon.videomerger.douyin
+package com.moon.videomerger.linkparse
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -13,10 +13,11 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * 抖音去水印 UI 状态。
+ * 去水印 UI 状态。与具体平台无关——平台由 [LinkParserRegistry] 从分享文案里识别。
  */
-data class DouyinUiState(
+data class LinkParseUiState(
     val input: String = "",
+    val platformId: String = "",    // 命中的解析平台 id；空 = 尚未识别出平台
     val isProcessing: Boolean = false,
     val stage: String = "",          // 当前阶段文案（解析链接中/下载视频中）
     val progress: Float = -1f,       // 下载进度 0~1；-1 表示无进度（解析阶段）
@@ -29,10 +30,10 @@ data class DouyinUiState(
     val errorMessage: String? = null
 )
 
-class DouyinViewModel(app: Application) : AndroidViewModel(app) {
+class LinkParseViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val _uiState = MutableStateFlow(DouyinUiState())
-    val uiState: StateFlow<DouyinUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(LinkParseUiState())
+    val uiState: StateFlow<LinkParseUiState> = _uiState.asStateFlow()
 
     fun updateInput(text: String) {
         _uiState.value = _uiState.value.copy(input = text)
@@ -46,9 +47,16 @@ class DouyinViewModel(app: Application) : AndroidViewModel(app) {
             _uiState.value = state.copy(errorMessage = "请先粘贴分享文案或链接")
             return
         }
+        val routing = LinkParserRegistry.detect(state.input)
+        if (routing == null) {
+            _uiState.value = state.copy(errorMessage = "未在文案中找到视频链接，请重新复制分享文案")
+            return
+        }
+        val parser = routing.parser
 
         viewModelScope.launch {
             _uiState.value = state.copy(
+                platformId = parser.id,
                 isProcessing = true,
                 stage = "解析链接中...",
                 progress = -1f,
@@ -60,13 +68,15 @@ class DouyinViewModel(app: Application) : AndroidViewModel(app) {
                 errorMessage = null
             )
             try {
-                val info = withContext(Dispatchers.IO) {
-                    val url = DouyinParser.extractShareUrl(state.input)
-                        ?: throw IllegalStateException("未在文案中找到视频链接，请重新复制分享文案")
-                    val pageUrl = DouyinParser.resolveRedirect(url)
-                    val videoId = DouyinParser.extractVideoId(pageUrl)
-                        ?: throw IllegalStateException("无法从链接中提取视频 ID，请确认是作品分享链接")
-                    DouyinParser.fetchVideoInfo(videoId)
+                val info = withContext(Dispatchers.IO) { parser.parse(routing.shareUrl) }
+
+                // 体积闸门：超限就不发起下载，否则会留下一个永远走不完的进度
+                val bytes = info.sizeBytes
+                if (bytes != null && bytes > LinkParsePolicy.MAX_DOWNLOAD_BYTES) {
+                    throw LinkParseException(
+                        "视频约 ${LinkParsePolicy.human(bytes)}，" +
+                                "超过单次下载上限 ${LinkParsePolicy.human(LinkParsePolicy.MAX_DOWNLOAD_BYTES)}，已停止下载"
+                    )
                 }
 
                 _uiState.value = _uiState.value.copy(
@@ -78,10 +88,10 @@ class DouyinViewModel(app: Application) : AndroidViewModel(app) {
 
                 val dest = File(
                     getApplication<Application>().cacheDir,
-                    "douyin_${System.currentTimeMillis()}.mp4"
+                    "${parser.id}_${System.currentTimeMillis()}.mp4"
                 )
                 withContext(Dispatchers.IO) {
-                    DouyinParser.downloadVideo(info.playUrls, dest) { p ->
+                    parser.download(info.playUrls, dest) { p ->
                         val v = p ?: -1f
                         val cur = _uiState.value.progress
                         // 按整数百分比过滤，减少高频回调触发的重组
@@ -110,13 +120,14 @@ class DouyinViewModel(app: Application) : AndroidViewModel(app) {
     /** 保存到相册 Movies/VideoMerger/ */
     fun saveResult() {
         val file = _uiState.value.resultFile ?: return
+        val platform = _uiState.value.platformId.ifBlank { "video" }
+        _uiState.value = _uiState.value.copy(isSaving = true)
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSaving = true)
             val ok = withContext(Dispatchers.IO) {
                 MediaUtils.saveToGallery(
                     getApplication(),
                     file,
-                    "douyin_${System.currentTimeMillis()}.mp4"
+                    "${platform}_${System.currentTimeMillis()}.mp4"
                 ) != null
             }
             _uiState.value = if (ok) {
@@ -130,13 +141,13 @@ class DouyinViewModel(app: Application) : AndroidViewModel(app) {
     /** 清除结果，回到输入态 */
     fun clearResult() {
         _uiState.value.resultFile?.delete()
-        _uiState.value = DouyinUiState(input = _uiState.value.input)
+        _uiState.value = LinkParseUiState(input = _uiState.value.input)
     }
 
     /** 离开页面时清空整个会话：输入、结果与缓存文件 */
     fun resetAll() {
         _uiState.value.resultFile?.delete()
-        _uiState.value = DouyinUiState()
+        _uiState.value = LinkParseUiState()
     }
 
     fun dismissError() {

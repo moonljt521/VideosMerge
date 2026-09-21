@@ -51,7 +51,7 @@ which parser handles it, so adding a platform means writing one parser and addin
 entry — ViewModel and View stay untouched. Each parser supplies its own `requestHeaders`, since the
 CDNs are mutually incompatible (Bilibili 403s on the Douyin app UA and on a missing Referer).
 Downloads above `LinkParsePolicy.maxDownloadBytes` (150 MB) are refused before they start.
-Android has no equivalent layer yet.
+Android mirrors the same layer in `linkparse/` (`LinkParser.kt`).
 
 ## Project Layout
 

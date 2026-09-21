@@ -29,7 +29,7 @@ import com.moon.videomerger.editor.data.DraftStore
 fun HomeScreen(
     onNewProject: (List<Uri>) -> Unit,
     onOpenMerge: (List<Uri>) -> Unit,
-    onOpenDouyin: () -> Unit,
+    onOpenLinkParse: () -> Unit,
     onOpenGif: () -> Unit,
     onOpenHistory: () -> Unit,
     draftInfo: DraftStore.DraftInfo?,
@@ -204,7 +204,7 @@ fun HomeScreen(
                     .height(110.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(Color(0xFF1A1A1A))
-                    .clickable { onOpenDouyin() },
+                    .clickable { onOpenLinkParse() },
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {

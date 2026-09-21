@@ -26,15 +26,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.moon.videomerger.douyin.DouyinViewModel
+import com.moon.videomerger.linkparse.LinkParseViewModel
 
 /**
  * 抖音去水印页面：粘贴分享文案 → 解析 → 下载 → 预览播放 → 保存到相册 / 系统分享。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DouyinScreen(
-    viewModel: DouyinViewModel = viewModel(),
+fun LinkParseScreen(
+    viewModel: LinkParseViewModel = viewModel(),
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -118,7 +118,7 @@ fun DouyinScreen(
 
             // ── 2. 进度 ──
             if (uiState.isProcessing) {
-                DouyinProgressSection(
+                LinkParseProgressSection(
                     stage = uiState.stage,
                     progress = uiState.progress
                 )
@@ -127,7 +127,7 @@ fun DouyinScreen(
 
             // ── 3. 结果预览 ──
             uiState.resultFile?.let { file ->
-                DouyinResultSection(
+                LinkParseResultSection(
                     title = uiState.title,
                     author = uiState.author,
                     durationMs = uiState.durationMs,
@@ -145,7 +145,7 @@ fun DouyinScreen(
 
             // ── 4. 错误 ──
             uiState.errorMessage?.let { msg ->
-                DouyinErrorSection(message = msg) { viewModel.dismissError() }
+                LinkParseErrorSection(message = msg) { viewModel.dismissError() }
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
@@ -252,7 +252,7 @@ private fun InputSection(
 // ──────────────────────────────────────────────────────────
 
 @Composable
-private fun DouyinProgressSection(stage: String, progress: Float) {
+private fun LinkParseProgressSection(stage: String, progress: Float) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -296,7 +296,7 @@ private fun DouyinProgressSection(stage: String, progress: Float) {
 // ──────────────────────────────────────────────────────────
 
 @Composable
-private fun DouyinResultSection(
+private fun LinkParseResultSection(
     title: String,
     author: String,
     durationMs: Long,
@@ -457,7 +457,7 @@ private fun DouyinResultSection(
 // ──────────────────────────────────────────────────────────
 
 @Composable
-private fun DouyinErrorSection(message: String, onDismiss: () -> Unit) {
+private fun LinkParseErrorSection(message: String, onDismiss: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),

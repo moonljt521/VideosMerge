@@ -133,6 +133,9 @@ dependencies {
 
     // 单元测试 —— 时间轴布局 / 转场重叠等纯数学逻辑
     testImplementation("junit:junit:4.13.2")
+    // 单元测试里 android.jar 的 org.json 是桩（isReturnDefaultValues 让它只返回默认值），
+    // 补一份真实现，linkparse 的解析器才能在 JVM 里跑真实接口
+    testImplementation("org.json:json:20231013")
 }
 
 // ── 打包 Task：生成带签名的 release APK，输出到 outputs/ 目录 ──

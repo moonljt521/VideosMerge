@@ -94,7 +94,7 @@ python3 trim_video.py --help
 
 ## Technical Notes
 
-- **Mirrored codebase**: Android (Kotlin/Compose) and iOS (Swift/SwiftUI) modules map 1:1 — `Merger/`, `Editor/Engine/`, `Util/` — with identical algorithm parameters. Link parsing is `douyin/` on Android but `LinkParse/` on iOS, where the platform sits behind a `LinkParser` protocol + registry
+- **Mirrored codebase**: Android (Kotlin/Compose) and iOS (Swift/SwiftUI) modules map 1:1 — `Merger/`, `Editor/Engine/`, `Util/` — with identical algorithm parameters. link parsing sits behind a `LinkParser` protocol + registry on both (`linkparse/` on Android, `LinkParse/` on iOS)
 - **FFmpegKit full-gpl**: full x264/aac codec set; Android APK kept at ~17MB via ABI filtering + R8
 - **Parser resilience**: multi-candidate watermark-free URLs (stable `video_id` form first), app UA on every request, graceful failure messages
 
