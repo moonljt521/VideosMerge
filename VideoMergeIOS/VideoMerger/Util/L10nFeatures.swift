@@ -53,6 +53,11 @@ enum L10nFeatures {
             "bilibili.error_multi_part":   "该作品为多集投稿,暂只支持单集视频",
             "bilibili.error_segmented":    "该视频被拆成多段存放,暂不支持",
 
+            "twitter.error_no_video_id":   "无法从链接中提取内容编号,请确认是作品分享链接",
+            "twitter.error_not_found":     "解析失败:内容不存在、已删除,或作者设为私密",
+            "twitter.error_no_video":      "该链接没有可下载的视频(纯文字或图片作品)",
+            "twitter.error_no_play_url":   "解析失败:未找到可下载地址",
+
             // MARK: - 视频转 GIF
             "gif.nav_title":          "视频转GIF",
             "gif.pick_title":         "点击选择视频",
@@ -172,6 +177,11 @@ enum L10nFeatures {
             "bilibili.error_no_play_url":  "Parse failed: no downloadable address found (paid or restricted content is not supported)",
             "bilibili.error_multi_part":   "This post has multiple parts; only single-part videos are supported",
             "bilibili.error_segmented":    "This video is stored in several segments, which is not supported",
+
+            "twitter.error_no_video_id":   "Could not extract the post ID from the link. Make sure it is a share link of a post",
+            "twitter.error_not_found":     "Parse failed: post missing, deleted, or the author's account is private",
+            "twitter.error_no_video":      "This link has no downloadable video (text or image post)",
+            "twitter.error_no_play_url":   "Parse failed: no downloadable address found",
 
             // MARK: - Video to GIF
             "gif.nav_title":          "Video to GIF",

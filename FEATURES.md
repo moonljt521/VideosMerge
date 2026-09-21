@@ -91,6 +91,7 @@
 | 44 | 抖音分享链接解析（去水印下载） | ✅ | ✅ | 短链→视频ID→feed 接口→无水印播放地址；下载必须带 App UA；图集/图文暂不支持 |
 | 45 | 视频站（B站）链接解析下载 | ❌ | ✅ | 未登录、无 Cookie、无 Wbi 签名：view→playurl `fnval=1` 取音视频合一 mp4；未登录封顶 720P；多 P/分段/付费不支持 |
 | 46 | 下载体积闸门 | ❌ | ✅ | `LinkParsePolicy.maxDownloadBytes = 150MB`，解析后、下载前拦截；接口不报体积的平台（抖音 feed）自动跳过 |
+| 47 | X（推特）链接解析下载 | ❌ | ✅ | 走推特自己的 `cdn.syndication.twimg.com/tweet-result`，无需登录/API Key；variants 按 URL 里的 `WxH` 挑最高档 mp4（实测 720P、音视频合一）；体积靠一次 HEAD 取 Content-Length。**x.com 在中国大陆不可达，测试需出境网络** |
 
 > iOS 侧已抽出 `LinkParser` 协议 + `LinkParserRegistry`（`VideoMerger/LinkParse/`），按分享文案自动路由，接新平台只需一个解析器文件 + 注册表一行；Android 仍是抖音单实现。
 > App 内文案与商店文案一律不出现第三方平台名（见 `docs/appstore-listing.md`）。

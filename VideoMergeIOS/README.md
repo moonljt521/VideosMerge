@@ -33,7 +33,7 @@ A CapCut-style mobile editor:
 - Auto truncation of Douyin's trailing frozen-logo segment (`freezedetect`)
 - Canvas presets 1920×1080 / 1080×1920 / 1080×1080 / 4K, `libx264` software encoding
 
-### 💧 Watermark-free Link Parsing (Douyin + Bilibili)
+### 💧 Watermark-free Link Parsing (Douyin + Bilibili + X)
 
 Paste a share text → parse the watermark-free video → preview → save to Photos.
 
@@ -41,6 +41,9 @@ Douyin chain is identical to Android: short link → video ID → mobile feed AP
 watermark-free URLs. See the header comment in [`LinkParse/DouyinParser.swift`](VideoMerger/LinkParse/DouyinParser.swift).
 The Bilibili parser is iOS-only: `view` → `playurl?fnval=1` yields one progressive mp4 that already
 carries its audio track, unsigned and cookieless, capped at 720P while logged out.
+The X parser rides Twitter's own embed endpoint (`cdn.syndication.twimg.com/tweet-result`), needs no
+login or API key, and ranks the mp4 variants by the `WxH` written in their URLs. Note x.com is
+unreachable from mainland China, so testing it needs an egress network.
 
 On iOS the platform sits behind a `LinkParser` protocol + `LinkParserRegistry`
 ([`LinkParse/LinkParser.swift`](VideoMerger/LinkParse/LinkParser.swift)): the share text decides

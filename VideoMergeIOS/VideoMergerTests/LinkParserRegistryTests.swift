@@ -57,4 +57,25 @@ final class LinkParserRegistryTests: XCTestCase {
         let bili = "【微电影】https://www.bilibili.com/video/BV1SveU6GExV"
         XCTAssertEqual(LinkParserRegistry.detect(in: bili)?.parser.id, "bilibili")
     }
+
+    // MARK: - 第三平台
+
+    func testX分享文案路由到第三解析器() {
+        let text = "看看我在X上发现的好内容 https://x.com/macrotradecn/status/2101664353745580481?s=20"
+        let match = LinkParserRegistry.detect(in: text)
+        XCTAssertEqual(match?.parser.id, "twitter")
+        // 查询参数不该被算进链接本身
+        XCTAssertEqual(match?.shareURL, "https://x.com/macrotradecn/status/2101664353745580481")
+    }
+
+    func testX旧域名同样认领() {
+        XCTAssertEqual(TwitterLinkParser().extractShareURL(from: "https://twitter.com/foo/status/123"),
+                       "https://twitter.com/foo/status/123")
+    }
+
+    func testX站内非作品路径不认领() {
+        XCTAssertNil(TwitterLinkParser().extractShareURL(from: "https://x.com/privacy"))
+        XCTAssertNil(TwitterLinkParser().extractShareURL(from: "https://x.com/foo/bar/123"))
+        XCTAssertNil(LinkParserRegistry.detect(in: "https://x.com/home")?.parser.id)
+    }
 }

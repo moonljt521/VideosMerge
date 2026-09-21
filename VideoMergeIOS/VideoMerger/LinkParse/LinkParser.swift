@@ -93,6 +93,11 @@ extension LinkParser {
         try await LinkNetwork.requestJSON(urlString, headers: requestHeaders, timeout: timeout)
     }
 
+    /// 探一下文件多大;探不到返回 nil,体积闸门随之跳过
+    func probeSize(of urlString: String) async -> Int64? {
+        await LinkNetwork.contentLength(urlString, headers: requestHeaders)
+    }
+
     /// 正则取首个匹配
     func firstMatch(_ pattern: String, in text: String) -> String? {
         guard let re = try? NSRegularExpression(pattern: pattern) else { return nil }
@@ -131,6 +136,18 @@ enum LinkNetwork {
             throw LinkParseError(L10n.t("douyin.error_request"))
         }
         return json
+    }
+
+    /// 只为拿文件大小的一次 HEAD;拿不到就返回 nil,调用方据此跳过体积闸门
+    static func contentLength(_ urlString: String, headers: DownloadHeaders) async -> Int64? {
+        guard let url = URL(string: urlString) else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "HEAD"
+        apply(headers, to: &req)
+        req.timeoutInterval = 10
+        guard let http = try? await URLSession.shared.data(for: req).1 as? HTTPURLResponse,
+              http.statusCode == 200 else { return nil }
+        return http.value(forHTTPHeaderField: "Content-Length").flatMap { Int64($0) }
     }
 
     static func download(urls: [String], to dest: URL, headers: DownloadHeaders,
@@ -251,6 +268,7 @@ enum LinkParserRegistry {
     static let parsers: [LinkParser] = [
         DouyinLinkParser(),
         BilibiliLinkParser(),
+        TwitterLinkParser(),
     ]
 
     /// 找出文案里首个可识别的平台及其链接;全部识别失败返回 nil

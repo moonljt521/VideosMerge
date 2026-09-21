@@ -52,6 +52,7 @@
 		2000000000000000000000EE /* WatermarkDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000EE /* WatermarkDetector.swift */; };
 		2000000000000000000000EF /* SpeechRecognizerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000EF /* SpeechRecognizerService.swift */; };
 		2000000000000000000000F0 /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F0 /* ImagePicker.swift */; };
+		2000000000000000000000F9 /* TwitterParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F9 /* TwitterParser.swift */; };
 		2000000000000000000000F8 /* BilibiliParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F8 /* BilibiliParser.swift */; };
 		2000000000000000000000F7 /* LinkParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F7 /* LinkParser.swift */; };
 		2000000000000000000000F1 /* DouyinParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F1 /* DouyinParser.swift */; };
@@ -140,6 +141,7 @@
 		1000000000000000000000EE /* WatermarkDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatermarkDetector.swift; sourceTree = "<group>"; };
 		1000000000000000000000EF /* SpeechRecognizerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognizerService.swift; sourceTree = "<group>"; };
 		1000000000000000000000F0 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
+		1000000000000000000000F9 /* TwitterParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TwitterParser.swift; sourceTree = "<group>"; };
 		1000000000000000000000F8 /* BilibiliParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilibiliParser.swift; sourceTree = "<group>"; };
 		1000000000000000000000F7 /* LinkParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkParser.swift; sourceTree = "<group>"; };
 		1000000000000000000000F1 /* DouyinParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouyinParser.swift; sourceTree = "<group>"; };
@@ -402,6 +404,7 @@
 		3000000000000000000000F4 /* LinkParse */ = {
 			isa = PBXGroup;
 			children = (
+				1000000000000000000000F9 /* TwitterParser.swift */,
 				1000000000000000000000F8 /* BilibiliParser.swift */,
 				1000000000000000000000F7 /* LinkParser.swift */,
 				1000000000000000000000F1 /* DouyinParser.swift */,
@@ -691,6 +694,7 @@
 				2000000000000000000001C3 /* L10nEditorUI.swift in Sources */,
 				2000000000000000000001C4 /* L10nEditorCore.swift in Sources */,
 				2000000000000000000001C5 /* L10nFeatures.swift in Sources */,
+				2000000000000000000000F9 /* TwitterParser.swift in Sources */,
 				2000000000000000000000F8 /* BilibiliParser.swift in Sources */,
 				2000000000000000000000F7 /* LinkParser.swift in Sources */,
 				2000000000000000000000F1 /* DouyinParser.swift in Sources */,
