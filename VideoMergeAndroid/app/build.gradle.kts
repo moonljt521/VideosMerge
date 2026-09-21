@@ -1,5 +1,6 @@
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -25,12 +26,18 @@ android {
     }
 
     // ── 签名配置（debug + release 共用） ──
+    // 口令与密钥路径放在 local.properties（已被 .gitignore 排除），仓库里不留任何凭据。
+    // 缺配置时 keyPassword/storePassword 为 null，构建会明确报错而不是悄悄用错签名。
+    val signingProps = Properties().apply {
+        val f = rootProject.file("local.properties")
+        if (f.exists()) f.inputStream().use { load(it) }
+    }
     signingConfigs {
         create("config") {
-            keyAlias = "videomerge"
-            keyPassword = "REDACTED-SECRET"
-            storeFile = file("keystore/videomerge.jks")
-            storePassword = "REDACTED-SECRET"
+            keyAlias = signingProps.getProperty("RELEASE_KEY_ALIAS") ?: "videomerge"
+            keyPassword = signingProps.getProperty("RELEASE_KEY_PASSWORD")
+            storeFile = file(signingProps.getProperty("RELEASE_STORE_FILE") ?: "keystore/videomerge.jks")
+            storePassword = signingProps.getProperty("RELEASE_STORE_PASSWORD")
         }
     }
 
