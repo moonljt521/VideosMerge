@@ -13,9 +13,10 @@
   },
 
   "feature_flags": {
-    "_note": "douyin_parser_enabled 现控制整个「短视频去水印」入口（不再只针对抖音），键名沿用以免旧版客户端的降级开关失效；接入第二个平台时再新增按平台的开关。",
+    "_note": "douyin_parser_enabled 现控制整个「短视频去水印」入口（不再只针对抖音），键名沿用以免旧版客户端的降级开关失效；接入第二个平台时再新增按平台的开关。twitter_fallback_enabled 控制 X 受限内容的第三方回退源，置 false 后受限内容直接报错、不再走第三方。",
     "douyin_parser_enabled": true,
-    "ads_enabled": true
+    "ads_enabled": true,
+    "twitter_fallback_enabled": true
   },
 
   "ads": {

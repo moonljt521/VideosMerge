@@ -88,9 +88,13 @@ extension LinkParser {
         try await LinkNetwork.resolveLandingURL(urlString, headers: requestHeaders)
     }
 
-    /// 取 JSON 接口。返回顶层字典,由调用方按各自结构继续取值
-    func requestJSON(_ urlString: String, timeout: TimeInterval) async throws -> [String: Any] {
-        try await LinkNetwork.requestJSON(urlString, headers: requestHeaders, timeout: timeout)
+    /// 取 JSON 接口。返回顶层字典,由调用方按各自结构继续取值。
+    /// allowHTTPError = true 时非 2xx 也解析响应体 —— 第三方回退源用 HTTP 404 表达「内容不存在」,
+    /// 只看状态码会把「不存在」和「网络失败」混成同一个错误
+    func requestJSON(_ urlString: String, timeout: TimeInterval,
+                     allowHTTPError: Bool = false) async throws -> [String: Any] {
+        try await LinkNetwork.requestJSON(urlString, headers: requestHeaders,
+                                          timeout: timeout, allowHTTPError: allowHTTPError)
     }
 
     /// 探一下文件多大;探不到返回 nil,体积闸门随之跳过
@@ -123,7 +127,8 @@ enum LinkNetwork {
     }
 
     static func requestJSON(_ urlString: String, headers: DownloadHeaders,
-                            timeout: TimeInterval) async throws -> [String: Any] {
+                            timeout: TimeInterval,
+                            allowHTTPError: Bool = false) async throws -> [String: Any] {
         guard let url = URL(string: urlString) else {
             throw LinkParseError(L10n.t("douyin.error_request"))
         }
@@ -131,8 +136,10 @@ enum LinkNetwork {
         apply(headers, to: &req)
         req.timeoutInterval = timeout
         let (data, resp) = try await URLSession.shared.data(for: req)
-        guard let http = resp as? HTTPURLResponse, http.statusCode == 200,
-              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+        if !allowHTTPError, (resp as? HTTPURLResponse)?.statusCode != 200 {
+            throw LinkParseError(L10n.t("douyin.error_request"))
+        }
+        guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             throw LinkParseError(L10n.t("douyin.error_request"))
         }
         return json

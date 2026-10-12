@@ -82,6 +82,9 @@ final class RemoteConfig: ObservableObject {
     @Published var linkParserEnabled: Bool = true
     /// 广告总开关：远端可一键关闭全部广告
     @Published var adsEnabled: Bool = true
+    /// X(推特)受限内容的回退源开关：官方嵌入端点拿不到地址时，是否改用第三方公共接口
+    /// 合规预案——该第三方源不可用或被投诉时可远端一键关闭，不影响其他平台解析
+    @Published var twitterFallbackEnabled: Bool = true
 
     private var lastFetchAt: Date?
 
@@ -102,6 +105,9 @@ final class RemoteConfig: ObservableObject {
                 }
                 if let v = flags["ads_enabled"] as? Bool {
                     self.adsEnabled = v
+                }
+                if let v = flags["twitter_fallback_enabled"] as? Bool {
+                    self.twitterFallbackEnabled = v
                 }
             }
         }.resume()

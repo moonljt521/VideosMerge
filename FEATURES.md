@@ -91,7 +91,7 @@
 | 44 | 抖音分享链接解析（去水印下载） | ✅ | ✅ | 短链→视频ID→feed 接口→无水印播放地址；下载必须带 App UA；图集/图文暂不支持 |
 | 45 | 视频站（B站）链接解析下载 | ✅ | ✅ | 未登录、无 Cookie、无 Wbi 签名：view→playurl `fnval=1` 取音视频合一 mp4；未登录封顶 720P；多 P/分段/付费不支持 |
 | 46 | 下载体积闸门 | ✅ | ✅ | `LinkParsePolicy.maxDownloadBytes = 150MB`，解析后、下载前拦截；接口不报体积的平台（抖音 feed）自动跳过 |
-| 47 | X（推特）链接解析下载 | ✅ | ✅ | 走推特自己的 `cdn.syndication.twimg.com/tweet-result`，无需登录/API Key；variants 按 URL 里的 `WxH` 挑最高档 mp4（实测 720P、音视频合一）；体积靠一次 HEAD 取 Content-Length。**x.com 在中国大陆不可达，测试需出境网络** |
+| 47 | X（推特）链接解析下载 | ✅ | ✅ | **双通道**：① 官方 `cdn.syndication.twimg.com/tweet-result`，无需登录/API Key，variants 按 URL 里的 `WxH` 挑最高档 mp4（实测 720P、音视频合一）；② 官方返回 `TweetTombstone`（内容被平台限制查看，敏感/年龄限制类，官方 oEmbed 亦 403）时回退到第三方 `api.fxtwitter.com` 取直链。体积靠一次 HEAD 取 Content-Length。iOS 侧可用远程开关 `twitter_fallback_enabled` 关闭回退。**x.com 在中国大陆不可达，测试需出境网络** |
 
 > 双端都已抽出 `LinkParser` 抽象层 + 注册表（iOS `VideoMerger/LinkParse/`、Android `linkparse/`），按分享文案自动路由，接新平台只需一个解析器文件 + 注册表一行。
 > Android 侧无 Firebase/远程开关（仍是商业化改造前的基建），故埋点 platform 维度与解析入口的远程降级只有 iOS 有。

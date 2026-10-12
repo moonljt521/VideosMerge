@@ -59,8 +59,13 @@ interface LinkParser {
     /** 跟随重定向，返回最终落地页 URL */
     fun resolveLandingUrl(url: String): String = LinkNetwork.resolveLandingUrl(url, requestHeaders)
 
-    /** 取 JSON 接口，返回顶层对象 */
-    fun requestJson(url: String): JSONObject = LinkNetwork.requestJson(url, requestHeaders)
+    /**
+     * 取 JSON 接口，返回顶层对象。
+     * allowHttpError = true 时非 2xx 也解析响应体 —— 第三方回退源用 HTTP 404 表达「内容不存在」，
+     * 只按状态码判断会把「不存在」和「网络失败」混成同一个错误。
+     */
+    fun requestJson(url: String, allowHttpError: Boolean = false): JSONObject =
+        LinkNetwork.requestJson(url, requestHeaders, allowHttpError)
 
     /** 探一下文件多大；探不到返回 null，体积闸门随之跳过 */
     fun probeSize(url: String): Long? = LinkNetwork.contentLength(url, requestHeaders)
@@ -88,14 +93,19 @@ object LinkNetwork {
         return current
     }
 
-    fun requestJson(url: String, headers: DownloadHeaders): JSONObject {
+    fun requestJson(url: String, headers: DownloadHeaders,
+                    allowHttpError: Boolean = false): JSONObject {
         val conn = open(url, headers)
-        val body = try {
-            if (conn.responseCode != 200) throw LinkParseException(MSG_REQUEST_FAILED)
-            conn.inputStream.bufferedReader().use { it.readText() }
+        val (code, body) = try {
+            val c = conn.responseCode
+            // 4xx/5xx 的正文在 errorStream —— 回退源用 404 + {"code":404} 表达「不存在」，
+            // 不读它就只剩一个笼统的"请求失败"
+            val stream = if (c in 200..299) conn.inputStream else conn.errorStream
+            c to (stream?.bufferedReader()?.use { it.readText() } ?: "")
         } finally {
             conn.disconnect()
         }
+        if (!allowHttpError && code !in 200..299) throw LinkParseException(MSG_REQUEST_FAILED)
         return try {
             JSONObject(body)
         } catch (e: Exception) {
