@@ -85,6 +85,8 @@ final class RemoteConfig: ObservableObject {
     /// X(推特)受限内容的回退源开关：官方嵌入端点拿不到地址时，是否改用第三方公共接口
     /// 合规预案——该第三方源不可用或被投诉时可远端一键关闭，不影响其他平台解析
     @Published var twitterFallbackEnabled: Bool = true
+    /// 本地视频去水印入口开关（内容修复）：App Store 合规预案，可远端整体降级
+    @Published var inpaintRepairEnabled: Bool = true
 
     private var lastFetchAt: Date?
 
@@ -108,6 +110,9 @@ final class RemoteConfig: ObservableObject {
                 }
                 if let v = flags["twitter_fallback_enabled"] as? Bool {
                     self.twitterFallbackEnabled = v
+                }
+                if let v = flags["inpaint_repair_enabled"] as? Bool {
+                    self.inpaintRepairEnabled = v
                 }
             }
         }.resume()

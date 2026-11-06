@@ -81,6 +81,11 @@
 		C85666405C8E128919A21846 /* WatermarkDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9644DAC7517BFD9F1C641DEF /* WatermarkDetectorTests.swift */; };
 		D2C4B3BAB407E20EB3C45ADC /* TransitionZoneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 572D6B70BE57075BC12DAEAE /* TransitionZoneTests.swift */; };
 		DE424DD6776A0BA361E86E76 /* ShiftOverlaysTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875C7C832DFFB96E8D3973FE /* ShiftOverlaysTests.swift */; };
+		4B0000000000000000000001 /* InpaintCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0000000000000000000001 /* InpaintCore.swift */; };
+		4B0000000000000000000002 /* InpaintEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0000000000000000000002 /* InpaintEngine.swift */; };
+		4B0000000000000000000003 /* InpaintRepairViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0000000000000000000003 /* InpaintRepairViewModel.swift */; };
+		4B0000000000000000000004 /* InpaintRepairView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0000000000000000000004 /* InpaintRepairView.swift */; };
+		4B0000000000000000000005 /* L10nRepair.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0000000000000000000005 /* L10nRepair.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -174,6 +179,11 @@
 		E4A94DD2959A4ADF708377AC /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		F6D4CBA65F5B957571082053 /* CanvasSizeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CanvasSizeTests.swift; path = VideoMergerTests/CanvasSizeTests.swift; sourceTree = "<group>"; };
 		FC41217A5964A40FAA4527E1 /* Pods-VideoMerger.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VideoMerger.debug.xcconfig"; path = "Target Support Files/Pods-VideoMerger/Pods-VideoMerger.debug.xcconfig"; sourceTree = "<group>"; };
+		4A0000000000000000000001 /* InpaintCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InpaintCore.swift; sourceTree = "<group>"; };
+		4A0000000000000000000002 /* InpaintEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InpaintEngine.swift; sourceTree = "<group>"; };
+		4A0000000000000000000003 /* InpaintRepairViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InpaintRepairViewModel.swift; sourceTree = "<group>"; };
+		4A0000000000000000000004 /* InpaintRepairView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InpaintRepairView.swift; sourceTree = "<group>"; };
+		4A0000000000000000000005 /* L10nRepair.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10nRepair.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -251,6 +261,7 @@
 				3000000000000000000000F4 /* LinkParse */,
 				3000000000000000000000F5 /* Ads */,
 				3000000000000000000000D1 /* Gif */,
+				4C0000000000000000000001 /* InpaintRepair */,
 				300000000000000000000003 /* Models */,
 				300000000000000000000004 /* Merger */,
 				300000000000000000000005 /* Util */,
@@ -299,6 +310,7 @@
 				1000000000000000000001C3 /* L10nEditorUI.swift */,
 				1000000000000000000001C4 /* L10nEditorCore.swift */,
 				1000000000000000000001C5 /* L10nFeatures.swift */,
+				4A0000000000000000000005 /* L10nRepair.swift */,
 			);
 			path = Util;
 			sourceTree = "<group>";
@@ -439,6 +451,17 @@
 			);
 			name = VideoMergerTests;
 			sourceTree = SOURCE_ROOT;
+		};
+		4C0000000000000000000001 /* InpaintRepair */ = {
+			isa = PBXGroup;
+			children = (
+				4A0000000000000000000001 /* InpaintCore.swift */,
+				4A0000000000000000000002 /* InpaintEngine.swift */,
+				4A0000000000000000000003 /* InpaintRepairViewModel.swift */,
+				4A0000000000000000000004 /* InpaintRepairView.swift */,
+			);
+			path = InpaintRepair;
+			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
@@ -671,6 +694,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4B0000000000000000000001 /* InpaintCore.swift in Sources */,
+				4B0000000000000000000002 /* InpaintEngine.swift in Sources */,
+				4B0000000000000000000003 /* InpaintRepairViewModel.swift in Sources */,
+				4B0000000000000000000004 /* InpaintRepairView.swift in Sources */,
+				4B0000000000000000000005 /* L10nRepair.swift in Sources */,
 				2000000000000000000000EB /* EditorViewModel+Features.swift in Sources */,
 				2000000000000000000000EC /* PipMaskRenderer.swift in Sources */,
 				2000000000000000000000ED /* StickerRenderer.swift in Sources */,

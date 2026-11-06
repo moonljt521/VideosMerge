@@ -18,6 +18,7 @@ import com.moon.videomerger.home.HomeScreen
 import com.moon.videomerger.home.HistoryScreen
 import com.moon.videomerger.ui.LinkParseScreen
 import com.moon.videomerger.ui.GifScreen
+import com.moon.videomerger.ui.InpaintScreen
 import com.moon.videomerger.ui.MergeScreen
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -77,6 +78,9 @@ fun AppNavigation() {
                 },
                 onOpenGif = {
                     screen = Screen.Gif
+                },
+                onOpenInpaint = {
+                    screen = Screen.Inpaint
                 },
                 onOpenHistory = {
                     screen = Screen.History
@@ -144,6 +148,13 @@ fun AppNavigation() {
                 }
             )
         }
+        is Screen.Inpaint -> {
+            InpaintScreen(
+                onBack = {
+                    screen = Screen.Home
+                }
+            )
+        }
     }
 }
 
@@ -153,6 +164,7 @@ sealed class Screen {
     object Merge : Screen()
     object LinkParse : Screen()
     object Gif : Screen()
+    object Inpaint : Screen()
     object History : Screen()
 }
 

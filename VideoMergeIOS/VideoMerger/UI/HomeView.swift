@@ -19,6 +19,7 @@ struct HomeView: View {
     @State private var showEditor = false
     @State private var showMerge = false
     @State private var showLinkParse = false
+    @State private var showInpaint = false
     @State private var showGif = false
     @State private var mergeInitialURLs: [URL] = []
     @State private var mergeHint: String? = nil
@@ -48,6 +49,13 @@ struct HomeView: View {
                         homeCard(icon: "music.note", iconColor: Color(hex: 0xFF26C6DA),
                                  title: L10n.t("home.douyin_title"), subtitle: L10n.t("home.douyin_subtitle")) {
                             showLinkParse = true
+                        }
+                    }
+                    // 本地视频去水印（内容修复）入口：同样受远程开关控制
+                    if remoteConfig.inpaintRepairEnabled {
+                        homeCard(icon: "wand.and.stars", iconColor: Color(hex: 0xFFAB47BC),
+                                 title: L10n.t("home.inpaint_title"), subtitle: L10n.t("home.inpaint_subtitle")) {
+                            showInpaint = true
                         }
                     }
                     homeCard(icon: "photo.stack", iconColor: Color(hex: 0xFFFFA726),
@@ -138,6 +146,9 @@ struct HomeView: View {
             }
             .navigationDestination(isPresented: $showLinkParse) {
                 LinkParseView()
+            }
+            .navigationDestination(isPresented: $showInpaint) {
+                InpaintRepairView()
             }
             .navigationDestination(isPresented: $showGif) {
                 GifView()

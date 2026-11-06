@@ -52,6 +52,14 @@ share text → v.douyin.com short link → 302 → video ID from landing URL
 
 > Douyin's watermark is composited server-side at download time; the source file itself is clean. Parsing simply fetches the original. See the [Android README](VideoMergeAndroid/README.md) for details.
 
+### 🪄 Local Watermark Repair (Android / iOS)
+
+Pick a local video, auto-detect or draw the fixed watermark box, check the frame preview, then repair the whole clip:
+
+- Polynomial background model + residual mask + static-mask Telea fill (no OpenCV dependency)
+- ROI-only chunked processing; re-encoded video, original audio and metadata (incl. AIGC tags) preserved
+- Best for fixed watermarks on low-frequency backgrounds; textured backgrounds may smear, so preview first
+
 ### 🐍 Python Script Library
 
 33 standalone scripts (trim / speed / watermark / transition / mix / GIF / ...) that prototype every app capability and work on their own.

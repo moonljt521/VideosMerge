@@ -31,6 +31,7 @@ fun HomeScreen(
     onOpenMerge: (List<Uri>) -> Unit,
     onOpenLinkParse: () -> Unit,
     onOpenGif: () -> Unit,
+    onOpenInpaint: () -> Unit,
     onOpenHistory: () -> Unit,
     draftInfo: DraftStore.DraftInfo?,
     onResumeDraft: () -> Unit,
@@ -212,6 +213,25 @@ fun HomeScreen(
                     Spacer(Modifier.height(8.dp))
                     Text("短视频去水印", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     Text("粘贴分享文案，解析无水印视频并保存", color = Color(0xFF666666), fontSize = 12.sp)
+                }
+            }
+
+            // ── 本地视频去水印（内容修复）──
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .height(110.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF1A1A1A))
+                    .clickable { onOpenInpaint() },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.AutoFixHigh, contentDescription = null, tint = Color(0xFFAB47BC), modifier = Modifier.size(44.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text("视频去水印", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text("智能修复本地视频里的固定水印", color = Color(0xFF666666), fontSize = 12.sp)
                 }
             }
 

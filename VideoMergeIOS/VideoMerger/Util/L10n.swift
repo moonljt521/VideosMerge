@@ -55,6 +55,7 @@ enum L10n {
         L10nEditorUI.table,
         L10nEditorCore.table,
         L10nFeatures.table,
+        L10nRepair.table,
     ]
 
     /// 取文案：优先命中注册表的 zh 键；en 缺失时回退中文；完全未注册时原样返回键
