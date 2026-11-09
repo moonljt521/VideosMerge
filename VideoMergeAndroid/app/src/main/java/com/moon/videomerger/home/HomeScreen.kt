@@ -211,8 +211,8 @@ fun HomeScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.WaterDrop, contentDescription = null, tint = Color(0xFF26C6DA), modifier = Modifier.size(44.dp))
                     Spacer(Modifier.height(8.dp))
-                    Text("短视频去水印", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    Text("粘贴分享文案，解析无水印视频并保存", color = Color(0xFF666666), fontSize = 12.sp)
+                    Text("链接去水印", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text("粘贴分享链接，保存无水印原片", color = Color(0xFF666666), fontSize = 12.sp)
                 }
             }
 
@@ -230,8 +230,8 @@ fun HomeScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.AutoFixHigh, contentDescription = null, tint = Color(0xFFAB47BC), modifier = Modifier.size(44.dp))
                     Spacer(Modifier.height(8.dp))
-                    Text("视频去水印", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    Text("智能修复本地视频里的固定水印", color = Color(0xFF666666), fontSize = 12.sp)
+                    Text("画面去水印", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text("智能抹除本地视频里的固定水印", color = Color(0xFF666666), fontSize = 12.sp)
                 }
             }
 

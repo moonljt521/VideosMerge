@@ -79,7 +79,7 @@ Initial release: no-watermark video parsing, 3 merge layouts, full editor, GIF e
 | # | 画面 | Caption（EN / ZH） |
 |---|---|---|
 | 1 | 首页 | Your video toolbox / 你的视频工具箱 |
-| 2 | 短视频去水印结果页（预览+保存/分享按钮） | Paste a link, save the clean video / 粘贴链接，保存无水印视频 |
+| 2 | 链接去水印结果页（预览+保存/分享按钮） | Paste a link, save the clean video / 粘贴链接，保存无水印视频 |
 | 3 | 编辑器时间轴 | Pro editing on your phone / 手机上的专业剪辑 |
 | 4 | 合并三种布局效果 | Grid, collage & photo wall / 宫格、主次、照片墙 |
 | 5 | GIF 导出结果 | One tap to GIF / 一键转 GIF |

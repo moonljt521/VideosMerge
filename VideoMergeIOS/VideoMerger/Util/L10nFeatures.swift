@@ -11,7 +11,7 @@ enum L10nFeatures {
     static let table: L10nModuleTable = (
         zh: [
             // MARK: - 抖音去水印
-            "douyin.nav_title":            "短视频去水印",
+            "douyin.nav_title":            "链接去水印",
             "douyin.input_title":          "粘贴视频分享文案",
             "douyin.input_hint":           "在视频 App 里点「分享 → 复制链接」，把整段文案粘贴到下面即可",
             "douyin.paste":                "粘贴",
@@ -137,7 +137,7 @@ enum L10nFeatures {
         ],
         en:  [
             // MARK: - Douyin watermark remover
-            "douyin.nav_title":            "Video Watermark Remover",
+            "douyin.nav_title":            "Link Watermark Remover",
             "douyin.input_title":          "Paste the video share text",
             "douyin.input_hint":           "In the video app, tap Share → Copy Link, then paste the whole text below",
             "douyin.paste":                "Paste",

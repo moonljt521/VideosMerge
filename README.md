@@ -40,7 +40,7 @@ A CapCut-style mobile editor:
 - Canvas presets: 1920×1080 / 1080×1920 / 1080×1080 / 4K
 - Encoders: hardware `h264_mediacodec` on Android, `libx264` on iOS
 
-### 💧 Douyin Watermark-free Parsing (Android / iOS)
+### 💧 Link Watermark Remover (Android / iOS)
 
 Paste a share text, get the watermark-free video, preview, and save to the photo album:
 
@@ -52,7 +52,7 @@ share text → v.douyin.com short link → 302 → video ID from landing URL
 
 > Douyin's watermark is composited server-side at download time; the source file itself is clean. Parsing simply fetches the original. See the [Android README](VideoMergeAndroid/README.md) for details.
 
-### 🪄 Local Watermark Repair (Android / iOS)
+### 🪄 Watermark Repair (local inpainting, Android / iOS)
 
 Pick a local video, auto-detect or draw the fixed watermark box, check the frame preview, then repair the whole clip:
 

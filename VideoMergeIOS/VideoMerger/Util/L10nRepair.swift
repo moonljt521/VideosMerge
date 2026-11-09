@@ -10,10 +10,10 @@ import Foundation
 enum L10nRepair {
     static let table: L10nModuleTable = (
         zh: [
-            "home.inpaint_title": "视频去水印",
-            "home.inpaint_subtitle": "智能修复本地视频里的固定水印",
+            "home.inpaint_title": "画面去水印",
+            "home.inpaint_subtitle": "智能抹除本地视频里的固定水印",
 
-            "repair.nav_title": "视频去水印",
+            "repair.nav_title": "画面去水印",
             "repair.pick_title": "选择视频开始修复",
             "repair.pick_hint": "适合水印位置固定、背景较简单的视频",
             "repair.repick": "换一个",
@@ -75,10 +75,10 @@ enum L10nRepair {
             "repair.tip3": "处理会重新编码画面，时长与帧率保持不变；音频与 AI 生成标识等元数据会保留。",
         ],
         en: [
-            "home.inpaint_title": "Video Watermark Remover",
-            "home.inpaint_subtitle": "Repair a fixed watermark in a local video",
+            "home.inpaint_title": "Watermark Repair",
+            "home.inpaint_subtitle": "Erase a fixed watermark from a local video",
 
-            "repair.nav_title": "Video Watermark Remover",
+            "repair.nav_title": "Watermark Repair",
             "repair.pick_title": "Pick a video to repair",
             "repair.pick_hint": "Best for fixed watermarks on simple backgrounds",
             "repair.repick": "Change",

@@ -57,7 +57,7 @@ fun InpaintScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("视频去水印", fontWeight = FontWeight.Bold) },
+                title = { Text("画面去水印", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")

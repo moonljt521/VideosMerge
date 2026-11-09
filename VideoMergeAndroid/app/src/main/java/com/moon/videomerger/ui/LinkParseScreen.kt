@@ -80,7 +80,7 @@ fun LinkParseScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("短视频去水印", fontWeight = FontWeight.Bold) },
+                title = { Text("链接去水印", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = {
                         viewModel.resetAll()
